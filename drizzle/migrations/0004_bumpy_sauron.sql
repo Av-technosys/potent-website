@@ -1,0 +1,1 @@
+ALTER TABLE "products" ADD COLUMN "starting_price" varchar;

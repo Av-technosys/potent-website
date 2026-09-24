@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cart Reminder</title>
+
+    <style>
+      @media screen and (min-width: 600px) {
+        .container {
+          width: 600px !important;
+        }
+      }
+    </style>
+  </head>
+
+  <body
+    style="
+      margin: 0;
+      padding: 10px;
+      background-color: #e6f2f3;
+      font-family: 'Segoe UI', Roboto, Arial, sans-serif;
+    "
+  >
+    <center>
+      <div
+        class="container"
+        style="
+          max-width: 500px;
+          margin: 0px auto;
+          background-color: #fff;
+          border-radius: 12px 12px 0px 0px;
+        "
+      >
+        <div style="padding: 20px">
+
+          <!-- Logo -->
+          <h1
+            style="
+              text-align: center;
+              color: #1b7f85;
+              font-size: 28px;
+              margin-bottom: 5px;
+            "
+          >
+            Potent
+          </h1>
+
+          <h2
+            style="
+              text-align: center;
+              font-size: 16px;
+              color: #333;
+              margin-bottom: 25px;
+            "
+          >
+            Cart Abandonment
+          </h2>
+
+          <!-- LEFT CONTENT -->
+          <div style="text-align: left">
+
+            <p style="font-size: 14px; color: #555">
+              Hi {{Customer First Name}},
+            </p>
+
+            <p style="font-size: 14px; color: #555; line-height: 1.6">
+              Looks like you left something in your cart — and we saved it for you.
+            </p>
+
+            <!-- Cart -->
+            <h3 style="font-size: 15px; color: #333; margin-top: 25px;">
+              Your Cart Is Waiting
+            </h3>
+
+            <p style="font-size: 14px; color: #555;">
+              Items: {{Product Names}}
+            </p>
+
+            <p style="font-size: 14px; color: #555; line-height: 1.6">
+              Whether it's your Ovy period care essentials or Looway hygiene solutions, you're just one step away from better comfort, hygiene, and confidence.
+            </p>
+
+            <!-- Delivery -->
+            <h3 style="font-size: 15px; color: #333; margin-top: 25px;">
+              Estimated Delivery
+            </h3>
+
+            <p style="font-size: 14px; color: #555;">
+              Your order is expected to arrive within 3–5 business days.
+            </p>
+
+            <!-- Benefits -->
+            <h3 style="font-size: 15px; color: #333; margin-top: 25px;">
+              Why Complete Your Purchase?
+            </h3>
+
+            <p style="font-size: 14px; color: #555; line-height: 1.6">
+              Whether you’ve chosen Ovy period care essentials or Looway hygiene
+              solutions, your products are designed to deliver
+            </p>
+
+            <ul style="padding-left: 18px; font-size: 14px; color: #555;">
+              <li>Safe and skin-friendly – no harsh chemicals</li>
+              <li>Designed for real life – from periods to travel emergencies</li>
+              <li>Trusted by women like you – everyday hygiene simplified</li>
+            </ul>
+
+            <!-- Urgency -->
+            <h3 style="font-size: 15px; color: #333; margin-top: 25px;">
+              Don’t Miss Out
+            </h3>
+
+            <p style="font-size: 14px; color: #555;">
+              Your cart items are in demand and may go out of stock soon.
+            </p>
+
+            <!-- CTA -->
+            <div style="margin-top: 15px;">
+              <p
+                
+                style="
+                  color: #555;
+                  font-size: 14px;
+                  font-weight: bold;
+                  display: inline-block;
+                "
+              >
+                Complete Your Order Now : {{Checkout Link}}
+              </p>
+            </div>
+
+            <!-- Review -->
+            <p style="font-size: 14px; color: #555; margin-top: 20px;">
+              We'd Love Your Feedback! Once you've tried your product, share your experience and help others make better choices.
+            </p>
+
+            <p style="font-size: 14px;">
+              <a
+                href="{{Review Link}}"
+                style="color: #1b7f85; font-weight: bold; text-decoration: none"
+              >
+                Leave a Review
+              </a>
+            </p>
+
+          </div>
+
+          <!-- CENTER QUOTE -->
+          <p
+            style="
+              font-size: 13px;
+              color: #888;
+              font-style: italic;
+              text-align: center;
+              margin-top: 25px;
+            "
+          >
+            “Take care of your hygiene, your way. We’ll be right here when you're ready.”
+          </p>
+
+          <p style="text-align: center; font-size: 13px; color: #555;">
+            – Team Potent Hygiene
+          </p>
+
+          <!-- SUPPORT -->
+          <p
+            style="
+              text-align: center;
+              font-size: 13px;
+              color: #555;
+              margin-top: 20px;
+            "
+          >
+            Need Help?<br />
+            <p style="
+              max-width: 400px;
+              margin: 0 auto;
+              text-align: center;
+              font-size: 14px;
+              color: #555;
+              
+            " >   
+            Whether you’re choosing the right size, product, or combo, we’re here for you:
+            </p>
+            care@potenthygiene.com
+          </p>
+
+        </div>
+      </div>
+      <!-- FOOTER LOGOS -->
+          <div style="background-color: #D3F5F9 ;max-width: 500px; padding: 10px 0px; border-radius: 0px 0px 12px 12px;">
+            <div style="text-align: center; margin-top: 20px;">
+            <img
+              src="https://ik.imagekit.io/avtechnosys/potent-hygiene/ovy.png"
+              width="70"
+              style="margin-right: 10px"
+            />
+
+            <img
+              src="https://ik.imagekit.io/avtechnosys/potent-hygiene/looway.png"
+              width="80"
+            />
+          </div>
+
+          <!-- FOOTER TEXT -->
+          <p
+            style="
+              font-size: 11px;
+              color: #999;
+              text-align: center;
+              margin-top: 20px;
+            "
+          >
+            P.S. Your comfort shouldn't wait. Checkout now before your cart expires.
+          </p>
+
+          <p style="font-size: 11px; color: #999; text-align: center;">
+            © 2024 Potent Hygiene. All rights reserved.
+          </p>
+          </div>
+    </center>
+  </body>
+</html>
