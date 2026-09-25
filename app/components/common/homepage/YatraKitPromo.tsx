@@ -54,24 +54,38 @@ export function YatraKitPromo() {
           
           {/* LEFT CONTENT */}
           <div className="lg:col-span-6 flex flex-col justify-center text-left">
-            <span className="text-[#016271] text-[11px] sm:text-xs font-bold tracking-widest uppercase mb-3 block">
+            <span className="text-[#016271] text-[11px] sm:text-xs font-bold tracking-widest uppercase mb-2 sm:mb-3 block">
               LOOWAY YATRA KIT
             </span>
 
-            <h2 className="text-3xl sm:text-4xl lg:text-[44px] font-serif font-bold text-gray-900 leading-[1.15] mb-4">
-              Pick a kit. Open it.<br />Make it yours.
+            <h2 className="text-2xl sm:text-4xl lg:text-[44px] font-serif font-bold text-gray-900 leading-[1.15] mb-3 sm:mb-4">
+              Pick a kit. Open it.<br className="hidden sm:block" /> Make it yours.
             </h2>
 
-            <p className="text-sm sm:text-base text-gray-600 leading-relaxed max-w-lg mb-6">
+            <p className="text-xs sm:text-base text-gray-600 leading-relaxed max-w-lg mb-5 sm:mb-6">
               Eleven ready-made kits, from Girls' Trip to Teerth Yatra to Pregnancy, each built for the toilets that particular trip will throw at you. Open any one and change what is inside.
             </p>
 
-            {/* Trip Tag Pills */}
-            <div className="flex flex-wrap gap-2.5 mb-8 max-w-md">
+            {/* Mobile 1-Row Marquee Loop Carousel for Trip Tags */}
+            <div className="mb-5 w-full overflow-hidden lg:hidden">
+              <div className="flex w-max animate-marquee gap-2.5">
+                {[...TRIP_TAGS, ...TRIP_TAGS, ...TRIP_TAGS].map((tag, idx) => (
+                  <span
+                    key={`${tag}-${idx}`}
+                    className="shrink-0 cursor-pointer rounded-full border border-gray-100 bg-white px-3.5 py-1.5 text-xs font-medium text-gray-700 shadow-2xs"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Desktop Trip Tag Pills Wrap Grid */}
+            <div className="mb-8 hidden max-w-md flex-wrap gap-2.5 lg:flex">
               {TRIP_TAGS.map((tag) => (
                 <span
                   key={tag}
-                  className="px-4 py-2 rounded-full bg-white text-xs font-medium text-gray-700 shadow-2xs border border-gray-100 hover:border-[#016271] hover:text-[#016271] transition-all cursor-pointer"
+                  className="cursor-pointer rounded-full border border-gray-100 bg-white px-4 py-2 text-xs font-medium text-gray-700 shadow-2xs transition-all hover:border-[#016271] hover:text-[#016271]"
                 >
                   {tag}
                 </span>
@@ -79,10 +93,10 @@ export function YatraKitPromo() {
             </div>
 
             {/* Action Button */}
-            <div>
+            <div className="mb-6 lg:mb-0">
               <Link
                 href="/looway-yatra-kit"
-                className="inline-flex items-center gap-2 rounded-full bg-[#016271] px-6 py-3 text-xs sm:text-sm font-semibold text-white hover:bg-[#014e5a] hover:scale-105 transition-all shadow-md cursor-pointer"
+                className="flex w-full items-center justify-center gap-2 rounded-full bg-[#016271] py-3 px-6 text-xs sm:text-sm font-semibold text-white shadow-md transition-all hover:bg-[#014e5a] hover:scale-105 lg:inline-flex lg:w-auto cursor-pointer"
               >
                 <span>Build your Yatra Kit</span>
                 <ArrowRight className="w-4 h-4" />

@@ -34,7 +34,7 @@ export function JournalSection() {
   ];
 
   return (
-    <section className="py-12 sm:py-16 md:py-20 bg-[#F8F6F1]">
+    <section className="hidden sm:block py-12 sm:py-16 md:py-20 bg-[#F8F6F1]">
       <div className="container mx-auto px-4 md:px-6 lg:px-8 max-w-7xl">
         {/* HEADER ROW */}
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8 sm:mb-12">

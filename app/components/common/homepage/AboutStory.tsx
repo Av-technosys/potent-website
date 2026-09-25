@@ -5,12 +5,12 @@ import { ArrowRight } from "lucide-react";
 
 const AboutStory = () => {
   return (
-    <section className="mb-12 w-full overflow-hidden bg-[#F5EEF6] py-14 sm:py-20">
+    <section className="mb-12 w-full overflow-hidden bg-[#F5EEF6] py-10 sm:py-20">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-12">
-        <div className="grid grid-cols-1 items-center gap-10 lg:grid-cols-12 lg:gap-14">
+        <div className="grid grid-cols-1 items-center gap-6 lg:grid-cols-12 lg:gap-14">
           {/* LEFT IMAGE CONTAINER */}
           <div className="flex justify-center lg:col-span-5">
-            <div className="group relative aspect-[4/5] w-full max-w-md overflow-hidden rounded-[2.5rem] border border-purple-100/60 shadow-2xl sm:aspect-[1/1] lg:max-w-lg">
+            <div className="group relative aspect-[4/5] w-full max-w-md overflow-hidden rounded-[2rem] border border-purple-100/60 shadow-2xl sm:aspect-[1/1] sm:rounded-[2.5rem] lg:max-w-lg">
               <Image
                 src="/products/pads-l.jpg"
                 alt="Ovy Regular Flow Sanitary Pads Box"
@@ -23,27 +23,28 @@ const AboutStory = () => {
 
           {/* RIGHT CONTENT */}
           <div className="flex flex-col text-left lg:col-span-7">
-            <span className="mb-3 block text-[11px] font-bold tracking-widest text-[#016271] uppercase sm:text-xs">
+            <span className="mb-2 block text-[11px] font-bold tracking-widest text-[#016271] uppercase sm:text-xs">
               ONLY AT OVY
             </span>
 
-            <h2 className="mb-4 font-serif text-3xl leading-[1.18] font-bold sm:text-4xl lg:text-[40px]">
-              <span className="block text-gray-900">Your flow is not the</span>
-              <span className="block text-gray-900">same every day.</span>
-              <span className="mt-1 block text-[#8C4F7C]">
+            <h2 className="mb-3 font-serif text-2xl leading-tight font-bold sm:text-4xl lg:text-[40px]">
+              <span className="block text-gray-900">
+                Your flow is not the same every day.
+              </span>
+              <span className="mt-0.5 block text-[#8C4F7C]">
                 Your box should not be either.
               </span>
             </h2>
 
-            <p className="mb-6 max-w-xl text-xs leading-relaxed text-gray-600 sm:text-sm">
+            <p className="mb-5 max-w-xl text-xs leading-relaxed text-gray-600 sm:text-sm">
               Build one 21-pad box across L, XL and XL+ in any combination, with
               4 liners always included. Then let Cycle-Sync land it about 5 days
               before you are due. It is the first period delivery in India timed
               to your own cycle.
             </p>
 
-            {/* 3 Numbered Steps */}
-            <div className="mb-8 flex flex-col divide-y divide-purple-200/60 border-t border-b border-purple-200/60">
+            {/* 3 Numbered Steps (Desktop Only) */}
+            <div className="mb-8 hidden flex-col divide-y divide-purple-200/60 border-t border-b border-purple-200/60 lg:flex">
               {/* Step 01 */}
               <div className="flex items-start gap-4 py-4">
                 <span className="shrink-0 pt-0.5 font-serif text-base font-bold text-[#8C4F7C] sm:text-lg">
@@ -96,7 +97,7 @@ const AboutStory = () => {
             <div>
               <Link
                 href="/product-detail/ovy-teen?scroll=starter#starter"
-                className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-[#8C4F7C] px-7 py-3.5 text-xs font-semibold text-white shadow-md transition-all hover:scale-105 hover:bg-[#773f69] sm:text-sm"
+                className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-[#8C4F7C] py-3 px-7 text-xs font-semibold text-white shadow-md transition-all hover:scale-105 hover:bg-[#773f69] lg:inline-flex lg:w-auto sm:text-sm"
               >
                 <span>Build your box</span>
                 <ArrowRight className="h-4 w-4" />

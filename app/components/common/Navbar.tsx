@@ -6,7 +6,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useWishlistStore } from "@/store/WishlistStore";
-import { Search, Heart, User, X } from "lucide-react";
+import { Search, Heart, User, X, ChevronRight, ArrowRight, Sparkles, Flame, Calendar } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -141,120 +141,34 @@ export function Navbar() {
       )}
 
       {/* MAIN DARK TEAL NAVIGATION BAR */}
-      <nav className="w-full bg-[#075965] px-4 py-3 text-white sm:px-6 lg:px-8">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 h-14 sm:h-16">
-          {/* LEFT SIDE LOGOS & MOBILE HAMBURGER MENU */}
+      <nav className="w-full bg-[#075965] px-4 text-white sm:px-6 lg:px-8">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 h-16 sm:h-20">
+          {/* LEFT SIDE LOGOS */}
           <div className="flex shrink-0 items-center gap-2.5 sm:gap-3.5">
-            {/* Mobile Sheet Trigger */}
-            <div className="lg:hidden">
-              <Sheet open={open} onOpenChange={setOpen}>
-                <SheetTrigger asChild>
-                  <button className="cursor-pointer p-1.5 text-white transition-colors hover:text-white/80">
-                    <IconMenu2 size={24} />
-                  </button>
-                </SheetTrigger>
-                <SheetContent
-                  side="left"
-                  className="w-75 border-r-0 bg-white p-0 text-gray-900 [&>button]:hidden"
-                >
-                  <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
-
-                  <div className="flex h-full flex-col">
-                    <div className="px-7 pt-6 pb-6">
-                      <button
-                        onClick={() => setOpen(false)}
-                        className="text-[#075965]"
-                      >
-                        <IconSquareRoundedX size={35} />
-                      </button>
-                    </div>
-
-                    <div
-                      className="flex-1 space-y-1 px-3"
-                      key={isDashboard ? "dash-menu" : "main-menu"}
-                    >
-                      {(isDashboard ? dashboardLinks : navLinks).map((link) => {
-                        const isActive = pathname === link.href;
-                        return (
-                          <Link
-                            key={link.name}
-                            href={link.href}
-                            onClick={() => setOpen(false)}
-                            className={`flex items-center space-x-4 rounded-r-xl px-4 py-3.5 transition-all ${
-                              isActive
-                                ? "rounded-md border-l-8 border-[#075965] bg-[#E2F4F7] font-semibold text-[#075965]"
-                                : "text-gray-600 hover:bg-gray-50"
-                            }`}
-                          >
-                            <span
-                              className={
-                                isActive ? "text-[#075965]" : "text-gray-500"
-                              }
-                            >
-                              {link.icon}
-                            </span>
-                            <span className="text-[15px]">{link.name}</span>
-                          </Link>
-                        );
-                      })}
-                    </div>
-
-                    <div className="mb-6 px-3">
-                      <Link
-                        href={
-                          isDashboard
-                            ? "/"
-                            : showAccount
-                              ? "/dashboard"
-                              : "/login"
-                        }
-                        onClick={() => setOpen(false)}
-                        className="flex items-center space-x-4 rounded-md rounded-r-xl border-l-8 border-[#075965] bg-[#E2F4F7] px-4 py-4 font-semibold text-[#075965]"
-                      >
-                        {isDashboard ? (
-                          <IconHome size={20} />
-                        ) : (
-                          <IconUser size={20} />
-                        )}
-
-                        <span className="text-[16px]">
-                          {isDashboard
-                            ? "Main Website"
-                            : showAccount
-                              ? "Dashboard"
-                              : "Login"}
-                        </span>
-                      </Link>
-                    </div>
-                  </div>
-                </SheetContent>
-              </Sheet>
-            </div>
-
             {/* Main Potent Hygiene White Logo */}
             <Link href="/" className="inline-flex items-center">
               <Image
                 src="/logo-white.png"
                 alt="Potent Hygiene"
-                width={130}
-                height={40}
-                className="h-7 sm:h-9 w-auto object-contain"
+                width={160}
+                height={50}
+                className="h-9 sm:h-12 w-auto object-contain"
                 priority
               />
             </Link>
 
             {/* Vertical Separator (Desktop) */}
-            <div className="mx-2 hidden h-6 w-px bg-white/30 lg:block" />
+            <div className="mx-3 hidden h-10 w-px bg-white/30 lg:block" />
 
             {/* Ovy & Looway Sub-logos (Desktop) */}
-            <div className="hidden items-center gap-3 lg:flex">
+            <div className="hidden items-center gap-3.5 lg:flex">
               <Link href="/ovy" className="transition-opacity hover:opacity-90">
                 <Image
                   src="/brand/ovy-white.png"
                   alt="Ovy"
-                  width={70}
-                  height={26}
-                  className="h-6.5 w-auto object-contain"
+                  width={110}
+                  height={42}
+                  className="h-8.5 sm:h-10.5 w-auto object-contain"
                 />
               </Link>
 
@@ -265,9 +179,9 @@ export function Navbar() {
                 <Image
                   src="/brand/looway-white.png"
                   alt="Looway"
-                  width={85}
-                  height={26}
-                  className="h-6.5 w-auto object-contain"
+                  width={130}
+                  height={42}
+                  className="h-8.5 sm:h-10.5 w-auto object-contain"
                 />
               </Link>
             </div>
@@ -353,7 +267,7 @@ export function Navbar() {
             </Link>
           </div>
 
-          {/* RIGHT ACTION ICONS & SEARCH */}
+          {/* RIGHT ACTION ICONS, SEARCH & MOBILE MENU */}
           <div className="flex items-center gap-3.5 text-white sm:gap-4.5">
             {/* Live Search Trigger & Dropdown */}
             <div className="relative">
@@ -409,6 +323,167 @@ export function Navbar() {
                 </span>
               )}
             </Link>
+
+            {/* Mobile Sheet Trigger (At the VERY END on Mobile Right) */}
+            <div className="lg:hidden">
+              <Sheet open={open} onOpenChange={setOpen}>
+                <SheetTrigger asChild>
+                  <button className="cursor-pointer p-1.5 text-white transition-colors hover:text-white/80">
+                    <IconMenu2 size={24} />
+                  </button>
+                </SheetTrigger>
+                <SheetContent
+                  side="right"
+                  className="w-[85vw] max-w-[340px] border-l-0 border-r-0 bg-[#004851] p-5 sm:p-6 text-white [&>button]:hidden flex flex-col justify-between h-full shadow-2xl select-none"
+                >
+                  <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
+
+                  {/* TOP HEADER ROW: "Menu" + Close (X) */}
+                  <div className="flex items-center justify-between pb-4 border-b border-white/10 shrink-0">
+                    <h2 className="text-2xl font-serif font-bold text-white tracking-wide">
+                      Menu
+                    </h2>
+                    <button
+                      type="button"
+                      onClick={() => setOpen(false)}
+                      className="p-1 text-white hover:text-white/80 transition-colors cursor-pointer"
+                      aria-label="Close menu"
+                    >
+                      <X className="w-6 h-6" />
+                    </button>
+                  </div>
+
+                  {/* SCROLLABLE CONTENT */}
+                  <div className="flex-1 overflow-y-auto space-y-6 pt-4 pr-1 no-scrollbar">
+                    
+                    {/* 2 SIDE-BY-SIDE BRAND CARDS */}
+                    <div className="grid grid-cols-2 gap-3">
+                      {/* Ovy Card */}
+                      <Link
+                        href="/ovy"
+                        onClick={() => setOpen(false)}
+                        className="group bg-white/10 hover:bg-white/15 rounded-2xl p-3.5 flex flex-col justify-between h-28 border border-white/10 transition-all cursor-pointer"
+                      >
+                        <div>
+                          <Image
+                            src="/brand/ovy-white.png"
+                            alt="Ovy"
+                            width={85}
+                            height={32}
+                            className="h-7 w-auto object-contain"
+                          />
+                        </div>
+                        <p className="text-[11px] sm:text-xs text-white/80 font-normal leading-tight">
+                          Period and intimate care
+                        </p>
+                      </Link>
+
+                      {/* Looway Card */}
+                      <Link
+                        href="/looway"
+                        onClick={() => setOpen(false)}
+                        className="group bg-white/10 hover:bg-white/15 rounded-2xl p-3.5 flex flex-col justify-between h-28 border border-white/10 transition-all cursor-pointer"
+                      >
+                        <div>
+                          <Image
+                            src="/brand/looway-white.png"
+                            alt="Looway"
+                            width={95}
+                            height={32}
+                            className="h-7 w-auto object-contain"
+                          />
+                        </div>
+                        <p className="text-[11px] sm:text-xs text-white/80 font-normal leading-tight">
+                          Travel and everyday hygiene
+                        </p>
+                      </Link>
+                    </div>
+
+                    {/* NAV LINKS LIST WITH SUBTLE DIVIDER LINES */}
+                    <div className="flex flex-col space-y-0 text-left pt-1">
+                      <Link
+                        href="/shop"
+                        onClick={() => setOpen(false)}
+                        className="py-3.5 border-b border-white/15 text-sm sm:text-base font-bold text-white hover:text-white/80 transition-colors"
+                      >
+                        Shop all
+                      </Link>
+
+                      <Link
+                        href="/ovy"
+                        onClick={() => setOpen(false)}
+                        className="py-3.5 border-b border-white/15 text-sm sm:text-base font-bold text-white hover:text-white/80 transition-colors"
+                      >
+                        Ovy
+                      </Link>
+
+                      <Link
+                        href="/looway"
+                        onClick={() => setOpen(false)}
+                        className="py-3.5 border-b border-white/15 text-sm sm:text-base font-bold text-white hover:text-white/80 transition-colors"
+                      >
+                        Looway
+                      </Link>
+
+                      <Link
+                        href="/product-detail/ovy-teen"
+                        onClick={() => setOpen(false)}
+                        className="py-3.5 border-b border-white/15 text-sm sm:text-base font-bold text-white hover:text-white/80 transition-colors"
+                      >
+                        Teens
+                      </Link>
+
+                      <Link
+                        href="/looway-yatra-kit"
+                        onClick={() => setOpen(false)}
+                        className="py-3.5 border-b border-white/15 text-sm sm:text-base font-bold text-white hover:text-white/80 transition-colors"
+                      >
+                        Yatra Kit
+                      </Link>
+
+                      <Link
+                        href="/period-log"
+                        onClick={() => setOpen(false)}
+                        className="py-3.5 border-b border-white/15 text-sm sm:text-base font-bold text-white hover:text-white/80 transition-colors"
+                      >
+                        Period Tracker
+                      </Link>
+
+                      <Link
+                        href="/blog"
+                        onClick={() => setOpen(false)}
+                        className="py-3.5 border-b border-white/15 text-sm sm:text-base font-bold text-white hover:text-white/80 transition-colors"
+                      >
+                        Journal
+                      </Link>
+                    </div>
+
+                  </div>
+
+                  {/* BOTTOM ACTION BUTTONS ROW (Wishlist & Account - Shifted up to clear mobile bottom bar) */}
+                  <div className="pt-4 pb-16 md:pb-2 mt-auto flex items-center gap-3 shrink-0 border-t border-white/10">
+                    <Link
+                      href="/wishlist"
+                      onClick={() => setOpen(false)}
+                      className="flex-1 bg-white/15 hover:bg-white/25 border border-white/20 text-white font-bold text-xs sm:text-sm py-3 px-3 rounded-2xl flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs"
+                    >
+                      <Heart className="w-4 h-4 text-white fill-white/20" />
+                      <span>Wishlist</span>
+                    </Link>
+
+                    <Link
+                      href={showAccount ? "/dashboard" : "/login"}
+                      onClick={() => setOpen(false)}
+                      className="flex-1 bg-white/15 hover:bg-white/25 border border-white/20 text-white font-bold text-xs sm:text-sm py-3 px-3 rounded-2xl flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs"
+                    >
+                      <User className="w-4 h-4 text-white" />
+                      <span>Account</span>
+                    </Link>
+                  </div>
+
+                </SheetContent>
+              </Sheet>
+            </div>
           </div>
         </div>
       </nav>

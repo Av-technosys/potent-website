@@ -390,6 +390,7 @@ export default function BestsellingProducts({
               key={product.id || idx}
               product={product}
               index={idx}
+              isFifthMobileCard={idx === 4}
               buttonColor={buttonColor}
               onQuickView={openQuickView}
               onAddToCart={(p) => handleAddToCart(p)}

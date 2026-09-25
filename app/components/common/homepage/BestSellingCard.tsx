@@ -19,6 +19,7 @@ type Props = {
   brand?: boolean | string;
   onQuickView?: (product: any) => void;
   onAddToCart?: (product: any) => Promise<boolean | void> | boolean | void;
+  isFifthMobileCard?: boolean;
 };
 
 const CARD_TINTS = [
@@ -37,7 +38,8 @@ export const getProductNumericPrice = (product: any): number => {
     product.basePrice ??
     product.productVariants?.[0]?.price ??
     product.prodcutVarientBoxRes?.[0]?.price ??
-    product.variants?.[0]?.price;
+    product.variants?.[0]?.price ??
+    product.startingPrice;
 
   if (priceVal !== null && priceVal !== undefined && priceVal !== "") {
     const num =
@@ -48,6 +50,16 @@ export const getProductNumericPrice = (product: any): number => {
       return num;
     }
   }
+
+  const s = String(product.slug || product.name || "").toLowerCase();
+  if (s.includes("funnel")) return 299;
+  if (s.includes("cup") || s.includes("menstrual")) return 459;
+  if (s.includes("puke") || s.includes("bag")) return 549;
+  if (s.includes("seat") || s.includes("cover")) return 549;
+  if (s.includes("liner")) return 269;
+  if (s.includes("teen")) return 378;
+  if (s.includes("pad")) return 378;
+  if (s.includes("yatra")) return 549;
 
   return 0;
 };
@@ -75,6 +87,7 @@ export default function BestsellingCard({
   index = 0,
   onQuickView,
   onAddToCart,
+  isFifthMobileCard = false,
 }: Props) {
   const [isAdding, setIsAdding] = useState(false);
   const [added, setAdded] = useState(false);
@@ -116,8 +129,9 @@ export default function BestsellingCard({
   const wishlistItems = useWishlistStore((state) => state.items);
   const isWishlisted = wishlistItems.some((i) => i.productId === product.id);
 
-  const formattedPrice = selectedVariant
-    ? `₹${Number(selectedVariant.price || 0)}`
+  const selectedVariantPrice = Number(selectedVariant?.price || 0);
+  const formattedPrice = selectedVariantPrice > 0
+    ? `₹${selectedVariantPrice}`
     : formatProductPrice(product);
   const priceNum = getProductNumericPrice(product);
 
@@ -173,18 +187,38 @@ export default function BestsellingCard({
   };
 
   return (
-    <div className="group border-gray-150 relative flex h-full w-full flex-col justify-between overflow-hidden rounded-2xl border bg-white shadow-2xs transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
-      {/* Top Media Container (Full Bleed Edge-to-Edge Image) */}
-      <div className={`relative aspect-[4/5] w-full ${bgTint} overflow-hidden`}>
-        {/* Badge (Top Left) */}
-        <div className="absolute top-2 left-2 z-20 sm:top-3 sm:left-3">
-          <span className="rounded-full border border-white/60 bg-white/95 px-2 py-0.5 text-[9px] font-bold text-[#016271] shadow-md backdrop-blur-md sm:px-3 sm:py-1 sm:text-xs">
-            {badgeLabel}
-          </span>
-        </div>
+    <div
+      className={`group border-gray-150 relative flex h-full w-full justify-between overflow-hidden rounded-2xl border bg-white shadow-2xs transition-all duration-300 hover:-translate-y-1 hover:shadow-xl ${
+        isFifthMobileCard
+          ? "col-span-2 sm:col-span-1 flex-row sm:flex-col"
+          : "col-span-1 flex-col"
+      }`}
+    >
+      {/* Media Image Container */}
+      <div
+        className={`relative overflow-hidden ${bgTint} ${
+          isFifthMobileCard
+            ? "w-[42%] sm:w-full aspect-square sm:aspect-[4/5] shrink-0"
+            : "aspect-[4/5] w-full"
+        }`}
+      >
+        {/* Badge */}
+        {badgeLabel && (
+          <div className="absolute top-2 left-2 z-20 sm:top-3 sm:left-3">
+            <span className="rounded-full border border-white/60 bg-white/95 px-2 py-0.5 text-[9px] font-bold text-[#016271] shadow-md backdrop-blur-md sm:px-3 sm:py-1 sm:text-xs">
+              {badgeLabel}
+            </span>
+          </div>
+        )}
 
-        {/* Action Buttons (Top Right: Clean Vertical Stack) */}
-        <div className="absolute top-2 right-2 z-30 flex flex-col items-center gap-1.5 sm:top-3 sm:right-3 sm:gap-2">
+        {/* Action Buttons (Heart Wishlist & Eye Quick View) */}
+        <div
+          className={`absolute z-30 flex items-center gap-1.5 ${
+            isFifthMobileCard
+              ? "bottom-2 left-2 sm:bottom-auto sm:left-auto sm:top-3 sm:right-3 flex-row sm:flex-col sm:gap-2"
+              : "top-2 right-2 sm:top-3 sm:right-3 flex-col sm:gap-2"
+          }`}
+        >
           {/* Wishlist Heart Button */}
           <button
             type="button"
@@ -229,7 +263,11 @@ export default function BestsellingCard({
       </div>
 
       {/* Details & Actions Section */}
-      <div className="flex grow flex-col justify-between space-y-2 bg-white p-2.5 sm:space-y-3 sm:p-4">
+      <div
+        className={`flex grow flex-col justify-between space-y-2 bg-white p-2.5 sm:space-y-3 sm:p-4 ${
+          isFifthMobileCard ? "w-[58%] sm:w-full" : "w-full"
+        }`}
+      >
         <Link
           href={`/product-detail/${product.slug}`}
           className="block space-y-1 sm:space-y-1.5"
@@ -251,7 +289,13 @@ export default function BestsellingCard({
         </Link>
 
         {/* Price & Add to Cart Action Row */}
-        <div className="mt-auto flex flex-col gap-2 border-t border-gray-100 pt-1.5 sm:pt-2">
+        <div
+          className={`mt-auto flex border-t border-gray-100 pt-1.5 sm:pt-2 ${
+            isFifthMobileCard
+              ? "flex-row items-center justify-between gap-2 sm:flex-col sm:items-stretch"
+              : "flex-col gap-2"
+          }`}
+        >
           <div className="flex min-w-0 items-baseline gap-1">
             {variants.length > 1 && (
               <div className="relative w-full min-w-0">
@@ -289,7 +333,11 @@ export default function BestsellingCard({
             type="button"
             onClick={handleAdd}
             disabled={isAdding}
-            className={`flex w-full cursor-pointer items-center justify-center gap-1 rounded-full px-2.5 py-1.5 text-[11px] font-semibold shadow-xs transition-all duration-300 sm:text-sm ${
+            className={`flex cursor-pointer items-center justify-center gap-1 rounded-full text-[11px] font-semibold shadow-xs transition-all duration-300 sm:text-sm ${
+              isFifthMobileCard
+                ? "w-auto px-3.5 py-1.5 sm:w-full sm:px-2.5"
+                : "w-full py-1.5 px-2.5"
+            } ${
               added
                 ? "bg-emerald-600 text-white"
                 : "bg-[#016271] text-white hover:scale-105 hover:bg-[#014d59]"

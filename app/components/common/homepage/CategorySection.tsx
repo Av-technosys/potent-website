@@ -122,27 +122,27 @@ export function CategoryGrid({
 
         {/* Tab Panel 1: Shop by Moment */}
         {activeTab === "moment" && (
-          <div className="animate-fadeIn grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 lg:gap-6">
+          <div className="animate-fadeIn grid grid-cols-3 gap-2.5 sm:grid-cols-1 sm:gap-4 md:grid-cols-2 lg:grid-cols-3 lg:gap-6">
             {MOMENTS.map((m) => (
               <Link
                 key={m.label}
                 href={m.href}
-                className="group border-gray-150 flex items-center gap-4 rounded-2xl border bg-white p-4 transition-all duration-300 hover:-translate-y-1 hover:border-transparent hover:shadow-lg"
+                className="group border-gray-150 flex flex-col items-center justify-between rounded-2xl border bg-white p-2 text-center transition-all duration-300 hover:-translate-y-1 hover:border-transparent hover:shadow-lg sm:flex-row sm:gap-4 sm:p-4 sm:text-left"
               >
-                <div className="relative h-24 w-20 shrink-0 overflow-hidden rounded-xl border border-gray-100 bg-[#E6F4F6] sm:h-26 sm:w-22">
+                <div className="relative aspect-square w-full shrink-0 overflow-hidden rounded-xl border border-gray-100 bg-[#E6F4F6] sm:aspect-none sm:h-24 sm:w-20 lg:h-26 lg:w-22">
                   <Image
                     src={m.image}
                     alt={m.label}
                     fill
                     className="object-cover transition-transform duration-500 group-hover:scale-105"
-                    sizes="100px"
+                    sizes="(max-width: 640px) 33vw, 100px"
                   />
                 </div>
-                <div className="flex min-w-0 flex-col justify-center pr-1">
-                  <h3 className="mb-1 font-serif text-base font-bold text-gray-900 transition-colors group-hover:text-[#016271] sm:text-lg">
+                <div className="mt-2 flex w-full min-w-0 flex-col justify-center text-center sm:mt-0 sm:pr-1 sm:text-left">
+                  <h3 className="font-serif text-xs font-bold leading-tight text-gray-900 transition-colors group-hover:text-[#016271] sm:mb-1 sm:text-base md:text-lg">
                     {m.label}
                   </h3>
-                  <p className="line-clamp-3 text-xs leading-snug text-gray-600 sm:text-sm">
+                  <p className="hidden text-xs leading-snug text-gray-600 sm:line-clamp-3 sm:block sm:text-sm">
                     {m.body}
                   </p>
                 </div>
