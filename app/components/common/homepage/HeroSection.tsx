@@ -286,7 +286,7 @@ export function Hero() {
             </Badge>
 
             <div className="flex min-h-[170px] flex-col justify-center space-y-3 sm:min-h-[160px]">
-              <h1 className="font-serif text-[32px] leading-[1.14] font-bold tracking-tight text-gray-900 transition-all duration-500 sm:text-4xl lg:text-[52px]">
+              <h1 className="font-serif text-[32px] leading-[1.14] font-bold tracking-tight text-gray-900 transition-all duration-500 sm:text-4xl lg:text-[60px]">
                 {slide.hook}
               </h1>
 

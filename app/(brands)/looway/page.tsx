@@ -1,73 +1,64 @@
-import { BlogSection } from "@/app/components/common/homepage/Blogs";
 import { InstagramFeed } from "@/app/components/common/homepage/InstaFeed";
 import { Newsletter } from "@/app/components/common/homepage/NewsLetter";
-import { OurStory } from "@/app/components/common/homepage/OurStory";
-import { ProductCategories } from "@/app/components/common/homepage/ProductCategories";
-import { Testimonials } from "@/app/components/common/homepage/Reviews";
-import StoryTruth from "@/app/components/common/homepage/StoryTruth";
-import { BrandHero } from "@/app/components/common/homepage/brands/BrandsHero";
-import { BrandProductsSection } from "@/app/components/common/homepage/brands/BrandProductsSection";
+import { LoowayHero } from "@/app/components/common/homepage/brands/LoowayHero";
+import { LoowayShopSection } from "@/app/components/common/homepage/brands/LoowayShopSection";
+import { LoowayShopByTrip } from "@/app/components/common/homepage/brands/LoowayShopByTrip";
+import { LoowayHowItWorks } from "@/app/components/common/homepage/brands/LoowayHowItWorks";
+import { LoowayComparisonSection } from "@/app/components/common/homepage/brands/LoowayComparisonSection";
+import { LoowayFunnelGuideSection } from "@/app/components/common/homepage/brands/LoowayFunnelGuideSection";
+import { LoowayGiftGroupSection } from "@/app/components/common/homepage/brands/LoowayGiftGroupSection";
+import { LoowayYatraKitSection } from "@/app/components/common/homepage/brands/LoowayYatraKitSection";
+import { LoowayFaqSection } from "@/app/components/common/homepage/brands/LoowayFaqSection";
 import { BrandStats } from "@/app/components/common/homepage/brands/BrandStats";
-import { BrandWhyChoose } from "@/app/components/common/homepage/brands/BrandWhyChoose";
-import { YatraKitPromo } from "@/app/components/common/homepage/YatraKitPromo";
 import { brandDataMap } from "@/const/globalconst";
-import BestsellingProducts from "@/app/components/common/homepage/BestSellingProduct";
-import Image from "next/image";
+import { getFullProductDetails } from "@/helper/product/action";
 
 export const dynamic = "force-dynamic";
 
-export default function LowayPage() {
+export default async function LowayPage() {
   const data = brandDataMap.loway;
-  const [
-    shopProducts,
-    story,
-    bestSelling,
-    ourStory,
-    newArrivals,
-    stats,
-    brandWhy,
-    instagram,
-    testimonials,
-    ,
-    newsletter,
-  ] = data.sections as any[];
+  const productSlugs = [
+    "looway-toilet-seat-covers",
+    "looway-pee-funnel",
+    "looway-pee-puke",
+  ];
+  const productEntries = await Promise.all(
+    productSlugs.map(async (slug) => {
+      try {
+        return [slug, await getFullProductDetails(slug)] as const;
+      } catch {
+        return [slug, null] as const;
+      }
+    }),
+  );
+  const productsBySlug = Object.fromEntries(productEntries);
+  const stats = data.sections[5] as unknown as {
+    props: Parameters<typeof BrandStats>[0];
+  };
+  const instagram = data.sections[7] as unknown as {
+    props: Parameters<typeof InstagramFeed>[0];
+  };
+  const newsletter = data.sections[10] as unknown as {
+    props: Parameters<typeof Newsletter>[0];
+  };
 
   return (
     <main style={{ backgroundColor: data["bg-color"] }}>
-      <BrandHero {...data.hero} />
-
-      <YatraKitPromo />
-      <BestsellingProducts
-        description="Discover the latest additions to our premium hygiene collection, thoughtfully designed for everyday comfort, care, and confidence."
-        title="Best Selling Products"
-        brand={"loway"}
-        buttonColor="#016271"
-      />
-
-      <div className="mb-12 w-full bg-[#F8F6F1] py-12">
-        <div className="mx-auto h-auto w-full max-w-6xl px-4">
-          <Image
-            src={
-              "https://dw0n4qiceose7.cloudfront.net/website-images/peefunnerlooway.png"
-            }
-            height={800}
-            width={1200}
-            className="h-auto w-full object-contain"
-            alt="looway banner"
-          />
-        </div>
-      </div>
-
-      <StoryTruth {...story.props} />
-      <OurStory {...ourStory.props} />
+      <LoowayHero productsBySlug={productsBySlug} />
+      <LoowayShopSection productsBySlug={productsBySlug} />
+      <LoowayShopByTrip productsBySlug={productsBySlug} />
+      <LoowayHowItWorks productsBySlug={productsBySlug} />
+      <LoowayYatraKitSection />
+      <LoowayComparisonSection />
+      <LoowayFunnelGuideSection productsBySlug={productsBySlug} />
+      <LoowayGiftGroupSection />
+      <LoowayFaqSection />
 
       <BrandStats {...stats.props} />
-      <BrandWhyChoose {...brandWhy.props} />
-      <InstagramFeed {...instagram.props} />
-      <Testimonials {...testimonials.props} />
-      <ProductCategories />
+
+      <InstagramFeed theme="teal" {...instagram.props} />
+
       <Newsletter {...newsletter.props} />
-      <BlogSection />
     </main>
   );
 }

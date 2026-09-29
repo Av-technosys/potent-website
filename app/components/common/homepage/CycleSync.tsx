@@ -3,7 +3,19 @@
 import React from "react";
 import { Check, ArrowRight } from "lucide-react";
 
-export function CycleSync() {
+interface CycleSyncProps {
+  bgColor?: string;
+  badgeColor?: string;
+  accentColor?: string;
+  buttonBgColor?: string;
+}
+
+export function CycleSync({
+  bgColor = "#E5F5F6",
+  badgeColor = "#016271",
+  accentColor = "#016271",
+  buttonBgColor = "#016271",
+}: CycleSyncProps) {
   const features = [
     {
       title: "Timed to you",
@@ -24,10 +36,13 @@ export function CycleSync() {
   ];
 
   return (
-    <section className="py-10 sm:py-16 md:py-20 bg-[#E5F5F6]">
+    <section className="py-10 sm:py-16 md:py-20" style={{ backgroundColor: bgColor }}>
       <div className="container mx-auto px-4 md:px-6 lg:px-8 max-w-7xl text-center">
         {/* BADGE */}
-        <span className="text-[11px] sm:text-xs font-semibold tracking-[0.2em] text-[#016271] uppercase mb-2 sm:mb-3 block">
+        <span
+          className="text-[11px] sm:text-xs font-semibold tracking-[0.2em] uppercase mb-2 sm:mb-3 block"
+          style={{ color: badgeColor }}
+        >
           SUBSCRIBE AND CYCLE-SYNC
         </span>
 
@@ -43,7 +58,7 @@ export function CycleSync() {
           remember.
         </p>
 
-        {/* 4 CARDS GRID: 2x2 on Mobile (< lg), 4-cols on Desktop (lg:) */}
+        {/* 4 CARDS GRID */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 text-left">
           {features.map((item, idx) => (
             <div
@@ -51,7 +66,10 @@ export function CycleSync() {
               className="bg-white rounded-2xl p-3.5 sm:p-7 shadow-xs hover:shadow-md transition-shadow flex flex-col justify-between"
             >
               <div>
-                <Check className="w-4 h-4 sm:w-5 sm:h-5 text-[#016271] stroke-[2.5] mb-2 sm:mb-4" />
+                <Check
+                  className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.5] mb-2 sm:mb-4"
+                  style={{ color: accentColor }}
+                />
                 <h3 className="text-xs sm:text-lg font-bold text-[#1C2424] mb-1 sm:mb-2 leading-tight">
                   {item.title}
                 </h3>
@@ -67,13 +85,18 @@ export function CycleSync() {
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 mt-8 sm:mt-10 md:mt-12">
           <a
             href="#subscribe"
-            className="w-full sm:w-auto bg-[#016271] hover:bg-[#004851] text-white px-7 py-3 sm:py-3.5 rounded-full font-medium text-sm sm:text-base transition-colors shadow-sm cursor-pointer flex items-center justify-center gap-2"
+            className="w-full sm:w-auto text-white px-7 py-3 sm:py-3.5 rounded-full font-medium text-sm sm:text-base transition-colors shadow-sm cursor-pointer flex items-center justify-center gap-2"
+            style={{ backgroundColor: buttonBgColor }}
           >
             Start my subscription <ArrowRight className="w-4 h-4" />
           </a>
           <a
             href="#how-it-works"
-            className="hidden sm:flex w-full sm:w-auto border border-[#016271] text-[#016271] hover:bg-[#016271]/10 px-7 py-3.5 rounded-full font-medium text-sm sm:text-base transition-colors cursor-pointer items-center justify-center"
+            className="hidden sm:flex w-full sm:w-auto border px-7 py-3.5 rounded-full font-medium text-sm sm:text-base transition-colors cursor-pointer items-center justify-center"
+            style={{
+              borderColor: buttonBgColor,
+              color: buttonBgColor,
+            }}
           >
             How Cycle-Sync works
           </a>

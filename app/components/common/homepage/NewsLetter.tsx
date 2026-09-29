@@ -8,6 +8,7 @@ import { Check } from "lucide-react";
 
 type Props = {
   badgeText?: string;
+  badgeColor?: string;
   title?: string;
   subtitle?: string;
   features?: string[];
@@ -19,10 +20,14 @@ type Props = {
   bgImageMobile?: string;
   overlayColor?: string;
   buttonColor?: string;
+  outerBgColor?: string;
+  inputBgColor?: string;
+  inputBorderColor?: string;
 };
 
 export function Newsletter({
   badgeText = "NEWSLETTER",
+  badgeColor,
   title = "Subscribe to our newsletter.",
   subtitle = "Straight to your inbox: cycle tips you will actually use, travel hygiene hacks, and the first look at everything new.",
   features = [
@@ -38,6 +43,9 @@ export function Newsletter({
   bgImageMobile,
   overlayColor,
   buttonColor,
+  outerBgColor = "#FFFFFF",
+  inputBgColor,
+  inputBorderColor,
 }: Props) {
   const [email, setEmail] = useState("");
   const [agreed, setAgreed] = useState(false);
@@ -73,7 +81,7 @@ export function Newsletter({
   };
 
   return (
-    <section className="bg-[#F8F6F1] py-8 sm:py-12 md:py-16">
+    <section id="newsletter-section" className="py-8 sm:py-12 md:py-16" style={{ backgroundColor: outerBgColor }}>
       <div className="container mx-auto max-w-7xl px-4 md:px-6 lg:px-8">
         <div
           className="relative overflow-hidden rounded-2xl px-6 py-8 shadow-xl sm:px-10 sm:py-12 md:rounded-3xl lg:px-14 lg:py-14"
@@ -106,16 +114,19 @@ export function Newsletter({
           {/* MAIN CONTENT GRID */}
           <div className="relative z-10 grid grid-cols-1 items-center gap-8 lg:grid-cols-12 lg:gap-12">
             {/* LEFT COLUMN */}
-            <div className="space-y-4 sm:space-y-6 lg:col-span-7">
+            <div className="space-y-4 sm:space-y-3 lg:col-span-7">
               {/* BADGE */}
               <div>
-                <span className="text-xs font-semibold tracking-[0.2em] text-[#76D2DC] uppercase sm:text-sm">
+                <span
+                  className="text-xs font-semibold tracking-[0.2em] uppercase sm:text-sm"
+                  style={{ color: badgeColor || "#76D2DC" }}
+                >
                   {badgeText}
                 </span>
               </div>
 
               {/* TITLE */}
-              <h2 className="font-serif text-3xl leading-[1.15] font-bold tracking-tight text-white sm:text-4xl lg:text-5xl">
+              <h2 className="font-serif text-3xl leading-[1.15] font-bold tracking-tight text-white sm:text-3xl lg:text-4xl">
                 {title}
               </h2>
 
@@ -126,7 +137,7 @@ export function Newsletter({
 
               {/* FEATURES LIST */}
               {features && features.length > 0 && (
-                <ul className="space-y-3 pt-2">
+                <ul className="space-y-2 pt-2">
                   {features.map((item, idx) => (
                     <li key={idx} className="flex items-center gap-3">
                       <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-white">
@@ -152,7 +163,11 @@ export function Newsletter({
                       placeholder={placeholder}
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className="h-12 w-full rounded-full border border-white/20 bg-white/10 px-5 text-sm text-white transition-all placeholder:text-white/60 focus:ring-2 focus:ring-white/40 focus:outline-none sm:h-14 sm:border-[#398D97] sm:bg-[#126B76]/70 sm:text-base"
+                      style={{
+                        backgroundColor: inputBgColor || "rgba(255, 255, 255, 0.15)",
+                        borderColor: inputBorderColor || "rgba(255, 255, 255, 0.3)",
+                      }}
+                      className="h-12 w-full rounded-full border px-5 text-sm text-white transition-all placeholder:text-white/70 focus:ring-2 focus:ring-white/40 focus:outline-none sm:h-14 sm:text-base"
                     />
                   </div>
 

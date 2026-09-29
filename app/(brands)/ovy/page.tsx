@@ -10,6 +10,16 @@ import { OvyHero } from "@/app/components/common/homepage/brands/OvyHero";
 import { OvyShopSection } from "@/app/components/common/homepage/brands/OvyShopSection";
 import { OvyShopByMoment } from "@/app/components/common/homepage/brands/OvyShopByMoment";
 import { OvyFindMyFit } from "@/app/components/common/homepage/brands/OvyFindMyFit";
+import { OvySizedToFlow } from "@/app/components/common/homepage/brands/OvySizedToFlow";
+import { OvySixProofPoints } from "@/app/components/common/homepage/brands/OvySixProofPoints";
+import { OvySideBySideComparison } from "@/app/components/common/homepage/brands/OvySideBySideComparison";
+import { OvyUpCloseSection } from "@/app/components/common/homepage/brands/OvyUpCloseSection";
+import AboutStory from "@/app/components/common/homepage/AboutStory";
+import { CycleSync } from "@/app/components/common/homepage/CycleSync";
+import { PadSharedImpact } from "@/app/components/common/homepage/PadSharedImpact";
+import { OvyFAQ } from "@/app/components/common/homepage/brands/OvyFAQ";
+import { OvyPeriodSchool } from "@/app/components/common/homepage/brands/OvyPeriodSchool";
+import { OvyComingNext } from "@/app/components/common/homepage/brands/OvyComingNext";
 import { BrandProductsSection } from "@/app/components/common/homepage/brands/BrandProductsSection";
 import { BrandStats } from "@/app/components/common/homepage/brands/BrandStats";
 import { BrandWhyChoose } from "@/app/components/common/homepage/brands/BrandWhyChoose";
@@ -22,10 +32,10 @@ export const dynamic = "force-dynamic";
 export default async function OvyPage() {
   const data = brandDataMap.ovy;
   const productSlugs = [
-    "ovy-organic-sanitary-pads",
-    "ovy-teen-starter-pack",
-    "menstrual-cup",
-    "ovy-daily-panty-liners",
+    "ovy-pads",
+    "ovy-teen",
+    "ovy-cup",
+    "ovy-liners",
   ];
   const productEntries = await Promise.all(
     productSlugs.map(async (slug) => {
@@ -36,7 +46,14 @@ export default async function OvyPage() {
       }
     }),
   );
-  const productsBySlug = Object.fromEntries(productEntries);
+  const fetchedProducts = Object.fromEntries(productEntries);
+  const productsBySlug = {
+    ...fetchedProducts,
+    "ovy-organic-sanitary-pads": fetchedProducts["ovy-pads"],
+    "ovy-teen-starter-pack": fetchedProducts["ovy-teen"],
+    "menstrual-cup": fetchedProducts["ovy-cup"],
+    "ovy-daily-panty-liners": fetchedProducts["ovy-liners"],
+  };
   const [
     shopProducts,
     bannerImage,
@@ -58,44 +75,60 @@ export default async function OvyPage() {
       <OvyShopSection productsBySlug={productsBySlug} />
       <OvyShopByMoment productsBySlug={productsBySlug} />
       <OvyFindMyFit productsBySlug={productsBySlug} />
+      <OvySizedToFlow />
+      <OvySixProofPoints />
+      <OvySideBySideComparison />
+      <OvyUpCloseSection productsBySlug={productsBySlug} />
+<StoryTruth {...story.props} />
 
-      <div className="w-full bg-[#FFF4F9] py-12 mb-12">
-        <div className="w-full h-auto max-w-6xl px-4 mx-auto">
-          <Image
-            src={bannerImage.props.image}
-            height={800}
-            width={1200}
-            className="w-full h-auto object-contain"
-            alt="Ovy banner"
-          />
-        </div>
-      </div>
-
-      <StoryTruth {...story.props} />
-      <BestsellingProducts
-        description="Designed for growing teens, our menstrual hygiene range offers gentle protection, breathable comfort, and reliable leak security. Feel confident, fresh, and supported through every stage of your cycle."
-        title="Teen Hygiene Products"
-        brand={"ovy"}
-        buttonColor="#AF71A7"
+      {/* 1. Build Your Box Section (AboutStory) */}
+      <AboutStory
+        bgColor="#FAF5E8"
+        kickerColor="#602E55"
+        accentColor="#602E55"
+        buttonColor="#602E55"
+        imageSrc="/products/pads-l.jpg"
+        hideOnMobile={true}
       />
-      {/* <BrandProductsSection
-        {...bestSelling.props}
-        productBrand="ovy"
-        buttonColor="#AF71A7"
-      /> */}
-      <OurStory {...ourStory.props} />
-      {/* <BrandProductsSection
-        {...newArrivals.props}
-        productBrand="ovy"
-        buttonColor="#AF71A7"
-      /> */}
-      <BrandStats {...stats.props} />
-      <BrandWhyChoose {...brandWhy.props} />
-      <InstagramFeed {...instagram.props} />
-      <Testimonials {...testimonials.props} />
-      <ProductCategories />
-      <Newsletter {...newsletter.props} />
-      <BlogSection />
+
+      {/* 2. Cycle-Sync Section (CycleSync) */}
+     
+
+      {/* 3. Give Back Impact Section (PadSharedImpact) */}
+     
+
+
+         
+     
+       <CycleSync
+        bgColor="#F4EBFA"
+        badgeColor="#602E55"
+        accentColor="#602E55"
+        buttonBgColor="#602E55"
+      />
+      <OvyComingNext />
+      {/* 4. Ovy Period School Section */}
+      <OvyPeriodSchool />
+      <OvyFAQ />
+      <PadSharedImpact
+        bgColor="#602E55"
+        badgeColor="#F4EBFA"
+        buttonTextColor="#602E55"
+      />
+      <InstagramFeed theme="pink" {...instagram.props} />
+     
+     
+    
+
+      <Newsletter
+        cardBgColor="#602E55"
+        outerBgColor="#FFFFFF"
+        badgeText="NEWSLETTER"
+        badgeColor="#F4EBFA"
+        inputBgColor="rgba(255, 255, 255, 0.15)"
+        inputBorderColor="rgba(255, 255, 255, 0.25)"
+      />
+    
     </main>
   );
 }

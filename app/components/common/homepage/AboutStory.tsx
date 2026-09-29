@@ -3,16 +3,37 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 
-const AboutStory = () => {
+interface AboutStoryProps {
+  bgColor?: string;
+  kickerColor?: string;
+  accentColor?: string;
+  buttonColor?: string;
+  imageSrc?: string;
+  hideOnMobile?: boolean;
+  className?: string;
+}
+
+const AboutStory: React.FC<AboutStoryProps> = ({
+  bgColor = "#F5EEF6",
+  kickerColor = "#016271",
+  accentColor = "#8C4F7C",
+  buttonColor = "#8C4F7C",
+  imageSrc = "/products/pads-l.jpg",
+  hideOnMobile = false,
+  className = "",
+}) => {
   return (
-    <section className="mb-12 w-full overflow-hidden bg-[#F5EEF6] py-10 sm:py-20">
+    <section
+      className={`${hideOnMobile ? "hidden md:block" : ""} mb-12 w-full overflow-hidden py-10 sm:py-20 ${className}`}
+      style={{ backgroundColor: bgColor }}
+    >
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-12">
         <div className="grid grid-cols-1 items-center gap-6 lg:grid-cols-12 lg:gap-14">
           {/* LEFT IMAGE CONTAINER */}
           <div className="flex justify-center lg:col-span-5">
             <div className="group relative aspect-[4/5] w-full max-w-md overflow-hidden rounded-[2rem] border border-purple-100/60 shadow-2xl sm:aspect-[1/1] sm:rounded-[2.5rem] lg:max-w-lg">
               <Image
-                src="/products/pads-l.jpg"
+                src={imageSrc}
                 alt="Ovy Regular Flow Sanitary Pads Box"
                 fill
                 className="object-cover object-center transition-transform duration-500 group-hover:scale-105"
@@ -23,7 +44,10 @@ const AboutStory = () => {
 
           {/* RIGHT CONTENT */}
           <div className="flex flex-col text-left lg:col-span-7">
-            <span className="mb-2 block text-[11px] font-bold tracking-widest text-[#016271] uppercase sm:text-xs">
+            <span
+              className="mb-2 block text-[11px] font-bold tracking-widest uppercase sm:text-xs"
+              style={{ color: kickerColor }}
+            >
               ONLY AT OVY
             </span>
 
@@ -31,7 +55,7 @@ const AboutStory = () => {
               <span className="block text-gray-900">
                 Your flow is not the same every day.
               </span>
-              <span className="mt-0.5 block text-[#8C4F7C]">
+              <span className="mt-0.5 block" style={{ color: accentColor }}>
                 Your box should not be either.
               </span>
             </h2>
@@ -43,11 +67,14 @@ const AboutStory = () => {
               to your own cycle.
             </p>
 
-            {/* 3 Numbered Steps (Desktop Only) */}
-            <div className="mb-8 hidden flex-col divide-y divide-purple-200/60 border-t border-b border-purple-200/60 lg:flex">
+            {/* 3 Numbered Steps */}
+            <div className="mb-8 flex flex-col divide-y divide-purple-200/60 border-t border-b border-purple-200/60">
               {/* Step 01 */}
               <div className="flex items-start gap-4 py-4">
-                <span className="shrink-0 pt-0.5 font-serif text-base font-bold text-[#8C4F7C] sm:text-lg">
+                <span
+                  className="shrink-0 pt-0.5 font-serif text-base font-bold sm:text-lg"
+                  style={{ color: accentColor }}
+                >
                   01
                 </span>
                 <div className="flex flex-col">
@@ -63,7 +90,10 @@ const AboutStory = () => {
 
               {/* Step 02 */}
               <div className="flex items-start gap-4 py-4">
-                <span className="shrink-0 pt-0.5 font-serif text-base font-bold text-[#8C4F7C] sm:text-lg">
+                <span
+                  className="shrink-0 pt-0.5 font-serif text-base font-bold sm:text-lg"
+                  style={{ color: accentColor }}
+                >
                   02
                 </span>
                 <div className="flex flex-col">
@@ -78,7 +108,10 @@ const AboutStory = () => {
 
               {/* Step 03 */}
               <div className="flex items-start gap-4 py-4">
-                <span className="shrink-0 pt-0.5 font-serif text-base font-bold text-[#8C4F7C] sm:text-lg">
+                <span
+                  className="shrink-0 pt-0.5 font-serif text-base font-bold sm:text-lg"
+                  style={{ color: accentColor }}
+                >
                   03
                 </span>
                 <div className="flex flex-col">
@@ -97,7 +130,8 @@ const AboutStory = () => {
             <div>
               <Link
                 href="/product-detail/ovy-teen?scroll=starter#starter"
-                className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-[#8C4F7C] py-3 px-7 text-xs font-semibold text-white shadow-md transition-all hover:scale-105 hover:bg-[#773f69] lg:inline-flex lg:w-auto sm:text-sm"
+                className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-full py-3 px-7 text-xs font-semibold text-white shadow-md transition-all hover:scale-105 lg:inline-flex lg:w-auto sm:text-sm"
+                style={{ backgroundColor: buttonColor }}
               >
                 <span>Build your box</span>
                 <ArrowRight className="h-4 w-4" />

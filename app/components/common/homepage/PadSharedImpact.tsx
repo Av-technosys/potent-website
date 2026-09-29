@@ -3,12 +3,25 @@
 import React from "react";
 import { ArrowRight } from "lucide-react";
 
-export function PadSharedImpact() {
+interface PadSharedImpactProps {
+  bgColor?: string;
+  badgeColor?: string;
+  buttonTextColor?: string;
+}
+
+export function PadSharedImpact({
+  bgColor = "#016271",
+  badgeColor = "#76D2DC",
+  buttonTextColor = "#016271",
+}: PadSharedImpactProps) {
   return (
-    <section className="py-16 sm:py-20 md:py-24 bg-[#016271] text-white">
+    <section className="py-16 sm:py-20 md:py-24 text-white" style={{ backgroundColor: bgColor }}>
       <div className="container mx-auto px-4 md:px-6 lg:px-8 max-w-4xl text-center flex flex-col items-center">
         {/* BADGE */}
-        <span className="text-xs sm:text-sm font-semibold tracking-[0.2em] text-[#76D2DC] uppercase mb-3 block">
+        <span
+          className="text-xs sm:text-sm font-semibold tracking-[0.2em] uppercase mb-3 block"
+          style={{ color: badgeColor }}
+        >
           EVERY ORDER GIVES BACK
         </span>
 
@@ -44,7 +57,8 @@ export function PadSharedImpact() {
         {/* BUTTON */}
         <a
           href="/ovy"
-          className="bg-white text-[#016271] hover:bg-white/90 px-8 py-3.5 rounded-full font-semibold text-sm sm:text-base transition-all shadow-md inline-flex items-center gap-2 cursor-pointer"
+          className="bg-white hover:bg-white/90 px-8 py-3.5 rounded-full font-semibold text-sm sm:text-base transition-all shadow-md inline-flex items-center gap-2 cursor-pointer"
+          style={{ color: buttonTextColor }}
         >
           Shop Ovy pads <ArrowRight className="w-4 h-4" />
         </a>

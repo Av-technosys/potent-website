@@ -4,7 +4,11 @@
 /* Rupee Symbol Font Definition */
 @font-face {
   font-family: "Rupee";
-  src: local("Roboto"), local("Roboto-Regular"), local("Noto Sans"), local("NotoSans-Regular"), local("Segoe UI"), local("SegoeUI"), local("Helvetica Neue"), local("HelveticaNeue"), local("Arial"), local("ArialMT");
+  src:
+    local("Roboto"), local("Roboto-Regular"), local("Noto Sans"),
+    local("NotoSans-Regular"), local("Segoe UI"), local("SegoeUI"),
+    local("Helvetica Neue"), local("HelveticaNeue"), local("Arial"),
+    local("ArialMT");
   unicode-range: U+20B9;
 }
 
@@ -14,7 +18,8 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: "Rupee", var(--font-geist-sans), sans-serif;
-  --font-serif: "Rupee", "Fraunces", Georgia, Cambria, "Times New Roman", Times, serif;
+  --font-serif:
+    "Rupee", var(--font-fredoka), "Fredoka", "Fredoka Fallback", sans-serif;
   --font-mono: var(--font-geist-mono);
   --font-caveat: var(--font-caveat), cursive;
 
@@ -129,11 +134,31 @@
   * {
     @apply border-border outline-ring/50;
   }
-  html, body, button, input, select, textarea {
-    font-family: "Rupee", var(--font-geist-sans), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  html,
+  body,
+  button,
+  input,
+  select,
+  textarea {
+    font-family:
+      "Rupee",
+      var(--font-geist-sans),
+      system-ui,
+      -apple-system,
+      BlinkMacSystemFont,
+      "Segoe UI",
+      Roboto,
+      sans-serif;
   }
-  h1, h2, h3, h4, h5, h6, .font-serif {
-    font-family: "Rupee", "Fraunces", Georgia, Cambria, "Times New Roman", Times, serif;
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6,
+  .font-serif {
+    font-family:
+      "Rupee", var(--font-fredoka), "Fredoka", "Fredoka Fallback", sans-serif;
   }
   body {
     @apply bg-background text-foreground;
@@ -174,4 +199,3 @@
 .font-caveat {
   font-family: var(--font-caveat), cursive;
 }
-

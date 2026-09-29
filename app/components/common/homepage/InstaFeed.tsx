@@ -39,25 +39,64 @@ const CAROUSEL_ITEMS = [...FEED_IMAGES, ...FEED_IMAGES, ...FEED_IMAGES, ...FEED_
 type Props = {
   title?: string;
   username?: string;
+  theme?: "pink" | "teal";
+  bgColor?: string;
+  kickerColor?: string;
+  headingColor?: string;
+  buttonBorderColor?: string;
+  buttonTextColor?: string;
+  buttonHoverBg?: string;
+  buttonHoverText?: string;
   gradientFrom?: string;
   gradientTo?: string;
   textColor?: string;
   buttonColor?: string;
 };
 
-export function InstagramFeed(_props: Props) {
+export function InstagramFeed({
+  title = "Join the Potent circle.",
+  username = "@POTENTHYGIENE",
+  theme = "teal",
+  bgColor,
+  kickerColor,
+  headingColor,
+  buttonBorderColor,
+  buttonTextColor,
+  buttonHoverBg,
+  buttonHoverText,
+}: Props) {
+  const isPink = theme === "pink";
+
+  const sectionBg = bgColor || (isPink ? "bg-[#F7E8F2]" : "bg-[#EBF7F8]");
+  const kickerCls = kickerColor || (isPink ? "text-[#744c67]" : "text-[#006573]");
+  const headingCls = headingColor || "text-[#1F1915]";
+
+  const btnBorderCls = buttonBorderColor || (isPink ? "border-[#744c67]" : "border-[#006573]");
+  const btnTextCls = buttonTextColor || (isPink ? "text-[#744c67]" : "text-[#006573]");
+  const btnHoverBgCls = buttonHoverBg || (isPink ? "hover:bg-[#744c67]" : "hover:bg-[#006573]");
+  const btnHoverTextCls = buttonHoverText || "hover:text-white";
+  const btnBgCls = isPink ? "bg-[#F7E8F2]" : "bg-[#EBF7F8]";
+
   return (
-    <section className="w-full bg-[#E8F6F7] py-14 sm:py-16 overflow-hidden">
+    <section
+      className={`w-full py-14 sm:py-16 overflow-hidden ${
+        sectionBg.startsWith("#") ? "" : sectionBg
+      }`}
+      style={sectionBg.startsWith("#") ? { backgroundColor: sectionBg } : undefined}
+    >
       <div className="w-full text-center">
-        
         {/* HEADER */}
         <div className="mb-8 sm:mb-10 space-y-2">
-          <span className="text-[#016271] text-[11px] sm:text-xs font-bold uppercase tracking-widest block">
-            @POTENTHYGIENE
+          <span
+            className={`text-[11px] sm:text-xs font-bold uppercase tracking-widest block ${kickerCls}`}
+          >
+            {username}
           </span>
 
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-serif font-bold text-gray-900 leading-tight">
-            Join the Potent circle.
+          <h2
+            className={`text-3xl sm:text-4xl lg:text-5xl font-serif font-bold leading-tight ${headingCls}`}
+          >
+            {title}
           </h2>
         </div>
 
@@ -92,13 +131,12 @@ export function InstagramFeed(_props: Props) {
           <Link
             href="https://www.instagram.com/potenthygiene/"
             target="_blank"
-            className="inline-flex items-center gap-2 rounded-full border border-[#016271] text-[#016271] bg-[#E8F6F7] hover:bg-[#016271] hover:text-white px-6 py-2.5 sm:px-7 sm:py-3 text-xs sm:text-sm font-semibold transition-all duration-300 shadow-2xs hover:scale-105 cursor-pointer"
+            className={`inline-flex items-center gap-2 rounded-full border ${btnBorderCls} ${btnTextCls} ${btnBgCls} ${btnHoverBgCls} ${btnHoverTextCls} px-6 py-2.5 sm:px-7 sm:py-3 text-xs sm:text-sm font-semibold transition-all duration-300 shadow-2xs hover:scale-105 cursor-pointer`}
           >
-            <span>Follow @potenthygiene</span>
+            <span>Follow {username.toLowerCase()}</span>
             <ArrowRight className="w-4 h-4" />
           </Link>
         </div>
-
       </div>
     </section>
   );

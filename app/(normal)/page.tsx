@@ -51,12 +51,9 @@ export default function Home() {
       <PadSharedImpact />
       <FounderStory />
       <InstagramFeed
+        theme="teal"
         title="Join Our Community"
         username="@potenthygiene"
-        gradientFrom="#016271"
-        gradientTo="#AFE7F1"
-        textColor="#FFFFFF"
-        buttonColor="#1A8D91"
       />
       <JournalSection />
 

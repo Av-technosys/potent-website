@@ -1,11 +1,29 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, Plus, Check } from "lucide-react";
 import { addToCart } from "@/store/cartActions";
+import { getImageUrl } from "@/lib/imageUrl";
+import { toast } from "sonner";
+import {
+  getOvyProductId,
+  getOvyVariantId,
+  getOvyVariantLabel,
+  getOvyVariantPrice,
+  getOvyVariants,
+  type OvyVariant,
+} from "./brands/ovyProductPricing";
+
+interface CupProduct {
+  id?: string;
+  _id?: string;
+  slug?: string | null;
+  name?: string | null;
+  bannerImage?: string | null;
+  [key: string]: unknown;
+}
 
 type Props = {
   badgeText?: string;
@@ -22,25 +40,71 @@ type Props = {
 };
 
 export function OurStory(_props: Props) {
+  void _props;
   const [adding, setAdding] = useState(false);
   const [added, setAdded] = useState(false);
+  const [cupProduct, setCupProduct] = useState<CupProduct | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    fetch("/api/catalog/products/ovy-cup")
+      .then((response) => {
+        if (!response.ok) throw new Error("Unable to load cup details");
+        return response.json();
+      })
+      .then((payload) => {
+        if (!cancelled) setCupProduct(payload.product || null);
+      })
+      .catch((error) => console.error("Unable to load cup details:", error));
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const cupVariant = getOvyVariants(cupProduct)[0] as OvyVariant | undefined;
+  const cupPrice = getOvyVariantPrice(cupVariant);
+  const cupProductId = getOvyProductId(cupProduct);
+  const cupVariantId = getOvyVariantId(cupVariant);
+  const cupImage = getImageUrl(
+    cupVariant?.bannerImage ||
+      cupVariant?.image ||
+      cupProduct?.bannerImage ||
+      "/products/cup-rbw.jpg",
+  );
+  const canAddToCart = Boolean(cupProductId && cupVariantId && cupPrice > 0);
 
   const handleAddToCart = async () => {
-    if (adding) return;
+    if (adding || !canAddToCart) {
+      if (!canAddToCart) toast.error("Cup product details are unavailable.");
+      return;
+    }
+
     setAdding(true);
-    await addToCart({
-      productId: "ovy-cup",
-      productVariantId: "ovy-cup-default",
-      slug: "ovy-cup",
-      title: "Ovy Reusable Menstrual Cup",
-      image: "/products/cup-rbw.jpg",
-      price: 459,
-      quantity: 1,
-      isQuantityChangable: true,
-    });
-    setAdding(false);
-    setAdded(true);
-    setTimeout(() => setAdded(false), 2000);
+
+    try {
+      const result = await addToCart({
+        productId: cupProductId,
+        productVariantId: cupVariantId,
+        sku: cupVariant?.sku,
+        slug: cupProduct?.slug || "ovy-cup",
+        title: `${cupProduct?.name || "Ovy Menstrual Cup"} - ${getOvyVariantLabel(cupVariant)}`,
+        image: cupImage,
+        price: cupPrice,
+        quantity: 1,
+        isQuantityChangable: true,
+      });
+
+      if (result === false) return;
+      setAdded(true);
+      setTimeout(() => setAdded(false), 2000);
+    } catch (error) {
+      console.error("Cup cart add error:", error);
+      toast.error("Unable to add the cup to cart. Please try again.");
+    } finally {
+      setAdding(false);
+    }
   };
 
   return (
@@ -51,7 +115,7 @@ export function OurStory(_props: Props) {
           <div className="flex justify-center lg:col-span-5">
             <div className="group relative aspect-[4/5] w-full max-w-md overflow-hidden rounded-[2.5rem] border border-gray-100/80 shadow-2xl sm:aspect-[1/1] lg:max-w-lg">
               <Image
-                src="/products/cup-rbw.jpg"
+                src={cupImage}
                 alt="Ovy Menstrual Cup"
                 fill
                 className="object-cover object-center transition-transform duration-500 group-hover:scale-105"
@@ -117,7 +181,7 @@ export function OurStory(_props: Props) {
                 type="button"
                 onClick={handleAddToCart}
                 disabled={adding}
-                className={`order-1 lg:order-3 flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-full py-3 px-5 text-sm font-semibold shadow-md transition-all lg:w-auto lg:px-6 lg:py-3 ${
+                className={`order-1 flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-full px-5 py-3 text-sm font-semibold shadow-md transition-all lg:order-3 lg:w-auto lg:px-6 lg:py-3 ${
                   added
                     ? "bg-emerald-600 text-white"
                     : "bg-[#016271] text-white hover:scale-105 hover:bg-[#014e5a]"
@@ -126,21 +190,23 @@ export function OurStory(_props: Props) {
                 {added ? (
                   <>
                     <Check className="h-4 w-4" />
-                    <span>Added, ₹459</span>
+                    <span>Added{cupPrice > 0 ? `, ₹${cupPrice}` : ""}</span>
                   </>
                 ) : (
                   <>
                     <Plus className="h-4 w-4" />
-                    <span>Add, ₹459</span>
+                    <span>
+                      {cupPrice > 0 ? `Add, ₹${cupPrice}` : "Price unavailable"}
+                    </span>
                   </>
                 )}
               </button>
 
               {/* Secondary Buttons Row: 2 equal buttons side-by-side on Mobile */}
-              <div className="order-2 lg:order-1 flex w-full gap-2.5 lg:w-auto lg:gap-3">
+              <div className="order-2 flex w-full gap-2.5 lg:order-1 lg:w-auto lg:gap-3">
                 <Link
                   href="/product-detail/ovy-cup"
-                  className="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-full bg-[#016271] py-2.5 px-4 text-xs font-semibold text-white shadow-md transition-all hover:scale-105 hover:bg-[#014e5a] lg:flex-none lg:px-6 lg:py-3 lg:text-sm"
+                  className="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-full bg-[#016271] px-4 py-2.5 text-xs font-semibold text-white shadow-md transition-all hover:scale-105 hover:bg-[#014e5a] lg:flex-none lg:px-6 lg:py-3 lg:text-sm"
                 >
                   <span>Shop the cup</span>
                   <ArrowRight className="h-4 w-4" />
@@ -148,7 +214,7 @@ export function OurStory(_props: Props) {
 
                 <Link
                   href="/product-detail/ovy-cup?scroll=size-finder#size-finder"
-                  className="flex flex-1 cursor-pointer items-center justify-center rounded-full border border-[#016271] bg-white py-2.5 px-4 text-xs font-semibold text-[#016271] shadow-2xs transition-all hover:bg-[#016271] hover:text-white lg:flex-none lg:px-6 lg:py-3 lg:text-sm"
+                  className="flex flex-1 cursor-pointer items-center justify-center rounded-full border border-[#016271] bg-white px-4 py-2.5 text-xs font-semibold text-[#016271] shadow-2xs transition-all hover:bg-[#016271] hover:text-white lg:flex-none lg:px-6 lg:py-3 lg:text-sm"
                 >
                   Find my size
                 </Link>

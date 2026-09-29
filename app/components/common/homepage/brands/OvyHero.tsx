@@ -18,8 +18,19 @@ const MARQUEE_ITEMS = [
 
 export function OvyHero() {
   return (
-    <section className="relative w-full overflow-hidden bg-[#efe9d9] pt-6 pb-0 sm:pt-12 md:pt-16">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-12">
+    <section
+      className="relative w-full overflow-hidden bg-[#efe9d9] pt-6 pb-0 sm:pt-12 md:pt-16"
+      style={{
+        background:
+          "radial-gradient(circle at 88% 15%, rgba(219, 196, 240, 0.6) 0%, rgba(219, 196, 240, 0.22) 40%, rgba(239, 233, 217, 0) 70%), #efe9d9",
+      }}
+    >
+      {/* Top-Right Soft Purple Glow Overlay */}
+      <div
+        className="pointer-events-none absolute -top-32 -right-32 h-[450px] w-[450px] rounded-full bg-[#DBC4F0]/5 blur-3xl lg:h-[650px] lg:w-[650px]"
+        aria-hidden="true"
+      />
+      <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-12">
         <div className="grid grid-cols-1 items-center gap-8 lg:grid-cols-12 lg:gap-10">
           
           {/* 1. VISUAL IMAGES CONTAINER (Order 1 on Mobile < lg, Order 2 on Desktop lg:) */}
@@ -75,7 +86,7 @@ export function OvyHero() {
 
               {/* Card 2: Center Prominent (Pads, 3 sizes) */}
               <Link
-                href="/shop"
+                href="/product-detail/ovy-pads#xl"
                 className="group/card relative z-20 w-[36%] shrink-0 scale-105 transform cursor-pointer transition-all duration-300 ease-out hover:z-40 hover:rotate-0 hover:scale-115 sm:w-64 lg:w-60 block -mt-4 sm:-mt-20"
               >
                 <div
@@ -180,17 +191,17 @@ export function OvyHero() {
             </div>
 
             {/* Main Heading */}
-     <h1 className="mb-4 font-serif text-4xl font-bold sm:text-5xl lg:text-6xl tracking-tight">
+     <h1 className="mb-4 font-serif text-4xl font-bold sm:text-5xl lg:text-[70px] tracking-tight">
               <span className="block text-[#602E55] leading-[1.16] sm:leading-[0.92]">Heavy night?</span>
               <span className="block text-[#C42B5B] leading-[1.16] sm:leading-[0.92]">First period?</span>
               <span className="block text-[#1B6A85] leading-[1.16] sm:leading-[0.92] mb-3 sm:mb-4">Swim day?</span>
               
               {/* Updated Ovy Box */}
-              <span className="inline-block mt-2 transform -rotate-2 rounded-2xl bg-[#DBC4F0] py-3 pl-5 pr-28 sm:py-4 sm:pl-6 sm:pr-40 shadow-sm">
-                <span className="block font-serif text-2xl font-black italic text-[#603356] leading-[1.1] tracking-normal sm:text-3xl lg:text-5xl">
+              <span className="mt-2.5 inline-block -rotate-[1.5deg] transform rounded-xl sm:rounded-2xl bg-[#DBC4F0] px-4 py-2 sm:px-6 sm:py-3.5 text-[#603356] shadow-2xs">
+                <span className="block font-serif font-bold italic leading-[1.05]">
                   There’s an
                 </span>
-                <span className="block font-serif text-2xl font-black italic text-[#603356] leading-[1.1] tracking-normal sm:text-3xl lg:text-5xl">
+                <span className="block font-serif font-bold italic leading-[1.05]">
                   Ovy for that.
                 </span>
               </span>
@@ -253,7 +264,7 @@ export function OvyHero() {
         </div>
 
         {/* Main Dark Purple Marquee Bar */}
-        <div className="w-full bg-[#602E55] py-3.5 text-white shadow-inner">
+        <div className="w-full bg-[#602E55] py-4 text-white shadow-inner">
           <div className="animate-marquee flex items-center space-x-8 font-serif text-sm tracking-wide whitespace-nowrap">
             {MARQUEE_ITEMS.concat(MARQUEE_ITEMS, MARQUEE_ITEMS).map(
               (item, idx) => (
