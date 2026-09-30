@@ -24,7 +24,7 @@ const AboutStory: React.FC<AboutStoryProps> = ({
 }) => {
   return (
     <section
-      className={`${hideOnMobile ? "hidden md:block" : ""} mb-12 w-full overflow-hidden py-10 sm:py-20 ${className}`}
+      className={`${hideOnMobile ? "hidden md:block" : ""}  w-full overflow-hidden py-10 sm:py-20 ${className}`}
       style={{ backgroundColor: bgColor }}
     >
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-12">
@@ -48,7 +48,7 @@ const AboutStory: React.FC<AboutStoryProps> = ({
               className="mb-2 block text-[11px] font-bold tracking-widest uppercase sm:text-xs"
               style={{ color: kickerColor }}
             >
-              ONLY AT OVY
+              ONLY AT OVY 
             </span>
 
             <h2 className="mb-3 font-serif text-2xl leading-tight font-bold sm:text-4xl lg:text-[40px]">

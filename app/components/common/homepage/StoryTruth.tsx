@@ -16,7 +16,7 @@ type Props = {
 
 const StoryTruth = (_props: Props) => {
   return (
-    <section className="w-full bg-[#F5EEF6] overflow-hidden relative pb-16 pt-0 mb-12">
+    <section className="w-full bg-[#F5EEF6] overflow-hidden relative pb-16 pt-0">
       {/* Top Strip with alternating dark teal & yellow pattern */}
       <div 
         className="w-full h-3.5 mb-12 sm:mb-16 opacity-90"

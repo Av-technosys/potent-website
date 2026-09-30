@@ -17,7 +17,7 @@ type Props = {
   disclaimerText?: string;
   cardBgColor?: string;
   bgImageDesktop?: string;
-  bgImageMobile?: string;
+  bgImageMobile?: string;                   
   overlayColor?: string;
   buttonColor?: string;
   outerBgColor?: string;

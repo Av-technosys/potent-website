@@ -66,16 +66,13 @@ export default function SizeSelectorBox({
   };
 
   return (
-    <div
-      style={{ borderColor: themeColor.darkColor }}
-      className="space-y-4 rounded-3xl border bg-white p-4 shadow-sm sm:p-6"
-    >
+    <div className="space-y-4 rounded-3xl border border-[#F3E6F0] bg-[#FAF9F5] p-5 shadow-sm sm:p-6">
       <div>
-        <h2 className="text-lg font-semibold text-gray-950">
-          Customize your box
+        <h2 className="font-serif text-lg font-semibold text-[#1A150F]">
+          Customize Your Box (21 Pads)
         </h2>
-        <p className="mt-1 text-sm text-gray-500">
-          Default monthly mix: 6 L + 6 XL + 9 XL+ pads.
+        <p className="mt-1 text-xs font-medium text-gray-600">
+          Default monthly mix: 6 L + 6 XL + 9 XL+ pads. Adjust quantities to fit your flow.
         </p>
       </div>
 
@@ -83,15 +80,15 @@ export default function SizeSelectorBox({
         {cartSizes?.map((item: any, index: number) => (
           <div
             key={item.id || index}
-            className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3"
+            className="rounded-2xl border border-gray-200 bg-white p-3.5 shadow-xs"
           >
             <div className="flex items-center justify-between gap-4">
               <div className="min-w-0">
-                <span className="text-sm font-semibold text-gray-950 sm:text-base">
+                <span className="font-serif text-base font-semibold text-[#1A150F]">
                   {item.name}
                 </span>
                 {item.description && (
-                  <p className="mt-1 line-clamp-2 text-xs leading-5 text-gray-500">
+                  <p className="mt-0.5 line-clamp-1 text-xs text-gray-500">
                     {item.description}
                   </p>
                 )}
@@ -102,12 +99,12 @@ export default function SizeSelectorBox({
                   type="button"
                   disabled={item.quantity <= 0}
                   onClick={() => updateQty(item.name, "dec")}
-                  className="grid h-8 w-8 place-items-center rounded-full border border-gray-200 bg-white text-gray-600 disabled:opacity-40"
+                  className="grid h-8 w-8 place-items-center rounded-full border border-gray-300 bg-gray-50 text-gray-700 transition hover:bg-gray-100 disabled:opacity-30"
                 >
                   <Minus size={14} />
                 </button>
 
-                <span className="min-w-6 text-center font-semibold">
+                <span className="min-w-6 text-center font-bold text-[#1A150F]">
                   {item.quantity}
                 </span>
 
@@ -115,8 +112,8 @@ export default function SizeSelectorBox({
                   type="button"
                   disabled={total >= MAX}
                   onClick={() => updateQty(item.name, "inc")}
-                  className={`grid h-8 w-8 place-items-center rounded-full border border-gray-200 bg-white ${
-                    total >= MAX ? "text-gray-300" : "text-teal-600"
+                  className={`grid h-8 w-8 place-items-center rounded-full border border-gray-300 bg-[#F3E6F0] text-[#7E4D77] transition hover:bg-[#9A5B90] hover:text-white ${
+                    total >= MAX ? "opacity-30 pointer-events-none" : ""
                   }`}
                 >
                   <Plus size={14} />
@@ -127,21 +124,17 @@ export default function SizeSelectorBox({
         ))}
       </div>
 
-      <div
-        className="flex justify-between rounded-2xl px-4 py-3 text-sm"
-        style={{
-          backgroundColor: themeColor.lightColor,
-          color: themeColor.textColor,
-        }}
-      >
-        <span>Your box contains</span>
-        <span className="font-semibold">{total} pads</span>
+      <div className="flex items-center justify-between rounded-2xl bg-[#F3E6F0] px-4 py-3 text-sm font-semibold text-[#7E4D77]">
+        <span>Your Box Contains</span>
+        <span className="rounded-full bg-[#9A5B90] px-3 py-1 text-xs text-white">
+          {total} / 21 pads
+        </span>
       </div>
 
       {multiplierOptions.length > 0 && (
-        <div className="rounded-2xl border border-gray-100 bg-gray-50 p-3">
+        <div className="rounded-2xl border border-gray-200 bg-white p-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <span className="text-sm font-medium text-gray-700">
+            <span className="text-xs font-bold uppercase tracking-wider text-gray-700">
               Multiply current mix
             </span>
             <div className="flex flex-wrap gap-2">
@@ -150,9 +143,9 @@ export default function SizeSelectorBox({
                   key={multiplier}
                   type="button"
                   onClick={() => multiplyCurrentMix(multiplier)}
-                  className="rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-900 transition hover:border-gray-300"
+                  className="rounded-full border border-[#9A5B90] bg-[#F3E6F0] px-3.5 py-1.5 text-xs font-bold text-[#7E4D77] transition hover:bg-[#9A5B90] hover:text-white"
                 >
-                  {multiplier}x
+                  {multiplier}x Boxes
                 </button>
               ))}
             </div>
@@ -161,14 +154,14 @@ export default function SizeSelectorBox({
       )}
 
       <p
-        className={`text-sm ${
-          validation.valid ? "text-green-700" : "text-red-600"
+        className={`text-xs font-bold ${
+          validation.valid ? "text-emerald-700" : "text-rose-600"
         }`}
       >
         {validation.valid
-          ? `${selectedBoxCount} box${
+          ? `✓ ${selectedBoxCount} box${
               total === MIX_BOX_PAD_UNIT ? "" : "es"
-            } selected.`
+            } ready for checkout!`
           : getMixBoxAdjustmentMessage(total)}
       </p>
     </div>

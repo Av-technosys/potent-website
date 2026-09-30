@@ -107,7 +107,12 @@ export async function getSubscriptionCheckoutQuote(item: any) {
         return { success: false, error: schedule.message };
       }
     }
-  } else if (!row.productInfo.allowSubscription) {
+  } else if (
+    !row.productInfo.allowSubscription &&
+    !["ovy-cup", "menstrual-cup", "ovy-reusable-menstrual-cup"].includes(
+      String(row.productInfo.slug || "").toLowerCase(),
+    )
+  ) {
     return { success: false, error: "Subscription is not available for this product" };
   }
 
