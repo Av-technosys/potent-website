@@ -3,7 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Droplet, Compass, Package, ShoppingBag } from "lucide-react";
+import { Droplet, Compass, Package, ShoppingBag, Store } from "lucide-react";
 import { useCartStore } from "@/store/cartStore";
 
 export function MobileBottomNav() {
@@ -14,7 +14,7 @@ export function MobileBottomNav() {
     {
       name: "Shop",
       href: "/shop",
-      isCustomLogo: true,
+      icon: Store,
     },
     {
       name: "Ovy",
@@ -57,28 +57,14 @@ export function MobileBottomNav() {
             >
               {/* ICON AREA */}
               <div className="relative flex items-center justify-center h-7 w-7">
-                {item.isCustomLogo ? (
-                  <div
-                    className={`h-7 w-7 rounded-full flex items-center justify-center transition-transform ${
+                {IconComponent && (
+                  <IconComponent
+                    className={`w-5 h-5 transition-all ${
                       isActive
-                        ? "bg-[#004851] text-white scale-105"
-                        : "bg-[#2D3832] text-white hover:bg-[#004851]"
+                        ? "text-[#004851] stroke-[2.5]"
+                        : "text-gray-700 stroke-[1.8] group-hover:text-[#004851]"
                     }`}
-                  >
-                    <span className="font-serif font-bold text-xs leading-none">
-                      N
-                    </span>
-                  </div>
-                ) : (
-                  IconComponent && (
-                    <IconComponent
-                      className={`w-5 h-5 transition-all ${
-                        isActive
-                          ? "text-[#004851] stroke-[2.5]"
-                          : "text-gray-700 stroke-[1.8] group-hover:text-[#004851]"
-                      }`}
-                    />
-                  )
+                  />
                 )}
 
                 {/* BADGE COUNT FOR BAG */}

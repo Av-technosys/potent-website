@@ -4,21 +4,22 @@ import TrustBadges from "../../../components/common/Product-detail/trustbadges";
 import AboutProduct from "../../../components/common/Product-detail/aboutproduct";
 import ProductReviews from "../../../components/common/Product-detail/productreview";
 import { getProductReviews } from "@/helper";
-import { getFullProductDetails } from "@/helper/product/action";
+import { getFullProductDetails, getProductSimilarProducts } from "@/helper/product/action";
 import {
   lowayProductDetailsPage,
   ovyProductDetailsPage,
 } from "@/const/globalconst";
 import SeatCoversPageClient from "@/app/components/common/Product-detail/SeatCoversPageClient";
 import MenstrualCupPageClient from "@/app/components/common/Product-detail/MenstrualCupPageClient";
-import { loowayToiletSeatCovers, ovyCup } from "@/const/productsContent";
+import OvyTeenPageClient from "@/app/components/common/Product-detail/OvyTeenPageClient";
+import { loowayToiletSeatCovers, ovyCup, ovyTeen } from "@/const/productsContent";
 
 export default async function Page({ params }: any) {
   const { slug } = await params;
 
   const product = await getFullProductDetails(slug);
   const reviewWithMedia = await getProductReviews(slug);
-  // const catetoryName = similarProducts[0]?.category;
+  const similarProducts = await getProductSimilarProducts(slug);
 
   if (slug === "looway-toilet-seat-covers" || slug === "toilet-seat-covers") {
     return (
@@ -36,6 +37,35 @@ export default async function Page({ params }: any) {
         product={product || { slug: "ovy-cup", name: "Ovy Reusable Menstrual Cup" }}
         reviewWithMedia={reviewWithMedia}
         content={ovyCup}
+      />
+    );
+  }
+
+  if (
+    slug === "ovy-teen" ||
+    slug === "ovy-teen-pads" ||
+    slug === "ovy-teen-starter-pack" ||
+    slug === "ovy-organic-teen-sanitary-pads"
+  ) {
+    const routineSlugs = ["ovy-cup", "ovy-pads", "ovy-liners", "looway-toilet-seat-covers"];
+    const routineEntries = await Promise.all(
+      routineSlugs.map(async (rSlug) => {
+        try {
+          return [rSlug, await getFullProductDetails(rSlug)] as const;
+        } catch {
+          return [rSlug, null] as const;
+        }
+      })
+    );
+    const ovyProductsMap = Object.fromEntries(routineEntries);
+
+    return (
+      <OvyTeenPageClient
+        product={product || { slug: "ovy-teen", name: "Ovy Organic Soft Sanitary Pads — Teen" }}
+        reviewWithMedia={reviewWithMedia}
+        similarProducts={similarProducts || []}
+        ovyProductsMap={ovyProductsMap}
+        content={ovyTeen}
       />
     );
   }
