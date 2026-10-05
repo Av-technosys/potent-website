@@ -39,6 +39,11 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { addToCart as addToCartAction } from "@/store/cartActions";
+import { useWishlistStore } from "@/store/WishlistStore";
+import {
+  addToWishlist as addToWishlistAction,
+  removeFromWishlist as removeFromWishlistAction,
+} from "@/store/WishlistActions";
 import { getImageUrl } from "@/lib/imageUrl";
 import { calculateCycleSyncSchedule, getMinimumCycleSyncPeriodDate } from "@/lib/cycleSync";
 import WhatsInside from "./WhatsInside";
@@ -246,6 +251,34 @@ export default function OvyTeenPageClient({
   // Cycle Sync States
   const [cycleDate, setCycleDate] = useState<string>("");
   const [cycleLength, setCycleLength] = useState<number>(28);
+
+  // Wishlist State & Action
+  const wishlistItems = useWishlistStore((state) => state.items);
+  const isWishlisted = useMemo(() => {
+    const targetId = product?.id || "ovy-teen";
+    return wishlistItems.some(
+      (i: any) => i.productId === targetId
+    );
+  }, [wishlistItems, product]);
+
+  const handleToggleWishlist = async () => {
+    const targetId = product?.id || "ovy-teen";
+    const targetSlug = product?.slug || "ovy-teen";
+    if (isWishlisted) {
+      await removeFromWishlistAction(targetId);
+      toast.success("Removed from wishlist");
+    } else {
+      await addToWishlistAction({
+        productId: targetId,
+        name: activeKit.name,
+        price: basePrice,
+        image: mediaList[0] || "/product.png",
+        hasVarientBox: true,
+        slug: targetSlug,
+      });
+      toast.success("Saved to wishlist");
+    }
+  };
 
   // Interactive Cycle Tracker States
   const [trackerLastDate, setTrackerLastDate] = useState<string>("");
@@ -696,6 +729,26 @@ export default function OvyTeenPageClient({
               <h1 className="font-serif text-3xl sm:text-4xl font-bold text-[#1A150F] mt-3 leading-tight">
                 {activeKit.name}
               </h1>
+
+              {/* Save to Wishlist Button */}
+              <div className="mt-2.5">
+                <button
+                  type="button"
+                  onClick={handleToggleWishlist}
+                  className={`inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+                    isWishlisted
+                      ? "border-rose-300 bg-rose-50 text-rose-600 hover:bg-rose-100 shadow-xs"
+                      : "border-gray-300/80 bg-white text-gray-700 hover:border-[#9A5B90] hover:text-[#7E4D77] shadow-xs"
+                  }`}
+                >
+                  <Heart
+                    className={`h-4 w-4 transition-transform active:scale-125 ${
+                      isWishlisted ? "fill-rose-500 text-rose-500" : "text-gray-600"
+                    }`}
+                  />
+                  <span>{isWishlisted ? "Saved to wishlist" : "Save to wishlist"}</span>
+                </button>
+              </div>
 
               {/* Meta Flow Chips */}
               <div className="flex items-center gap-2 flex-wrap mt-3 text-xs font-semibold">

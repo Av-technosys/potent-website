@@ -127,13 +127,16 @@ export const EmailVerificationClient = () => {
 
           {/* LOGO */}
           <div className="mb-4 flex justify-center">
-            <Image
-              src="/logo.svg"
-              alt="Potent logo"
-              width={90}
-              height={50}
-              className="object-contain"
-            />
+            <div className="bg-[#075965] px-5 py-2.5 rounded-2xl shadow-sm inline-flex items-center justify-center">
+              <Image
+                src="/logo-white.png"
+                alt="Potent Hygiene"
+                width={160}
+                height={55}
+                className="h-9 sm:h-11 w-auto object-contain"
+                priority
+              />
+            </div>
           </div>
           <h2 className="text-center text-2xl font-semibold text-[#3399ac]">
             Email Verification

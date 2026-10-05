@@ -10,29 +10,29 @@ interface ComparisonRow {
 
 const COMPARISON_DATA: ComparisonRow[] = [
   {
-    feature: "Against the skin",
-    ovy: "Rash-free, cottony-soft",
-    conventional: "Plastic-sheet feel",
+    feature: "Coverage",
+    ovy: "360° — front-to-back, leak-resistant back	",
+    conventional: "Covers only where it sits — back leaks at night",
   },
   {
-    feature: "Materials",
-    ovy: "Organic fibres",
-    conventional: "Synthetic top layer",
+    feature: "Staying put",
+    ovy: "Worn like underwear — nothing to shift",
+    conventional: "Can bunch, fold or slip out of place",
   },
   {
-    feature: "Odour control",
-    ovy: "Active odour lock",
-    conventional: "Masked with fragrance",
+    feature: "On the body",
+    ovy: "Super-thin, dry-feel — no bulk, no line",
+    conventional: "Bulkier — you feel it",
   },
   {
     feature: "Disposal",
-    ovy: "Biodegradable bags included",
-    conventional: "Plastic wrap, no bag",
+    ovy: "Tear the sides, tuck it into its own wrapper & bin",
+    conventional: "Roll it in tissue or the packet",
   },
   {
-    feature: "In humid weather",
-    ovy: "Breathable backsheet",
-    conventional: "Traps heat and sweat",
+    feature: "Best for",
+    ovy: "Heavy days, nights, travel & postpartum",
+    conventional: "Lighter days & quick changes",
   },
 ];
 

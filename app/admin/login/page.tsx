@@ -76,14 +76,17 @@ const Page = () => {
 
       <div className="flex w-full items-center justify-center p-4 md:w-1/2">
         <div className="w-full max-w-sm rounded-2xl bg-white p-4 shadow-lg md:max-w-lg lg:max-w-md">
-          <div className="mt-5 mb-4 flex justify-center">
-            <Image
-              src="/logo.svg"
-              alt="Potent logo"
-              width={90}
-              height={50}
-              className="object-contain"
-            />
+          <div className="mt-4 mb-4 flex justify-center">
+            <div className="bg-[#075965] px-5 py-2.5 rounded-2xl shadow-sm inline-flex items-center justify-center">
+              <Image
+                src="/logo-white.png"
+                alt="Potent Hygiene"
+                width={160}
+                height={55}
+                className="h-9 sm:h-11 w-auto object-contain"
+                priority
+              />
+            </div>
           </div>
           <div className="mb-1 flex justify-center">
             <Image

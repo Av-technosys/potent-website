@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  Heart,
   HelpCircle,
   Info,
   Leaf,
@@ -26,6 +27,11 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { addToCart as addToCartAction } from "@/store/cartActions";
+import { useWishlistStore } from "@/store/WishlistStore";
+import {
+  addToWishlist as addToWishlistAction,
+  removeFromWishlist as removeFromWishlistAction,
+} from "@/store/WishlistActions";
 import SizeSelectorBox from "./sizeSelectorBox";
 import WhatsInside from "./WhatsInside";
 import OvyComparison from "./OvyComparison";
@@ -146,6 +152,31 @@ export default function ProductDetailPage({
     type: "idle",
   });
   const [isCheckingDelivery, setIsCheckingDelivery] = useState(false);
+
+  // Wishlist State & Action
+  const wishlistItems = useWishlistStore((state) => state.items);
+  const isWishlisted = useMemo(() => {
+    return wishlistItems.some(
+      (i: any) => i.productId === productInfo?.id || i.productId === productInfo?.slug || i.slug === productInfo?.slug
+    );
+  }, [wishlistItems, productInfo]);
+
+  const handleToggleWishlist = async () => {
+    if (isWishlisted) {
+      await removeFromWishlistAction(productInfo.id);
+      toast.success("Removed from wishlist");
+    } else {
+      await addToWishlistAction({
+        productId: productInfo.id,
+        name: productInfo.name,
+        price: activeVariant?.price ? Number(activeVariant.price) : Number(productInfo.basePrice || productInfo.startingPrice || 299),
+        image: activeImage || productInfo.bannerImage || "/product.png",
+        hasVarientBox: Boolean(productInfo.hasVarientBox),
+        slug: productInfo.slug,
+      });
+      toast.success("Saved to wishlist");
+    }
+  };
 
   const [cartSizes, setCartSizes] = useState<any>([]);
   const [total, setTotal] = useState(0);
@@ -894,6 +925,26 @@ export default function ProductDetailPage({
             {productInfo?.name || "Ovy Organic Soft Sanitary Pads"}
           </h1>
 
+          {/* Save to Wishlist Button */}
+          <div>
+            <button
+              type="button"
+              onClick={handleToggleWishlist}
+              className={`inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+                isWishlisted
+                  ? "border-rose-300 bg-rose-50 text-rose-600 hover:bg-rose-100 shadow-xs"
+                  : "border-gray-300/80 bg-white text-gray-700 hover:border-[#9A5B90] hover:text-[#7E4D77] shadow-xs"
+              }`}
+            >
+              <Heart
+                className={`h-4 w-4 transition-transform active:scale-125 ${
+                  isWishlisted ? "fill-rose-500 text-rose-500" : "text-gray-600"
+                }`}
+              />
+              <span>{isWishlisted ? "Saved to wishlist" : "Save to wishlist"}</span>
+            </button>
+          </div>
+
           {/* Size & Meta Summary */}
           <div className="flex items-center gap-2 flex-wrap text-xs sm:text-sm font-medium text-gray-600">
             <span>{selectedPlanType === "mixYourBox" ? "Custom Box (21 Pads)" : activeVariant?.size || selectedSize}</span>
@@ -1305,6 +1356,60 @@ export default function ProductDetailPage({
               </button>
             </div>
 
+            {/* Shop With Confidence & Trust Assurance Section */}
+            <div className="space-y-4 pt-3">
+              {/* Shipping Sub-header */}
+              <div className="text-center text-xs sm:text-sm text-gray-500 font-medium">
+                Free shipping over ₹599 · ships in 24 hrs · secure checkout
+              </div>
+
+              {/* Satisfaction Guarantee */}
+              <div className="text-center text-xs sm:text-sm text-gray-700">
+                If it’s not right, <b className="font-bold text-[#1A150F]">we’ll make it right</b>. Questions? Email{" "}
+                <a
+                  href="mailto:care@potenthygiene.com"
+                  className="font-medium text-[#7E4D77] underline hover:text-[#9A5B90] transition-colors"
+                >
+                  care@potenthygiene.com
+                </a>
+              </div>
+
+              {/* Shop With Confidence Bullets */}
+              <div className="pt-2">
+                <div className="text-xs font-bold uppercase tracking-wider text-gray-700 mb-3">
+                  SHOP WITH CONFIDENCE
+                </div>
+
+                <div className="flex flex-wrap items-center gap-x-6 gap-y-2.5 text-xs sm:text-sm font-semibold text-gray-700">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="h-4.5 w-4.5 text-[#9A5B90] shrink-0" />
+                    <span>Skin-friendly & derma-tested</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Heart className="h-4.5 w-4.5 text-[#9A5B90] shrink-0" />
+                    <span>Woman-founded, Made in India</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Truck className="h-4.5 w-4.5 text-[#9A5B90] shrink-0" />
+                    <span>Free shipping over ₹599</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Hygiene & Subscription Cancellation Card */}
+              <div className="rounded-2xl border border-gray-200/80 bg-white p-4 shadow-xs space-y-3">
+                <div className="flex items-center gap-2.5 text-[#1A8D91]">
+                  <Truck className="h-5 w-5 shrink-0" />
+                </div>
+                <div className="flex items-start gap-2.5 text-xs sm:text-sm text-gray-700 leading-relaxed font-medium">
+                  <CheckCircle2 className="h-4.5 w-4.5 text-[#1A8D91] shrink-0 mt-0.5" />
+                  <span>
+                    For hygiene and safety, sanitary products are non-returnable · pause or cancel a subscription anytime
+                  </span>
+                </div>
+              </div>
+            </div>
+
             {/* Shipping & PIN Code Checker */}
             <div className="border-t border-gray-100 pt-4">
               <form
@@ -1346,33 +1451,46 @@ export default function ProductDetailPage({
                 </div>
               )}
 
-              <div className="mt-3.5 flex items-center justify-center gap-2 text-xs text-gray-600">
-                <Truck className="h-4 w-4 text-[#1A8D91]" />
-                <span>
-                  Free Shipping on orders over ₹599.{" "}
-                  {typeof totalAmount === "number" && totalAmount < 599 && (
-                    <span className="font-semibold text-[#7E4D77]">Add ₹{599 - totalAmount} more for free delivery!</span>
-                  )}
-                </span>
-              </div>
-            </div>
+              {/* Secure Checkout & Payment Options */}
+              <div className="mt-3.5 pt-3 border-t border-gray-100 space-y-2">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700">
+                  <Lock className="h-3.5 w-3.5 text-emerald-700" />
+                  <span>Secure checkout</span>
+                </div>
 
-            {/* Quick Specs Grid */}
-            <div className="pt-2">
-              <div className="mb-3 text-xs font-bold tracking-wider uppercase text-gray-500">PRODUCT SPECIFICATIONS</div>
-              <div className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-gray-200/80 bg-gray-200/80">
-                {quickSpecs.map((spec: any, i: number) => {
-                  const k = Array.isArray(spec) ? spec[0] : spec?.label || spec?.name;
-                  const v = Array.isArray(spec) ? spec[1] : spec?.value;
-                  return (
-                    <div key={i} className="bg-white p-3.5">
-                      <div className="text-xs text-gray-500">{k}</div>
-                      <div className="mt-0.5 text-sm font-semibold text-[#1A150F]">{v}</div>
-                    </div>
-                  );
-                })}
+                <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                  {["UPI", "Razorpay", "Visa", "Mastercard", "RuPay", "Net banking"].map((pm) => (
+                    <span
+                      key={pm}
+                      className="rounded-lg border border-gray-200 bg-gray-50/80 px-2.5 py-1 text-[11px] font-semibold text-gray-700"
+                    >
+                      {pm}
+                    </span>
+                  ))}
+                </div>
               </div>
             </div>
+          </div>
+
+          {/* Quick Specs Section (Outside the card box) */}
+          <div className="pt-4">
+            <div className="border-b border-gray-200/80 pb-2 mb-4">
+              <span className="text-xs font-bold tracking-wider uppercase text-gray-500">
+                QUICK SPECS
+              </span>
+            </div>
+            {/* <div className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-gray-200/80 bg-gray-200/80">
+              {quickSpecs.map((spec: any, i: number) => {
+                const k = Array.isArray(spec) ? spec[0] : spec?.label || spec?.name;
+                const v = Array.isArray(spec) ? spec[1] : spec?.value;
+                return (
+                  <div key={i} className="bg-white p-3.5">
+                    <div className="text-xs text-gray-500">{k}</div>
+                    <div className="mt-0.5 text-sm font-semibold text-[#1A150F]">{v}</div>
+                  </div>
+                );
+              })}
+            </div> */}
           </div>
         </div>
       </div>
