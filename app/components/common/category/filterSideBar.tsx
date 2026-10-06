@@ -1,180 +1,171 @@
 "use client";
 
-import { Card, CardContent } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
-import { PRODUCT_FILTER } from "@/const/filters";
-import { getCategories } from "@/helper";
-import { useCatalogStore } from "@/store/catalogStore";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useState, useEffect, useMemo } from "react";
-import debounce from 'debounce';
+import { useState, useEffect } from "react";
+import { Filter, RotateCcw, ChevronDown, Check, ShieldCheck, Sparkles, Layers } from "lucide-react";
 
-export default function FiltersSidebar({ allCategories }: any) {
-  const storeCategories = useCatalogStore((state) => state.categories);
-  const categories = allCategories ?? storeCategories;
-
-  const filterBarData = {
-    category: categories,
-    productType: PRODUCT_FILTER.product_type,
-    flow: PRODUCT_FILTER.flow_or_usage_type,
-    size: PRODUCT_FILTER.size
-  }
-
+export default function FiltersSidebar() {
   const router = useRouter();
   const params = useSearchParams();
   const pathname = usePathname();
-  const paramsString = params.toString();
+  const [isOpenMobile, setIsOpenMobile] = useState(false);
 
+  // Active brand selection from URL query param ('all', 'ovy', or 'looway')
+  const currentBrand = (params.get("brand") || "all").toLowerCase();
 
-  const [optimisticFilter, setOptimisticFilter] = useState({
-    category: params.getAll("category"),
-    productType: params.getAll("productType"),
-    flow: params.getAll("flow"),
-    size: params.getAll("size"),
-  });
-
-  // sync only when url actually changes
-  useEffect(() => {
-    setOptimisticFilter({
-      category: params.getAll("category"),
-      productType: params.getAll("productType"),
-      flow: params.getAll("flow"),
-      size: params.getAll("size"),
-    });
-  }, [paramsString]);
+  const handleBrandSelect = (brandId: string) => {
+    const current = new URLSearchParams(params.toString());
+    if (brandId === "all") {
+      current.delete("brand");
+    } else {
+      current.set("brand", brandId);
+    }
+    const query = current.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+  };
 
   const clearAll = () => {
-    setOptimisticFilter({
-      category: [],
-      productType: [],
-      flow: [],
-      size: [],
-    });
-
-    router.replace(pathname, { scroll: false });
+    const current = new URLSearchParams(params.toString());
+    current.delete("brand");
+    const query = current.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
   };
 
-  // stable debounce
-  const debouncedPush = useMemo(
-    () =>
-      debounce((query: string) => {
-        router.replace(query ? `${pathname}${query}` : pathname, {
-          scroll: false,
-        });
-      }, 500),
-    [router, pathname]
-  );
-
-  const handleFilterChange = (type: string, value: string) => {
-    setOptimisticFilter((prev) => {
-      const key = type as keyof typeof prev;
-
-      const existingValues = prev[key] || [];
-
-      const updatedValues = existingValues.includes(value)
-        ? existingValues.filter((v: string) => v !== value)
-        : [...existingValues, value];
-
-      // create query from updated state
-      const current = new URLSearchParams(params.toString());
-
-      current.delete(type);
-
-      updatedValues.forEach((v) => {
-        current.append(type, v);
-      });
-
-      const query = current.toString();
-
-      debouncedPush(query ? `?${query}` : "");
-
-      return {
-        ...prev,
-        [key]: updatedValues,
-      };
-    });
-  };
-
-
-
+  const hasActiveFilters = currentBrand !== "all";
 
   return (
-    <Card className="hidden md:block w-72 rounded-2xl shadow-md bg-white h-fit sticky top-4 max-h-[96vh] overflow-y-auto no-scrollbar">
-      <CardContent className="p-5 space-y-6">
-        <div className="flex justify-between items-center">
-          <h2 className="font-semibold text-lg">Filters</h2>
-          <button onClick={clearAll} className="text-sm text-[#1A8D91]">
-            Clear All
-          </button>
+    <div className="w-full md:w-64 lg:w-72 shrink-0">
+      {/* Mobile Collapsible Header Button */}
+      <button
+        type="button"
+        onClick={() => setIsOpenMobile(!isOpenMobile)}
+        className="md:hidden flex w-full items-center justify-between rounded-2xl border border-[#E4DED0] bg-white p-3.5 text-xs font-bold text-[#0A4A2E] shadow-2xs cursor-pointer mb-3"
+      >
+        <div className="flex items-center gap-2">
+          <Filter className="h-4 w-4 text-[#0E5C3A]" />
+          <span>Filter by Brand Line</span>
+          {hasActiveFilters && (
+            <span className="rounded-full bg-[#0E5C3A] px-2 py-0.5 text-[10px] text-white font-extrabold uppercase">
+              {currentBrand}
+            </span>
+          )}
+        </div>
+        <ChevronDown
+          className={`h-4 w-4 transition-transform duration-300 ${
+            isOpenMobile ? "rotate-180 text-[#0E5C3A]" : "text-gray-400"
+          }`}
+        />
+      </button>
+
+      {/* Sidebar Content (Sticky on Desktop, Collapsible on Mobile) */}
+      <div
+        className={`${
+          isOpenMobile ? "block" : "hidden"
+        } md:block sticky top-24 rounded-3xl border border-[#E4DED0] bg-white p-5 shadow-sm`}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-[#E4DED0]/60 pb-3 mb-5">
+          <div className="flex items-center gap-2 font-serif text-base font-extrabold text-[#0A4A2E]">
+            <Filter className="h-4 w-4 text-[#0E5C3A]" />
+            <span>Filters</span>
+          </div>
+
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={clearAll}
+              className="flex items-center gap-1 text-xs font-bold text-[#0E5C3A] hover:underline cursor-pointer"
+            >
+              <RotateCcw className="h-3 w-3" />
+              <span>Reset</span>
+            </button>
+          )}
         </div>
 
-        {/* Categories */}
-        <div>
-          <h3 className="font-medium mb-3">Categories</h3>
-          {filterBarData?.category?.map((item: any) => (
-            <div key={item.name} className="flex items-center gap-2 mb-2">
-              <Checkbox
-                checked={optimisticFilter.category.includes(item.id)}
-                onCheckedChange={() =>
-                  handleFilterChange("category", item.id)
-                }
-              />
-              <label>{item.name}</label>
-            </div>
-          ))}
+        {/* Brand Line Section */}
+        <div className="mb-6">
+          <h3 className="text-xs font-extrabold uppercase tracking-wider text-[#0E5C3A] mb-3 flex items-center gap-1.5">
+            <Layers className="h-3.5 w-3.5" />
+            <span>Brand Line</span>
+          </h3>
+
+          <div className="space-y-2">
+            {[
+              {
+                id: "all",
+                label: "All Products",
+                desc: "Explore full range of travel & period care",
+                badge: "8+ Items",
+              },
+              {
+                id: "looway",
+                label: "Looway",
+                desc: "Travel & Public Loo Freedom",
+                badge: "Travel",
+              },
+              {
+                id: "ovy",
+                label: "Ovy",
+                desc: "Intimate Care & Period Essentials",
+                badge: "Period",
+              },
+            ].map((brandOption) => {
+              const isSelected =
+                currentBrand === brandOption.id ||
+                (brandOption.id === "all" && currentBrand === "all");
+
+              return (
+                <button
+                  key={brandOption.id}
+                  type="button"
+                  onClick={() => handleBrandSelect(brandOption.id)}
+                  className={`flex w-full items-start justify-between rounded-xl border p-3 text-left transition-all cursor-pointer ${
+                    isSelected
+                      ? "border-[#0E5C3A] bg-[#F1F7F3] shadow-2xs"
+                      : "border-[#E4DED0]/70 bg-white hover:border-[#0E5C3A]/40 hover:bg-[#FAF8F3]"
+                  }`}
+                >
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-[#0A4A2E]">
+                        {brandOption.label}
+                      </span>
+                      <span className="rounded-full bg-white px-2 py-0.5 text-[9.5px] font-extrabold text-[#0E5C3A] border border-[#0E5C3A]/15">
+                        {brandOption.badge}
+                      </span>
+                    </div>
+                    <div className="text-[10.5px] text-[#17271E]/65 mt-0.5 leading-tight font-medium">
+                      {brandOption.desc}
+                    </div>
+                  </div>
+
+                  <div
+                    className={`mt-0.5 h-4 w-4 shrink-0 rounded-full border flex items-center justify-center transition-colors ${
+                      isSelected
+                        ? "bg-[#0E5C3A] border-[#0E5C3A] text-white"
+                        : "border-gray-300 bg-white"
+                    }`}
+                  >
+                    {isSelected && <Check className="h-2.5 w-2.5 stroke-[3]" />}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
-        {/* Product Type */}
-        <div>
-          <h3 className="font-medium mb-3">Product Type</h3>
-          {filterBarData?.productType?.map((item: any) => (
-            <div key={item.name} className="flex items-center gap-2 mb-2">
-              <Checkbox
-                checked={optimisticFilter.productType.includes(item.slug)}
-                onCheckedChange={() =>
-                  handleFilterChange("productType", item.slug)
-                }
-              />
-              <label>{item.name}</label>
-            </div>
-          ))}
+        {/* 100% Quality & Leak Guarantee Box (Retained as requested) */}
+        <div className="rounded-2xl bg-[#F1F7F3] p-4 border border-[#0E5C3A]/15 text-center">
+          <ShieldCheck className="h-6 w-6 text-[#0E5C3A] mx-auto mb-1.5" />
+          <div className="text-xs font-extrabold text-[#0A4A2E]">
+            100% Quality &amp; Leak Guarantee
+          </div>
+          <div className="text-[11px] text-[#17271E]/75 mt-1 font-medium leading-relaxed">
+            Dermatologically tested &amp; travel certified.
+          </div>
         </div>
-
-        {/* Flow */}
-        <div>
-          <h3 className="font-medium mb-3">Flow Type</h3>
-          {filterBarData?.flow?.map((item: any) => (
-            <div key={item.name} className="flex items-center gap-2 mb-2">
-              <Checkbox
-                checked={optimisticFilter.flow.includes(item.slug)}
-                onCheckedChange={() =>
-                  handleFilterChange("flow", item.slug)
-                }
-              />
-              <label>{item.name}</label>
-            </div>
-          ))}
-        </div>
-
-        {/* Size */}
-        <div>
-          <h3 className="font-medium mb-3">Size</h3>
-          {filterBarData?.size?.map((item: any) => (
-            <div key={item.name} className="flex items-center gap-2 mb-2">
-              <Checkbox
-                checked={optimisticFilter.size.includes(item.slug)}
-                onCheckedChange={() =>
-                  handleFilterChange("size", item.slug)
-                }
-              />
-              <label>{item.name}</label>
-            </div>
-          ))}
-        </div>
-
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 

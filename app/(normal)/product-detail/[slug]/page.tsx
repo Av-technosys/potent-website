@@ -12,7 +12,8 @@ import {
 import SeatCoversPageClient from "@/app/components/common/Product-detail/SeatCoversPageClient";
 import MenstrualCupPageClient from "@/app/components/common/Product-detail/MenstrualCupPageClient";
 import OvyTeenPageClient from "@/app/components/common/Product-detail/OvyTeenPageClient";
-import { loowayToiletSeatCovers, ovyCup, ovyTeen } from "@/const/productsContent";
+import PeePukeBagsPageClient from "@/app/components/common/Product-detail/PeePukeBagsPageClient";
+import { loowayPeePuke, loowayToiletSeatCovers, ovyCup, ovyTeen } from "@/const/productsContent";
 
 export default async function Page({ params }: any) {
   const { slug } = await params;
@@ -20,6 +21,27 @@ export default async function Page({ params }: any) {
   const product = await getFullProductDetails(slug);
   const reviewWithMedia = await getProductReviews(slug);
   const similarProducts = await getProductSimilarProducts(slug);
+
+  if (
+    slug === "looway-pee-puke" ||
+    slug === "looway-pee-puke-bags" ||
+    slug === "pee-puke-bags" ||
+    slug === "looway-pee-and-puke-bags" ||
+    slug === "pee-puke"
+  ) {
+    return (
+      <PeePukeBagsPageClient
+        product={
+          product || {
+            slug: "looway-pee-puke",
+            name: "Looway Pee & Puke Bags — Disposable Urine & Vomit Bags",
+          }
+        }
+        reviewWithMedia={reviewWithMedia}
+        content={loowayPeePuke}
+      />
+    );
+  }
 
   if (slug === "looway-toilet-seat-covers" || slug === "toilet-seat-covers") {
     return (

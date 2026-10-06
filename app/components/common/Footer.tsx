@@ -68,7 +68,7 @@ export default function Footer() {
   };
 
   return (
-    <footer className="w-full bg-[#004851] text-white">
+    <footer className="w-full bg-[#075965] text-white">
       <div className="mx-auto max-w-7xl px-5 pt-12 pb-8 sm:px-8 sm:pt-16 lg:px-16">
         {/* TOP MAIN GRID */}
         <div className="grid grid-cols-1 gap-8 md:grid-cols-6 lg:grid-cols-12 lg:gap-10">
