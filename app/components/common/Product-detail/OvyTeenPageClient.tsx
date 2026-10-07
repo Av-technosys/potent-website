@@ -45,6 +45,7 @@ import {
   removeFromWishlist as removeFromWishlistAction,
 } from "@/store/WishlistActions";
 import { getImageUrl } from "@/lib/imageUrl";
+import { getPdpSubscriptionDiscount, getPdpSubscriptionPlans } from "@/lib/pdpSubscriptionRules";
 import { calculateCycleSyncSchedule, getMinimumCycleSyncPeriodDate } from "@/lib/cycleSync";
 import WhatsInside from "./WhatsInside";
 import OvyComparison from "./OvyComparison";
@@ -391,9 +392,15 @@ export default function OvyTeenPageClient({
   const mrpPrice = currentVariant?.strikethroughPrice ? Number(currentVariant.strikethroughPrice) : activeKit.mrp;
 
   const modeDiscountPercentage = useMemo(() => {
-    if (selectedModeId === "cyclesync" || selectedModeId === "sub1") return 0.15;
-    if (selectedModeId === "sub2") return 0.12;
-    return 0;
+    const subscriptionType =
+      selectedModeId === "cyclesync"
+        ? "cycle_sync"
+        : selectedModeId === "sub1"
+          ? "monthly"
+          : selectedModeId === "sub2"
+            ? "every_2_months"
+            : null;
+    return getPdpSubscriptionDiscount(subscriptionType) / 100;
   }, [selectedModeId]);
 
   const unitPrice = Math.round(basePrice * (1 - modeDiscountPercentage));
@@ -491,10 +498,51 @@ export default function OvyTeenPageClient({
 
   // Direct Buy Now
   const handleBuyNow = async () => {
-    await handleAddToCart();
-    if (typeof window !== "undefined") {
+    if (selectedModeId === "once") {
+      await handleAddToCart();
       window.location.href = "/cart";
+      return;
     }
+
+    if (selectedModeId === "cyclesync") {
+      const schedule = cycleSchedule;
+      if (!schedule || !schedule.valid) {
+        toast.error("Select valid Cycle Sync details before continuing.");
+        return;
+      }
+    }
+
+    const subscriptionType =
+      selectedModeId === "cyclesync"
+        ? "cycle_sync"
+        : selectedModeId === "sub1"
+          ? "monthly"
+          : "every_2_months";
+    const selectedPlan = getPdpSubscriptionPlans(product).find(
+      (plan) => plan.subscriptionType === subscriptionType,
+    );
+
+    if (!selectedPlan) {
+      toast.error("This subscription plan is not available.");
+      return;
+    }
+
+    window.sessionStorage.setItem(
+      "potent-subscription-checkout",
+      JSON.stringify({
+        productId: product?.id || product?._id,
+        productVariantId: currentVariant?.id,
+        quantity,
+        subscriptionType,
+        selectedPlan,
+        plan: selectedPlan,
+        cycleSync:
+          subscriptionType === "cycle_sync"
+            ? { nextPeriodDate: cycleDate, cycleLength: Number(cycleLength) }
+            : undefined,
+      }),
+    );
+    window.location.href = "/checkout?mode=subscription";
   };
 
   // Handle Quiz flow
@@ -1014,6 +1062,33 @@ export default function OvyTeenPageClient({
                   </div>
                   <div className="text-right">
                     <b className="font-serif text-lg font-bold text-[#1A150F]">₹{Math.round(basePrice * 0.85)}</b>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => setSelectedModeId("sub2")}
+                  className={`w-full rounded-2xl border-1.5 p-4 text-left transition-all flex items-center justify-between cursor-pointer ${
+                    selectedModeId === "sub2"
+                      ? "border-[#9A5B90] bg-[#F3E6F0]/40 shadow-xs"
+                      : "border-[#1A150F]/10 hover:border-[#9A5B90]/40"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`w-5 h-5 rounded-full border-2 grid place-items-center ${selectedModeId === "sub2" ? "border-[#9A5B90] bg-[#9A5B90]" : "border-[#1A150F]/30"}`}>
+                      {selectedModeId === "sub2" && <div className="w-2 h-2 rounded-full bg-white" />}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <b className="text-sm font-bold text-[#1A150F]">Subscribe Every 2 Months</b>
+                        <span className="bg-[#15803D] text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">
+                          Save 12%
+                        </span>
+                      </div>
+                      <span className="text-xs text-[#1A150F]/60">Auto-restock every 60 days · Cancel anytime</span>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <b className="font-serif text-lg font-bold text-[#1A150F]">₹{Math.round(basePrice * 0.88)}</b>
                   </div>
                 </button>
               </div>

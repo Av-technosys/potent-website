@@ -15,7 +15,10 @@ import {
   subscriptions,
 } from "@/src/db/schema";
 import { requireUserWithRefresh } from "@/helper/user/action";
-import { getSubscriptionCheckoutQuote } from "@/lib/subscriptionCheckout";
+import {
+  getSubscriptionCheckoutQuote,
+  normalizeSubscriptionCheckoutItem,
+} from "@/lib/subscriptionCheckout";
 import { ORDER_STATUS } from "@/const/globalconst";
 
 function fromUnix(seconds?: number | null) {
@@ -25,7 +28,9 @@ function fromUnix(seconds?: number | null) {
 export async function POST(req: Request) {
   try {
     const { userId } = await requireUserWithRefresh();
-    const { item, addressId } = await req.json();
+    const body = await req.json();
+    const { addressId } = body;
+    const item = normalizeSubscriptionCheckoutItem(body);
 
     const [shippingAddress] = await db
       .select()
@@ -43,6 +48,18 @@ export async function POST(req: Request) {
     const quote = await getSubscriptionCheckoutQuote(item);
     if (!quote.success) {
       return NextResponse.json(quote, { status: 400 });
+    }
+
+    // The client quote is only a stale-price check. Never use it as the
+    // billing source; the server-calculated quote below creates the plan.
+    if (body.amount !== undefined && Number(body.amount) !== quote.final) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Subscription price changed. Refresh and try again.",
+        },
+        { status: 409 },
+      );
     }
 
     const razorpay = new Razorpay({

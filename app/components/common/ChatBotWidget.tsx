@@ -198,10 +198,10 @@ export function ChatBotWidget() {
   }
 
   return (
-    <div className="fixed bottom-6 right-4 z-50 flex flex-col items-end gap-3 sm:right-6">
+    <div className="fixed bottom-20 right-4 z-50 flex flex-col items-end gap-3 sm:right-6 md:bottom-6">
       {isOpen ? (
         <section
-          className="flex h-[min(620px,calc(100vh-120px))] w-[calc(100vw-32px)] max-w-[390px] flex-col overflow-hidden rounded-lg border border-[#efd8e5] bg-white shadow-[0_20px_60px_rgba(63,39,56,0.22)]"
+          className="flex h-[min(600px,calc(100vh-160px))] w-[calc(100vw-32px)] max-w-[390px] flex-col overflow-hidden rounded-lg border border-[#efd8e5] bg-white shadow-[0_20px_60px_rgba(63,39,56,0.22)]"
           aria-label="Potent Assistant chat"
         >
           <header className="flex items-center justify-between gap-3 border-b border-[#f2dfea] bg-[#fff7fb] px-4 py-3">

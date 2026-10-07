@@ -42,11 +42,10 @@ import {
 import { toast } from "sonner";
 import { addToCart as addToCartAction } from "@/store/cartActions";
 import { getImageUrl } from "@/lib/imageUrl";
-import { subscriptionPlans } from "@/const/globalconst";
 import {
-  calculateCycleSyncSchedule,
-  getMinimumCycleSyncPeriodDate,
-} from "@/lib/cycleSync";
+  getPdpSubscriptionDiscount,
+  getPdpSubscriptionPlans,
+} from "@/lib/pdpSubscriptionRules";
 import NoToiletLoowaySection from "./NoToiletLoowaySection";
 import HowItWorksSection from "./HowItWorksSection";
 import LoowayGuideSection from "./LoowayGuideSection";
@@ -139,12 +138,8 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
   const [selectedModeId, setSelectedModeId] = useState<string>("once");
   const [quantity, setQuantity] = useState<number>(1);
   const [selectedSubscriptionPlan, setSelectedSubscriptionPlan] = useState<any>(
-    subscriptionPlans[0],
+    getPdpSubscriptionPlans(product)[0],
   );
-  const [cycleSync, setCycleSync] = useState({
-    nextPeriodDate: "",
-    cycleLength: 28,
-  });
   const [activeStopIndex, setActiveStopIndex] = useState<number>(0);
   const [activeReviewFilter, setActiveReviewFilter] = useState<string>("all");
   const [activeNavId, setActiveNavId] = useState<string>("pdp-hero");
@@ -291,12 +286,6 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
       sub: "10 bags — one complete travel supply",
     };
 
-  const modes = content?.MODES || {
-    once: { id: "once", name: "Buy once", off: 0 },
-    sub1: { id: "sub1", name: "Subscribe monthly", off: 0.1 },
-    sub2: { id: "sub2", name: "Subscribe every 2 months", off: 0.05 },
-  };
-
   const packBasePrice = selectedPack?.price || Number(product?.price) || 499;
   const mrpPrice =
     selectedPack?.mrp || Number(product?.mrp) || Math.round(packBasePrice * 1.25);
@@ -308,48 +297,21 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
 
   const availableSubscriptionPlans = useMemo(
     () =>
-      subscriptionPlans.filter((plan) => {
-        if (plan.subscriptionType === "cycle_sync") {
-          return Boolean(product?.allowCycleSync ?? true);
-        }
-        return Boolean(product?.allowSubscription ?? true);
-      }),
+      getPdpSubscriptionPlans(product),
     [product],
   );
 
   const getSubscriptionDiscount = (plan: any) => {
-    const discountByPlan: Record<string, number> = {
-      monthly: Number(product?.subscribeMonthlyDiscount || 15),
-      every_2_months: Number(product?.subscribeBiMontlyDiscount || 10),
-      cycle_sync: Number(product?.cycleSyncDiscount || 15),
-    };
-
-    return discountByPlan[plan.subscriptionType] || plan.discountPercentage || 0;
+    return getPdpSubscriptionDiscount(plan.subscriptionType);
   };
 
-  const minimumCycleSyncDate = useMemo(() => {
-    const date = getMinimumCycleSyncPeriodDate();
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
-  }, []);
-
   const handleSubscribeNow = () => {
-    const selectedPlan = selectedSubscriptionPlan || subscriptionPlans[0];
+    const selectedPlan = selectedSubscriptionPlan || getPdpSubscriptionPlans(product)[0];
     const subscriptionType = selectedPlan?.subscriptionType;
 
     if (!subscriptionType || subscriptionType === "buy_once") {
       toast.error("Please select a subscription plan");
       return;
-    }
-
-    if (subscriptionType === "cycle_sync") {
-      const schedule = calculateCycleSyncSchedule(cycleSync);
-      if (!schedule.valid) {
-        toast.error(schedule.message || "Enter valid Cycle Sync details.");
-        return;
-      }
     }
 
     const pId = product?._id || product?.id || "looway-pee-puke";
@@ -363,7 +325,7 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
         quantity,
         subscriptionType,
         selectedPlan,
-        cycleSync: subscriptionType === "cycle_sync" ? cycleSync : undefined,
+        plan: selectedPlan,
       }),
     );
 
@@ -1001,11 +963,9 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
                         const discount = getSubscriptionDiscount(plan);
                         const subscriptionPrice = Math.round(packBasePrice * (1 - discount / 100));
                         const billingLabel =
-                          plan.subscriptionType === "cycle_sync"
-                            ? "Based on your cycle"
-                            : plan.subscriptionType === "every_2_months"
-                              ? "Every 60 days"
-                              : "Every 30 days";
+                          plan.subscriptionType === "every_2_months"
+                            ? "Every 60 days"
+                            : "Every 30 days";
 
                         return (
                           <button
@@ -1034,42 +994,6 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
                         );
                       })}
                     </div>
-
-                    {selectedSubscriptionPlan?.subscriptionType === "cycle_sync" && (
-                      <div className="mt-4 grid gap-3 rounded-xl border border-[#0E5C3A]/15 bg-white p-3.5 sm:grid-cols-2">
-                        <label className="text-xs font-semibold text-gray-700">
-                          Next period date
-                          <input
-                            type="date"
-                            min={minimumCycleSyncDate}
-                            value={cycleSync.nextPeriodDate}
-                            onChange={(event) =>
-                              setCycleSync((current) => ({
-                                ...current,
-                                nextPeriodDate: event.target.value,
-                              }))
-                            }
-                            className="mt-1.5 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-normal text-gray-900 outline-none focus:border-[#0E5C3A]"
-                          />
-                        </label>
-                        <label className="text-xs font-semibold text-gray-700">
-                          Cycle length (days)
-                          <input
-                            type="number"
-                            min={21}
-                            max={45}
-                            value={cycleSync.cycleLength}
-                            onChange={(event) =>
-                              setCycleSync((current) => ({
-                                ...current,
-                                cycleLength: Number(event.target.value),
-                              }))
-                            }
-                            className="mt-1.5 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-normal text-gray-900 outline-none focus:border-[#0E5C3A]"
-                          />
-                        </label>
-                      </div>
-                    )}
 
                     <button
                       type="button"

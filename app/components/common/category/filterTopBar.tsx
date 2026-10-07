@@ -44,8 +44,8 @@ export default function FilterBar({ total }: any) {
         </div>
       </div>
 
-      {/* Quick Filter Strap & Counter */}
-      <div className="mt-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-2xl bg-white p-3 sm:p-4 shadow-2xs border border-[#E4DED0]">
+      {/* Quick Filter Strap & Counter (Hidden on mobile screens < md) */}
+      <div className="mt-6 hidden md:flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 rounded-2xl bg-white p-3 sm:p-4 shadow-2xs border border-[#E4DED0]">
         {/* Category Quick Pills */}
         <div className="flex items-center gap-2 overflow-x-auto no-scrollbar w-full sm:w-auto pb-1 sm:pb-0">
           {[

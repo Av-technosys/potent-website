@@ -13,14 +13,38 @@ import SeatCoversPageClient from "@/app/components/common/Product-detail/SeatCov
 import MenstrualCupPageClient from "@/app/components/common/Product-detail/MenstrualCupPageClient";
 import OvyTeenPageClient from "@/app/components/common/Product-detail/OvyTeenPageClient";
 import PeePukeBagsPageClient from "@/app/components/common/Product-detail/PeePukeBagsPageClient";
-import { loowayPeePuke, loowayToiletSeatCovers, ovyCup, ovyTeen } from "@/const/productsContent";
+import PeeFunnelPageClient from "@/app/components/common/Product-detail/PeeFunnelPageClient";
+import { loowayPeePuke, loowayPeeFunnel, loowayToiletSeatCovers, ovyCup, ovyTeen } from "@/const/productsContent";
 
 export default async function Page({ params }: any) {
   const { slug } = await params;
 
+  
+
   const product = await getFullProductDetails(slug);
   const reviewWithMedia = await getProductReviews(slug);
   const similarProducts = await getProductSimilarProducts(slug);
+  
+
+  if (
+    slug === "looway-pee-funnel" ||
+    slug === "pee-funnel" ||
+    slug === "looway-funnel" ||
+    slug === "looway-reusable-female-pee-funnel"
+  ) {
+    return (
+      <PeeFunnelPageClient
+        product={
+          product || {
+            slug: "looway-pee-funnel",
+            name: "Looway Reusable Female Pee Funnel",
+          }
+        }
+        reviewWithMedia={reviewWithMedia}
+        content={loowayPeeFunnel}
+      />
+    );
+  }
 
   if (
     slug === "looway-pee-puke" ||

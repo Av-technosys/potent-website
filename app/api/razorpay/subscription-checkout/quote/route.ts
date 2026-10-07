@@ -1,13 +1,17 @@
 // @ts-nocheck
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from "next/server";
-import { getSubscriptionCheckoutQuote } from "@/lib/subscriptionCheckout";
+import {
+  getSubscriptionCheckoutQuote,
+  normalizeSubscriptionCheckoutItem,
+} from "@/lib/subscriptionCheckout";
 import { requireUserWithRefresh } from "@/helper/user/action";
 
 export async function POST(req: Request) {
   try {
     await requireUserWithRefresh();
-    const { item } = await req.json();
+    const body = await req.json();
+    const item = normalizeSubscriptionCheckoutItem(body);
     const quote = await getSubscriptionCheckoutQuote(item);
 
     if (!quote.success) {
@@ -34,8 +38,12 @@ export async function POST(req: Request) {
         },
       ],
       subtotal: quote.subtotal,
+      discountedSubtotal: quote.discountedSubtotal,
       discount: quote.discount,
+      discountAmount: quote.discount,
+      discountPercentage: quote.discountPercentage,
       final: quote.final,
+      shipping: quote.shipping,
       label: quote.label,
       billing: quote.billing,
     });

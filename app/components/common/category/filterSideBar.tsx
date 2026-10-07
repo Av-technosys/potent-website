@@ -35,27 +35,31 @@ export default function FiltersSidebar() {
 
   return (
     <div className="w-full md:w-64 lg:w-72 shrink-0">
-      {/* Mobile Collapsible Header Button */}
-      <button
-        type="button"
-        onClick={() => setIsOpenMobile(!isOpenMobile)}
-        className="md:hidden flex w-full items-center justify-between rounded-2xl border border-[#E4DED0] bg-white p-3.5 text-xs font-bold text-[#0A4A2E] shadow-2xs cursor-pointer mb-3"
-      >
-        <div className="flex items-center gap-2">
-          <Filter className="h-4 w-4 text-[#0E5C3A]" />
+      {/* Mobile Collapsible Header Row (Products label on left, Filter button on right) */}
+      <div className="md:hidden flex items-center justify-between gap-2 mb-3">
+        <span className="font-serif text-base font-extrabold text-[#0A4A2E]">
+          Products
+        </span>
+
+        <button
+          type="button"
+          onClick={() => setIsOpenMobile(!isOpenMobile)}
+          className="flex items-center gap-2 rounded-2xl border border-[#E4DED0] bg-white px-3.5 py-2.5 text-xs font-bold text-[#0A4A2E] shadow-2xs cursor-pointer"
+        >
+          <Filter className="h-3.5 w-3.5 text-[#0E5C3A]" />
           <span>Filter by Brand Line</span>
           {hasActiveFilters && (
             <span className="rounded-full bg-[#0E5C3A] px-2 py-0.5 text-[10px] text-white font-extrabold uppercase">
               {currentBrand}
             </span>
           )}
-        </div>
-        <ChevronDown
-          className={`h-4 w-4 transition-transform duration-300 ${
-            isOpenMobile ? "rotate-180 text-[#0E5C3A]" : "text-gray-400"
-          }`}
-        />
-      </button>
+          <ChevronDown
+            className={`h-3.5 w-3.5 transition-transform duration-300 ${
+              isOpenMobile ? "rotate-180 text-[#0E5C3A]" : "text-gray-400"
+            }`}
+          />
+        </button>
+      </div>
 
       {/* Sidebar Content (Sticky on Desktop, Collapsible on Mobile) */}
       <div

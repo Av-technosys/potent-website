@@ -31,11 +31,13 @@ export const loadRazorpayScript = (): Promise<boolean> => {
 
 export const initiateRazorpaySubscription = async ({
   item,
+  amount,
   addressId,
   name,
   description,
 }: {
   item: any;
+  amount: number;
   addressId: string;
   name: string;
   description: string;
@@ -50,12 +52,16 @@ export const initiateRazorpaySubscription = async ({
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ item, addressId }),
+    body: JSON.stringify({ item, amount, addressId }),
   });
 
   const startData = await startRes.json();
   if (!startRes.ok || !startData?.subscriptionId) {
     throw new Error(startData?.error ?? "Subscription checkout failed");
+  }
+
+  if (Number(startData.amount) !== amount) {
+    throw new Error("Subscription amount changed. Refresh checkout and try again.");
   }
 
   return new Promise((resolve, reject) => {

@@ -1,17 +1,36 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+
+const hiddenPathPrefixes = [
+  "/admin",
+  "/dashboard",
+  "/login",
+  "/signup",
+  "/reset-password",
+  "/email-verification",
+];
 
 export function WhatsAppWidget() {
+  const pathname = usePathname();
   const phoneNumber = "91987";
   const message = "Hi! I have a question about your products.";
+
+  const isHidden = hiddenPathPrefixes.some((prefix) =>
+    pathname?.startsWith(prefix)
+  );
+
+  if (isHidden) {
+    return null;
+  }
 
   return (
     <Link
       href={`https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`}
       target="_blank"
       rel="noopener noreferrer"
-      className="group fixed bottom-24 right-4 z-50 transition-all hover:scale-110 active:scale-95 sm:right-6 md:right-3"
+      className="group fixed bottom-[148px] right-4 z-50 transition-all hover:scale-110 active:scale-95 sm:right-6 md:bottom-24"
       aria-label="Chat on WhatsApp"
     >
       <div className="relative flex h-12 w-12 items-center justify-center rounded-full bg-[#60D669] text-white shadow-[0_8px_30px_rgb(37,211,102,0.4)] md:h-12 md:w-12">

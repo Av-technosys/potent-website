@@ -37,8 +37,12 @@ import WhatsInside from "./WhatsInside";
 import OvyComparison from "./OvyComparison";
 import OvyPromos from "./OvyPromos";
 import { toast } from "sonner";
-import { subscriptionPlans } from "@/const/globalconst";
 import { getImageUrl } from "@/lib/imageUrl";
+import {
+  BUY_ONCE_PLAN,
+  getPdpSubscriptionDiscount,
+  getPdpSubscriptionPlans,
+} from "@/lib/pdpSubscriptionRules";
 import {
   calculateMixBoxPricing,
   normalizeMixBoxRecipe,
@@ -53,7 +57,6 @@ import {
   applyDiscounts,
   getFreeShippingThreshold,
   getMaxBoxes,
-  getModeDiscount,
   getProductStaticContent,
   getStaticBullets,
   getStaticShortText,
@@ -62,14 +65,6 @@ import {
   getVolumeDiscount,
   resolveStaticSizeKey,
 } from "@/lib/productStaticContent";
-
-const BUY_ONCE_PLAN = {
-  id: "buy_once",
-  label: "Buy Once (One-time order)",
-  discountPercentage: 0,
-  period: 0,
-  subscriptionType: "buy_once",
-};
 
 type DeliveryStatus =
   | {
@@ -91,17 +86,6 @@ type DeliveryStatus =
       message: string;
       courier?: never;
     };
-
-const getProductPlanDiscount = (productInfo: any, planType?: string | null) => {
-  const discountByPlan: Record<string, number> = {
-    monthly: Number(productInfo?.subscribeMonthlyDiscount || 0),
-    every_2_months: Number(productInfo?.subscribeBiMontlyDiscount || 0),
-    cycle_sync: Number(productInfo?.cycleSyncDiscount || 0),
-  };
-  const discount = discountByPlan[planType || ""] || 0;
-
-  return discount > 0 ? discount / 100 : 0;
-};
 
 export default function ProductDetailPage({
   productInfo,
@@ -251,12 +235,7 @@ export default function ProductDetailPage({
     productInfo?.freeShippingOver || 599,
   );
 
-  const availableSubscriptionPlans = subscriptionPlans.filter((plan) => {
-    if (plan.subscriptionType === "cycle_sync") {
-      return Boolean(productInfo?.allowCycleSync ?? true);
-    }
-    return Boolean(productInfo?.allowSubscription ?? true);
-  });
+  const availableSubscriptionPlans = getPdpSubscriptionPlans(productInfo);
   const shownSubscriptionPlans = [BUY_ONCE_PLAN, ...availableSubscriptionPlans];
   const subscriptionType = selectedPlan?.subscriptionType ?? "buy_once";
   const purchaseType =
@@ -294,8 +273,7 @@ export default function ProductDetailPage({
     : null;
 
   const subscriptionDiscount = effectiveSubscriptionType
-    ? getProductPlanDiscount(productInfo, effectiveSubscriptionType) ||
-      getModeDiscount(staticContent, effectiveSubscriptionType) || 0.15
+    ? getPdpSubscriptionDiscount(effectiveSubscriptionType) / 100
     : 0;
   const volumeDiscount = isMixBoxCheckout
     ? 0
@@ -515,6 +493,7 @@ export default function ProductDetailPage({
         quantity: isMixBoxCheckout ? 1 : quantity,
         subscriptionType: effectiveSubscriptionType,
         selectedPlan,
+        plan: selectedPlan,
         mixBoxRecipe: isMixBoxCheckout ? mixBoxRecipe : undefined,
         totalPads:
           isMixBoxCheckout && mixBoxPricing?.valid
@@ -1103,13 +1082,10 @@ export default function ProductDetailPage({
             <div className="grid grid-cols-1 gap-2 sm:gap-2.5">
               {shownSubscriptionPlans.map((plan: any) => {
                 const isSelected = selectedPlan?.id === plan.id;
-                const schemaDiscount = getProductPlanDiscount(
-                  productInfo,
-                  plan.subscriptionType,
-                );
-                const discountPercentage = schemaDiscount
-                  ? Math.round(schemaDiscount * 100)
-                  : plan.discountPercentage || (plan.id !== "buy_once" ? 15 : 0);
+                const discountPercentage =
+                  plan.id === "buy_once"
+                    ? 0
+                    : getPdpSubscriptionDiscount(plan.subscriptionType);
                 const discountedPrice = discountPercentage > 0
                   ? baseOrderValueForPlan - baseOrderValueForPlan * (discountPercentage / 100)
                   : baseOrderValueForPlan;

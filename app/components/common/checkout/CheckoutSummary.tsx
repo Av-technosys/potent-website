@@ -78,7 +78,19 @@ export function CheckoutSummary({
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ item: subscriptionCheckout }),
+        body: JSON.stringify({
+          productId: subscriptionCheckout.productId,
+          productVariantId: subscriptionCheckout.productVariantId,
+          quantity: subscriptionCheckout.quantity,
+          subscriptionType:
+            subscriptionCheckout.subscriptionType ??
+            subscriptionCheckout.selectedPlan?.subscriptionType ??
+            subscriptionCheckout.plan?.subscriptionType,
+          selectedPlan:
+            subscriptionCheckout.selectedPlan ?? subscriptionCheckout.plan,
+          cycleSync: subscriptionCheckout.cycleSync,
+          mixBoxRecipe: subscriptionCheckout.mixBoxRecipe,
+        }),
       });
       const data = await res.json();
 
@@ -90,10 +102,10 @@ export function CheckoutSummary({
       setSubscriptionQuote(data);
       setCart(data.items ?? []);
       setTotal(data.subtotal);
-      setDiscount(data.discount);
-      setDiscountedSubtotal(data.final);
+      setDiscount(data.discountAmount ?? data.discount ?? 0);
+      setDiscountedSubtotal(data.discountedSubtotal ?? data.final);
       setGst(0);
-      setShipping(0);
+      setShipping(data.shipping ?? 0);
       setFinal(data.final);
     } finally {
       setQuoteLoading(false);
@@ -155,6 +167,7 @@ export function CheckoutSummary({
 
         const res: any = await initiateRazorpaySubscription({
           item: subscriptionCheckout,
+          amount: subscriptionQuote.final,
           addressId: selected,
           name: "POTENT HYGIENE",
           description: subscriptionQuote?.label ?? "Subscription Payment",
@@ -257,7 +270,11 @@ export function CheckoutSummary({
         {discount > 0 && (
           <>
             <div className="flex justify-between text-sm text-green-700">
-              <span>Coupon Discount</span>
+              <span>
+                {isSubscriptionCheckout
+                  ? `Subscription Discount · Save ${subscriptionQuote?.discountPercentage ?? 0}%`
+                  : "Coupon Discount"}
+              </span>
               <span className="font-bold">-₹{discount.toFixed(2)}</span>
             </div>
 
@@ -272,19 +289,19 @@ export function CheckoutSummary({
 
         {!isSubscriptionCheckout && (
           <div className="flex justify-between text-sm text-[#666666]">
-            <span>GST (18%)</span>
-            <span className="font-bold text-[#333333]">₹{gst.toFixed(2)}</span>
+            <span>GST (included)</span>
+            <span className="font-bold text-[#333333]">Included</span>
           </div>
         )}
 
-        {!isSubscriptionCheckout && (
-          <div className="flex justify-between text-sm text-[#666666]">
-            <span>Shipping</span>
-            <span className="font-bold text-[#333333]">
-              ₹{shipping.toFixed(2)}
-            </span>
-          </div>
-        )}
+        <div className="flex justify-between text-sm text-[#666666]">
+          <span>Shipping</span>
+          <span className="font-bold text-[#333333]">
+            {shipping === 0 && total > 0
+              ? "Free Delivery"
+              : `₹${shipping.toFixed(2)}`}
+          </span>
+        </div>
       </div>
 
       <div className="py-6">

@@ -49,11 +49,11 @@ export default function HowItWorksSection() {
         </div>
 
         {/* 3 Steps Grid: Horizontal scroll on mobile, 3 cols on desktop */}
-        <div className="mt-4 flex items-center justify-between md:hidden">
+        <div className="mt-4 flex items-center justify-between md:hidden ">
           <span className="text-[10.5px] font-bold text-[#0E5C3A]">Swipe steps →</span>
           <span className="text-[10px] font-medium text-[#17271E]/50">3 easy steps</span>
         </div>
-        <div className="mt-2 sm:mt-10 flex md:grid md:grid-cols-3 overflow-x-auto md:overflow-visible snap-x snap-mandatory gap-2.5 sm:gap-6 pb-2 md:pb-0 no-scrollbar [::-webkit-scrollbar]:hidden">
+        <div className="mt-2 sm:mt-10 border border-blue-500  flex md:grid md:grid-cols-3 overflow-x-auto md:overflow-visible snap-x snap-mandatory gap-2.5 sm:gap-6 pb-2 md:pb-0 no-scrollbar [::-webkit-scrollbar]:hidden">
           {steps.map((step, idx) => {
             const IconComp = step.icon;
             return (

@@ -12,8 +12,24 @@ import {
   calculateCycleSyncSchedule,
   clampCycleLength,
 } from "@/lib/cycleSync";
+import {
+  PDP_SUBSCRIPTION_PLANS,
+  getPdpSubscriptionDiscount,
+  isPdpSubscriptionTypeAllowed,
+} from "@/lib/pdpSubscriptionRules";
 
-const RECURRING_TYPES = ["monthly", "every_2_months", "cycle_sync"];
+const RECURRING_TYPES = PDP_SUBSCRIPTION_PLANS.map(
+  (plan) => plan.subscriptionType,
+);
+const FREE_SHIPPING_THRESHOLD = 599;
+const SHIPPING_FEE = 60;
+
+const DEFAULT_SUBSCRIPTION_DISCOUNTS = Object.fromEntries(
+  PDP_SUBSCRIPTION_PLANS.map((plan) => [
+    plan.subscriptionType,
+    plan.discountPercentage,
+  ]),
+);
 
 function addDays(date: Date, days: number) {
   const result = new Date(date);
@@ -21,20 +37,41 @@ function addDays(date: Date, days: number) {
   return result;
 }
 
-function getProductDiscount(productInfo: any, subscriptionType: SubscriptionType) {
-  if (subscriptionType === "monthly") {
-    return Number(productInfo.subscribeMonthlyDiscount || 0) / 100;
-  }
+function getProductDiscount(
+  _productInfo: any,
+  subscriptionType: SubscriptionType,
+) {
+  return (
+    Number(
+      DEFAULT_SUBSCRIPTION_DISCOUNTS[subscriptionType] ??
+        getPdpSubscriptionDiscount(subscriptionType),
+    ) / 100
+  );
+}
 
-  if (subscriptionType === "every_2_months") {
-    return Number(productInfo.subscribeBiMontlyDiscount || 0) / 100;
-  }
+export function normalizeSubscriptionCheckoutItem(input: any) {
+  const nestedItem =
+    input?.item && typeof input.item === "object" ? input.item : {};
+  const selectedPlan =
+    input?.selectedPlan ??
+    input?.plan ??
+    nestedItem.selectedPlan ??
+    nestedItem.plan;
 
-  if (subscriptionType === "cycle_sync") {
-    return Number(productInfo.cycleSyncDiscount || 0) / 100;
-  }
-
-  return 0;
+  return {
+    ...nestedItem,
+    productId: input?.productId ?? nestedItem.productId,
+    productVariantId:
+      input?.productVariantId ?? nestedItem.productVariantId,
+    quantity: input?.quantity ?? nestedItem.quantity,
+    subscriptionType:
+      input?.subscriptionType ??
+      nestedItem.subscriptionType ??
+      selectedPlan?.subscriptionType,
+    selectedPlan,
+    cycleSync: input?.cycleSync ?? nestedItem.cycleSync,
+    mixBoxRecipe: input?.mixBoxRecipe ?? nestedItem.mixBoxRecipe,
+  };
 }
 
 function getBilling(subscriptionType: SubscriptionType, cycleSync: any) {
@@ -66,6 +103,16 @@ function getBilling(subscriptionType: SubscriptionType, cycleSync: any) {
 }
 
 export async function getSubscriptionCheckoutQuote(item: any) {
+  item = normalizeSubscriptionCheckoutItem(item);
+
+  if (!item?.productId || typeof item.productId !== "string") {
+    return { success: false, error: "Product is required" };
+  }
+
+  if (item.productVariantId && typeof item.productVariantId !== "string") {
+    return { success: false, error: "Invalid product variant" };
+  }
+
   const subscriptionType = item?.subscriptionType as SubscriptionType;
 
   if (!RECURRING_TYPES.includes(subscriptionType as string)) {
@@ -96,24 +143,17 @@ export async function getSubscriptionCheckoutQuote(item: any) {
     return { success: false, error: "Product or variant not found" };
   }
 
-  if (subscriptionType === "cycle_sync") {
-    if (!row.productInfo.allowCycleSync) {
-      return { success: false, error: "Cycle Sync is not available for this product" };
-    }
+  if (!isPdpSubscriptionTypeAllowed(row.productInfo, subscriptionType)) {
+    return { success: false, error: "Subscription is not available for this product" };
+  }
 
+  if (subscriptionType === "cycle_sync") {
     if (item?.cycleSync?.nextPeriodDate) {
       const schedule = calculateCycleSyncSchedule(item.cycleSync);
       if (!schedule.valid) {
         return { success: false, error: schedule.message };
       }
     }
-  } else if (
-    !row.productInfo.allowSubscription &&
-    !["ovy-cup", "menstrual-cup", "ovy-reusable-menstrual-cup"].includes(
-      String(row.productInfo.slug || "").toLowerCase(),
-    )
-  ) {
-    return { success: false, error: "Subscription is not available for this product" };
   }
 
   const quantity = row.productInfo.isMixBox
@@ -145,7 +185,12 @@ export async function getSubscriptionCheckoutQuote(item: any) {
     subtotal = mixPricing.price;
   }
 
-  const final = Math.round(subtotal * (1 - discount));
+  const discountedSubtotal = Math.round(subtotal * (1 - discount));
+  const shipping =
+    discountedSubtotal <= 0 || discountedSubtotal > FREE_SHIPPING_THRESHOLD
+      ? 0
+      : SHIPPING_FEE;
+  const final = discountedSubtotal + shipping;
   const billing = getBilling(subscriptionType, item?.cycleSync);
   const now = new Date();
   const cycleSchedule =
@@ -161,8 +206,11 @@ export async function getSubscriptionCheckoutQuote(item: any) {
     subscriptionType,
     billing,
     subtotal,
-    discount: subtotal - final,
+    discountedSubtotal,
+    discount: subtotal - discountedSubtotal,
+    discountPercentage: Number((discount * 100).toFixed(2)),
     final,
+    shipping,
     amountPaise: Math.round(final * 100),
     label: `${row.productInfo.name} - ${billing.label} Subscription`,
     nextOrderDate:

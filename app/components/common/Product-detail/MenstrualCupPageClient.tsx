@@ -8,7 +8,6 @@ import { useRouter } from "next/navigation";
 import {
   Star,
   ShieldCheck,
-  CheckCircle2,
   Check,
   ShoppingBag,
   Sparkles,
@@ -17,7 +16,6 @@ import {
   Truck,
   Heart,
   HelpCircle,
-  ArrowRight,
   ArrowDown,
   ArrowUp,
   MapPin,
@@ -37,11 +35,6 @@ import {
 import { toast } from "sonner";
 import { addToCart as addToCartAction } from "@/store/cartActions";
 import { getImageUrl } from "@/lib/imageUrl";
-import { subscriptionPlans } from "@/const/globalconst";
-import {
-  calculateCycleSyncSchedule,
-  getMinimumCycleSyncPeriodDate,
-} from "@/lib/cycleSync";
 import ProductReviews from "./productreview";
 import { ovyProductDetailsPage } from "@/const/globalconst";
 
@@ -57,14 +50,6 @@ const QUIZ_SIZES = [
   { id: "m", name: "Medium", cap: "25 ml", forWho: "No vaginal birth yet (any age / C-section)" },
   { id: "l", name: "Large", cap: "35 ml", forWho: "After vaginal birth or very heavy flow" },
 ];
-
-const BUY_ONCE_PLAN = {
-  id: "buy_once",
-  label: "Buy Once",
-  discountPercentage: 0,
-  period: 0,
-  subscriptionType: "buy_once",
-};
 
 export default function MenstrualCupPageClient({ product, reviewWithMedia }: Props) {
   const router = useRouter();
@@ -134,13 +119,6 @@ export default function MenstrualCupPageClient({ product, reviewWithMedia }: Pro
 
   const [quantity, setQuantity] = useState(1);
   const [isAdding, setIsAdding] = useState(false);
-  const [selectedSubscriptionPlan, setSelectedSubscriptionPlan] = useState<any>(
-    subscriptionPlans[0],
-  );
-  const [cycleSync, setCycleSync] = useState({
-    nextPeriodDate: "",
-    cycleLength: 28,
-  });
 
   // Extract Real Database Product Images
   const productImages = useMemo(() => {
@@ -168,39 +146,7 @@ export default function MenstrualCupPageClient({ product, reviewWithMedia }: Pro
   const discountPercent =
     strikethroughPrice > price ? Math.round(((strikethroughPrice - price) / strikethroughPrice) * 100) : 0;
 
-  const isOvyCup = ["ovy-cup", "menstrual-cup", "ovy-reusable-menstrual-cup"].includes(
-    String(productInfo?.slug || "").toLowerCase(),
-  );
-
-  const availableSubscriptionPlans = useMemo(
-    () =>
-      subscriptionPlans.filter((plan) => {
-        if (plan.subscriptionType === "cycle_sync") {
-          return Boolean(productInfo?.allowCycleSync ?? true);
-        }
-
-        return isOvyCup || Boolean(productInfo?.allowSubscription ?? true);
-      }),
-    [isOvyCup, productInfo],
-  );
-
-  const getSubscriptionDiscount = (plan: any) => {
-    const discountByPlan: Record<string, number> = {
-      monthly: Number(productInfo?.subscribeMonthlyDiscount || 0),
-      every_2_months: Number(productInfo?.subscribeBiMontlyDiscount || 0),
-      cycle_sync: Number(productInfo?.cycleSyncDiscount || 0),
-    };
-
-    return discountByPlan[plan.subscriptionType] || plan.discountPercentage || 0;
-  };
-
-  const minimumCycleSyncDate = useMemo(() => {
-    const date = getMinimumCycleSyncPeriodDate();
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
-  }, []);
+  // The reusable menstrual cup is buy-once only per the PDP matrix.
 
   // Quiz Modal State
   const [isQuizOpen, setIsQuizOpen] = useState(false);
@@ -296,40 +242,6 @@ export default function MenstrualCupPageClient({ product, reviewWithMedia }: Pro
     }
   };
 
-  const handleSubscribeNow = () => {
-    const selectedPlan = selectedSubscriptionPlan || BUY_ONCE_PLAN;
-    const subscriptionType = selectedPlan.subscriptionType;
-
-    if (!subscriptionType || subscriptionType === "buy_once") {
-      toast.error("Please select a subscription plan");
-      return;
-    }
-
-    if (subscriptionType === "cycle_sync") {
-      const schedule = calculateCycleSyncSchedule(cycleSync);
-      if (!schedule.valid) {
-        toast.error(schedule.message || "Enter valid Cycle Sync details.");
-        return;
-      }
-    }
-
-    const pId = productInfo?._id || productInfo?.id || "ovy-cup";
-    const vId = activeVariant?._id || activeVariant?.id;
-
-    window.sessionStorage.setItem(
-      "potent-subscription-checkout",
-      JSON.stringify({
-        productId: pId,
-        productVariantId: vId,
-        quantity,
-        subscriptionType,
-        selectedPlan,
-        cycleSync: subscriptionType === "cycle_sync" ? cycleSync : undefined,
-      }),
-    );
-
-    router.push("/checkout?mode=subscription");
-  };
 
   // Pincode Check
   const checkPincode = (e: React.FormEvent) => {
@@ -656,116 +568,6 @@ export default function MenstrualCupPageClient({ product, reviewWithMedia }: Pro
                 </div>
                 <div className="h-1.5 w-full bg-gradient-to-r from-[#8E5FA8] via-[#5FBF7E] to-[#FAF7F2]" />
               </div>
-
-              {/* SUBSCRIBE & SAVE */}
-              {availableSubscriptionPlans.length > 0 && (
-                <div className="mb-6 rounded-2xl border border-[#7E4D77]/20 bg-[#FCF8FC] p-4 shadow-2xs sm:p-5">
-                  <div className="mb-4 flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-xs font-extrabold uppercase tracking-wider text-[#7E4D77]">
-                        Subscribe & save
-                      </p>
-                      <h3 className="mt-1 text-lg font-serif font-bold text-gray-900">
-                        Never run out of period essentials
-                      </h3>
-                      <p className="mt-1 text-xs leading-relaxed text-gray-600">
-                        Choose a delivery rhythm. Billing and delivery happen automatically through Razorpay.
-                      </p>
-                    </div>
-                    <span className="shrink-0 rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-bold text-emerald-700">
-                      UP TO 15% OFF
-                    </span>
-                  </div>
-
-                  <div className="grid gap-2.5 sm:grid-cols-3">
-                    {availableSubscriptionPlans.map((plan: any) => {
-                      const isSelected = selectedSubscriptionPlan?.id === plan.id;
-                      const discount = getSubscriptionDiscount(plan);
-                      const subscriptionPrice = Math.round(price * (1 - discount / 100));
-                      const billingLabel =
-                        plan.subscriptionType === "cycle_sync"
-                          ? "Based on your cycle"
-                          : plan.subscriptionType === "every_2_months"
-                            ? "Every 60 days"
-                            : "Every 30 days";
-
-                      return (
-                        <button
-                          key={plan.id}
-                          type="button"
-                          aria-pressed={isSelected}
-                          onClick={() => setSelectedSubscriptionPlan(plan)}
-                          className={`rounded-xl border-2 p-3 text-left transition-all ${
-                            isSelected
-                              ? "border-[#7E4D77] bg-white shadow-sm"
-                              : "border-gray-200 bg-white/70 hover:border-[#B076A8]"
-                          }`}
-                        >
-                          <div className="flex items-start justify-between gap-2">
-                            <span className="text-xs font-bold text-gray-900">{plan.label}</span>
-                            {isSelected && (
-                              <CheckCircle2 className="h-4 w-4 shrink-0 text-[#7E4D77]" />
-                            )}
-                          </div>
-                          <p className="mt-2 text-lg font-bold text-[#7E4D77]">
-                            ₹{subscriptionPrice}
-                            <span className="ml-1 text-[10px] font-normal text-gray-500">/ cup</span>
-                          </p>
-                          <p className="mt-1 text-[11px] text-gray-500">{billingLabel} · Save {discount}%</p>
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {selectedSubscriptionPlan?.subscriptionType === "cycle_sync" && (
-                    <div className="mt-4 grid gap-3 rounded-xl border border-[#7E4D77]/15 bg-white p-3 sm:grid-cols-2">
-                      <label className="text-xs font-semibold text-gray-700">
-                        Next period date
-                        <input
-                          type="date"
-                          min={minimumCycleSyncDate}
-                          value={cycleSync.nextPeriodDate}
-                          onChange={(event) =>
-                            setCycleSync((current) => ({
-                              ...current,
-                              nextPeriodDate: event.target.value,
-                            }))
-                          }
-                          className="mt-1.5 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-normal text-gray-900 outline-none focus:border-[#7E4D77]"
-                        />
-                      </label>
-                      <label className="text-xs font-semibold text-gray-700">
-                        Cycle length (days)
-                        <input
-                          type="number"
-                          min={21}
-                          max={45}
-                          value={cycleSync.cycleLength}
-                          onChange={(event) =>
-                            setCycleSync((current) => ({
-                              ...current,
-                              cycleLength: Number(event.target.value),
-                            }))
-                          }
-                          className="mt-1.5 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-normal text-gray-900 outline-none focus:border-[#7E4D77]"
-                        />
-                      </label>
-                    </div>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={handleSubscribeNow}
-                    className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-[#7E4D77] px-4 py-3 text-sm font-bold text-white shadow-sm transition-all hover:bg-[#683c62] active:scale-[0.99]"
-                  >
-                    Subscribe with {selectedSubscriptionPlan?.label || "selected plan"}
-                    <ArrowRight className="h-4 w-4" />
-                  </button>
-                  <p className="mt-2 text-center text-[11px] text-gray-500">
-                    Pause or cancel from your account anytime · Secure recurring payments
-                  </p>
-                </div>
-              )}
 
               {/* REPLACEMENT GUARANTEE & SHOP WITH CONFIDENCE */}
               <div className="space-y-4 mb-6">

@@ -1197,13 +1197,13 @@ export const loowayPeePuke: Record<string, any> = {
       id: "sub1",
       name: "Subscribe monthly",
       desc: "Delivered every month",
-      off: 0.1,
+      off: 0.15,
     },
     sub2: {
       id: "sub2",
       name: "Subscribe every 2 months",
       desc: "For lighter, regular use",
-      off: 0.05,
+      off: 0.12,
     },
   },
   FREE_SHIP: 599,
@@ -1823,7 +1823,7 @@ export const loowayPeePuke: Record<string, any> = {
         ],
         [
           "How does Subscribe & Save work?",
-          "Choose Subscribe monthly (10% off) or every 2 months (5% off) at checkout and your bags arrive automatically on that schedule, with the discount applied every time. You can change, pause or cancel any time — it is built for people who want their car and bag always stocked.",
+          "Choose Subscribe monthly (15% off) or every 2 months (12% off) at checkout and your bags arrive automatically on that schedule, with the discount applied every time. You can change, pause or cancel any time — it is built for people who want their car and bag always stocked.",
         ],
         [
           "Do you deliver across India, and how do I pay?",
@@ -2378,13 +2378,13 @@ export const loowayToiletSeatCovers: Record<string, any> = {
       id: "sub1",
       name: "Subscribe monthly",
       desc: "Delivered every month",
-      off: 0.1,
+      off: 0.15,
     },
     sub2: {
       id: "sub2",
       name: "Subscribe every 2 months",
       desc: "For lighter, regular use",
-      off: 0.05,
+      off: 0.12,
     },
   },
   FREE_SHIP: 599,
@@ -2998,7 +2998,7 @@ export const loowayToiletSeatCovers: Record<string, any> = {
         ],
         [
           "How does Subscribe & Save work?",
-          "Choose Subscribe when you buy: monthly saves 10%, every 2 months saves 5%, with free shipping every time and delivery on autopilot. Pause, skip or cancel whenever you like — you're never locked in.",
+          "Choose Subscribe when you buy: monthly saves 15%, every 2 months saves 12%, with delivery on autopilot. Pause, skip or cancel whenever you like — you're never locked in.",
         ],
         [
           "Do you deliver across India, and how do I pay?",

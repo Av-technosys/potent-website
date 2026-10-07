@@ -4,6 +4,7 @@ import "./globals.css";
 import { Toaster } from "sonner";
 import { CatalogProvider } from "./components/common/CatalogProvider";
 import { ChatBotWidget } from "./components/common/ChatBotWidget";
+import { WhatsAppWidget } from "./components/common/homepage/WhatsAppWidget";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -44,6 +45,7 @@ export default function RootLayout({
         <CatalogProvider>{children}</CatalogProvider>
         <Toaster position="top-right" richColors />
         <ChatBotWidget />
+        <WhatsAppWidget />
       </body>
     </html>
   );

@@ -2,7 +2,6 @@
 export const dynamic = "force-dynamic";
 import { CartItems } from "../../components/common/cart/CartItems";
 import { OrderSummary } from "../../components/common/cart/OrderSummary";
-import { WhatsAppWidget } from "../../components/common/homepage/WhatsAppWidget";
 // import RelatedProducts from "../components/common/Product-detail/alsolike";
 import { getCart } from "@/helper/cart/action";
 import { CartInitializer } from "./CartInitializer";
@@ -27,7 +26,6 @@ export default async function CartPage() {
           </div>
           {/* <RelatedProducts /> */}
         </main>
-        <WhatsAppWidget />
       </div>
     </>
   );

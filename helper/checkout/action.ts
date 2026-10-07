@@ -8,6 +8,13 @@ import { requireUserWithRefresh } from "../user/action";
 import { calculateMixBoxPricing, type MixBoxRecipe } from "@/lib/mixYourBox";
 
 const roundMoney = (amount: number) => Number(amount.toFixed(2));
+const FREE_SHIPPING_THRESHOLD = 599;
+const SHIPPING_FEE = 60;
+
+function calculateShipping(amount: number) {
+  if (amount <= 0) return 0;
+  return amount > FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_FEE;
+}
 
 async function getUserCartItems(userId: string) {
   const userCart = await db
@@ -154,8 +161,6 @@ export async function calculateCheckoutPricingForUser({
     }, 0),
   );
 
-  const shipping = subtotal > 0 ? 50 : 0;
-
   const { couponInfo, error } = await getValidCoupon({
     code: couponCode,
     userId,
@@ -163,7 +168,8 @@ export async function calculateCheckoutPricingForUser({
   });
 
   if (error) {
-    const gst = roundMoney(subtotal * 0.18);
+    const gst = 0;
+    const shipping = calculateShipping(subtotal);
     return {
       success: false,
       message: error,
@@ -173,7 +179,7 @@ export async function calculateCheckoutPricingForUser({
       discountedSubtotal: subtotal,
       gst,
       shipping,
-      final: roundMoney(subtotal + gst + shipping),
+      final: roundMoney(subtotal + shipping),
       coupon: null,
     };
   }
@@ -194,8 +200,11 @@ export async function calculateCheckoutPricingForUser({
 
   const safeDiscount = roundMoney(discount);
   const discountedSubtotal = roundMoney(Math.max(subtotal - safeDiscount, 0));
-  const gst = roundMoney(discountedSubtotal * 0.18);
-  const final = roundMoney(discountedSubtotal + gst + shipping);
+  const shipping = calculateShipping(discountedSubtotal);
+  // Product prices are GST-inclusive. Keep GST at zero here so it is not
+  // added again to the customer-facing total or Razorpay order amount.
+  const gst = 0;
+  const final = roundMoney(discountedSubtotal + shipping);
 
   return {
     success: true,

@@ -43,6 +43,11 @@ import {
 import { toast } from "sonner";
 import { addToCart as addToCartAction } from "@/store/cartActions";
 import { getImageUrl } from "@/lib/imageUrl";
+import {
+  getPdpSubscriptionDiscount,
+  getPdpSubscriptionPlans,
+} from "@/lib/pdpSubscriptionRules";
+import { useRouter } from "next/navigation";
 
 type Props = {
   product: any;
@@ -78,6 +83,7 @@ const REVIEW_FILTERS = [
 ];
 
 export default function SeatCoversPageClient({ product, content }: Props) {
+  const router = useRouter();
   const [selectedModeId, setSelectedModeId] = useState<string>("once");
   const [quantity, setQuantity] = useState<number>(1);
   const [activeStopIndex, setActiveStopIndex] = useState<number>(0);
@@ -201,17 +207,11 @@ export default function SeatCoversPageClient({ product, content }: Props) {
   const selectedPack = packs[selectedPackId] ||
     Object.values(packs)[0] || { price: 399, mrp: 499, name: "2-Pack" };
 
-  // Mode discounts from DB product if available
-  const subMonthlyDiscount =
-    Number(product?.subscribeMonthlyDiscount || 10) / 100;
-  const subBiMonthlyDiscount =
-    Number(product?.subscribeBiMontlyDiscount || 5) / 100;
-
   const modeDiscount =
     selectedModeId === "sub1"
-      ? subMonthlyDiscount
+      ? getPdpSubscriptionDiscount("monthly") / 100
       : selectedModeId === "sub2"
-        ? subBiMonthlyDiscount
+        ? getPdpSubscriptionDiscount("every_2_months") / 100
         : 0;
 
   const basePrice = selectedPack.price || Number(product?.price) || 399;
@@ -359,6 +359,45 @@ export default function SeatCoversPageClient({ product, content }: Props) {
     } finally {
       setAdding(false);
     }
+  };
+
+  const handlePrimaryAction = async () => {
+    if (selectedModeId === "once") {
+      await handleAddToCart();
+      return;
+    }
+
+    const subscriptionType =
+      selectedModeId === "sub1" ? "monthly" : "every_2_months";
+    const selectedPlan = getPdpSubscriptionPlans(product).find(
+      (plan) => plan.subscriptionType === subscriptionType,
+    );
+    const productVariantId =
+      selectedPack?.variantId ||
+      product?.productVariants?.find(
+        (variant: any) =>
+          variant.name?.toLowerCase().includes(selectedPack.name.toLowerCase()) ||
+          variant.name?.includes(String(selectedPack.covers)),
+      )?.id ||
+      product?.productVariants?.[0]?.id;
+
+    if (!selectedPlan) {
+      toast.error("This subscription plan is not available.");
+      return;
+    }
+
+    window.sessionStorage.setItem(
+      "potent-subscription-checkout",
+      JSON.stringify({
+        productId: product?.id || product?._id,
+        productVariantId,
+        quantity,
+        subscriptionType,
+        selectedPlan,
+        plan: selectedPlan,
+      }),
+    );
+    router.push("/checkout?mode=subscription");
   };
 
   // Pincode validation
@@ -581,13 +620,13 @@ export default function SeatCoversPageClient({ product, content }: Props) {
                       id: "sub1",
                       label: "Subscribe monthly",
                       desc: "Delivered every month",
-                      badge: "Save 10%",
+                      badge: "Save 15%",
                     },
                     {
                       id: "sub2",
                       label: "Subscribe every 2 months",
                       desc: "Delivered bimonthly",
-                      badge: "Save 5%",
+                      badge: "Save 12%",
                     },
                   ].map((mode) => {
                     const isSelected = selectedModeId === mode.id;
@@ -677,12 +716,16 @@ export default function SeatCoversPageClient({ product, content }: Props) {
 
                 {/* Add to Cart CTA */}
                 <button
-                  onClick={handleAddToCart}
+                  onClick={handlePrimaryAction}
                   disabled={adding}
                   className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-2xl bg-[#0F6DA6] py-4 text-base font-bold text-white shadow-md transition-all hover:bg-[#0B4E78] disabled:opacity-50"
                 >
                   <ShoppingBag className="h-5 w-5" />
-                  {adding ? "Adding to Cart..." : "Add to Cart"}
+                  {adding
+                    ? "Adding to Cart..."
+                    : selectedModeId === "once"
+                      ? "Add to Cart"
+                      : "Subscribe & Checkout"}
                 </button>
               </div>
 

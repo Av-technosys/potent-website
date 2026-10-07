@@ -17,7 +17,6 @@ import { FounderStory } from "@/app/components/common/homepage/FounderStory";
 import StoryTruth from "../components/common/homepage/StoryTruth";
 import AboutStory from "../components/common/homepage/AboutStory";
 import { ProductCategories } from "../components/common/homepage/ProductCategories";
-import { WhatsAppWidget } from "../components/common/homepage/WhatsAppWidget";
 import { YatraKitPromo } from "../components/common/homepage/YatraKitPromo";
 
 export default function Home() {
@@ -61,7 +60,6 @@ export default function Home() {
       {/* <ProductCategories /> */}
       <Newsletter />
       {/* <BlogSection /> */}
-      <WhatsAppWidget />
     </main>
   );
 }

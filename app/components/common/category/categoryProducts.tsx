@@ -98,8 +98,8 @@ export default function CategoryProducts({ products, productsCategory }: any) {
 
   return (
     <div className="flex-1 w-full">
-      {/* 3 Columns Grid: 3-3-3 Layout */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
+      {/* 2-column grid on mobile (<640px) and 3-column grid on desktop (>=1024px) */}
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
         {filteredProducts.length > 0 ? (
           filteredProducts.map((value: any) => {
             const startingPrice = String(value.startingPrice || "").trim();
@@ -113,22 +113,19 @@ export default function CategoryProducts({ products, productsCategory }: any) {
             return (
               <div
                 key={value.id}
-                className="group relative flex flex-col justify-between rounded-3xl border border-[#E4DED0] bg-white p-3.5 sm:p-4 shadow-2xs transition-all duration-300 hover:-translate-y-1 hover:border-[#0E5C3A]/50 hover:shadow-xl"
+                className="group relative flex flex-col justify-between rounded-2xl sm:rounded-3xl border border-[#E4DED0] bg-white p-2.5 sm:p-4 shadow-2xs transition-all duration-300 hover:-translate-y-1 hover:border-[#0E5C3A]/50 hover:shadow-xl"
               >
                 <div>
                   {/* Top Badges Row */}
-                  <div className="mb-2.5 flex items-center justify-between gap-2">
-                  
-
+                  <div className="mb-2 flex items-center justify-between gap-1">
                     <div className="flex items-center gap-1">
-                     
                       <AddToWishlist product={value} />
                     </div>
                   </div>
 
                   {/* Image Container */}
                   <Link
-                    className="relative block aspect-square w-full overflow-hidden rounded-2xl bg-[#FAF8F3] border border-[#E4DED0]/50"
+                    className="relative block aspect-square w-full overflow-hidden rounded-xl sm:rounded-2xl bg-[#FAF8F3] border border-[#E4DED0]/50"
                     href={`/product-detail/${value.slug}`}
                   >
                     <Image
@@ -141,19 +138,17 @@ export default function CategoryProducts({ products, productsCategory }: any) {
                   </Link>
 
                   {/* Product Title */}
-                  <h3 className="mt-3.5 line-clamp-2 font-serif text-sm sm:text-base font-bold text-[#0A4A2E] leading-snug group-hover:text-[#0E5C3A] transition-colors">
+                  <h3 className="mt-2 sm:mt-3.5 line-clamp-2 font-serif text-xs sm:text-base font-bold text-[#0A4A2E] leading-snug group-hover:text-[#0E5C3A] transition-colors">
                     {value.name}
                   </h3>
                 </div>
 
                 {/* Price & CTA Section */}
-                <div className="mt-4 pt-3 border-t border-[#E4DED0]/60">
-               
-
+                <div className="mt-3 sm:mt-4 pt-2.5 sm:pt-3 border-t border-[#E4DED0]/60">
                   <Link href={`/product-detail/${value.slug}`} className="block w-full">
-                    <Button className="w-full cursor-pointer rounded-xl bg-[#004851] py-3 text-xs font-bold text-white shadow-xs transition-all hover:bg-[#0A4A2E] hover:shadow-md active:scale-[0.99]">
+                    <Button className="w-full cursor-pointer rounded-xl bg-[#004851] py-2 sm:py-3 text-[11px] sm:text-xs font-bold text-white shadow-xs transition-all hover:bg-[#0A4A2E] hover:shadow-md active:scale-[0.99] px-2 sm:px-4">
                       <span>View Details</span>
-                      <ArrowRight className="h-3.5 w-3.5 ml-1" />
+                      <ArrowRight className="h-3 w-3 sm:h-3.5 sm:w-3.5 ml-1 shrink-0" />
                     </Button>
                   </Link>
                 </div>
@@ -165,40 +160,38 @@ export default function CategoryProducts({ products, productsCategory }: any) {
         {/* ======================================================================= */}
         {/* 9TH PRODUCT CARD: COMING SOON CARD (Matching Attached Reference Image) */}
         {/* ======================================================================= */}
-        <div className="group relative flex flex-col justify-between rounded-3xl border border-pink-200/80 bg-[#FAF0F4] p-3.5 sm:p-4 shadow-2xs transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
+        <div className="group relative flex flex-col justify-between rounded-2xl sm:rounded-3xl border border-pink-200/80 bg-[#FAF0F4] p-2.5 sm:p-4 shadow-2xs transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
           <div>
             {/* Top Badge */}
-            <div className="mb-2.5 flex items-center justify-between">
-              <span className="rounded-full bg-[#7E4D77] px-2.5 py-0.5 text-[10px] font-extrabold text-white uppercase tracking-wider">
+            <div className="mb-2 flex items-center justify-between">
+              <span className="rounded-full bg-[#7E4D77] px-2 py-0.5 text-[9px] sm:text-[10px] font-extrabold text-white uppercase tracking-wider">
                 OVY CARE
               </span>
-              
             </div>
 
-            {/* Pink Diagonal Striped Graphic Box (Exact match to reference image) */}
-            <div className="relative aspect-square w-full overflow-hidden rounded-2xl border border-pink-200/60 bg-[repeating-linear-gradient(45deg,#fce8f0_0,#fce8f0_12px,#faf0f4_12px,#faf0f4_24px)] flex flex-col items-center justify-center p-4 shadow-2xs">
-              <span className="font-serif italic font-extrabold text-[#7E4D77] text-2xl sm:text-3xl tracking-wide text-center drop-shadow-2xs select-none">
+            {/* Pink Diagonal Striped Graphic Box */}
+            <div className="relative aspect-square w-full overflow-hidden rounded-xl sm:rounded-2xl border border-pink-200/60 bg-[repeating-linear-gradient(45deg,#fce8f0_0,#fce8f0_12px,#faf0f4_12px,#faf0f4_24px)] flex flex-col items-center justify-center p-2 sm:p-4 shadow-2xs">
+              <span className="font-serif italic font-extrabold text-[#7E4D77] text-lg sm:text-3xl tracking-wide text-center drop-shadow-2xs select-none">
                 Coming soon
               </span>
             </div>
 
             {/* Bottom Content Label */}
-            <div className="mt-3.5 px-0.5">
-              <h3 className="font-serif text-sm sm:text-base font-bold text-gray-900 leading-snug">
+            <div className="mt-2 sm:mt-3.5 px-0.5">
+              <h3 className="font-serif text-xs sm:text-base font-bold text-gray-900 leading-snug">
                 Period Panties
               </h3>
-             
             </div>
           </div>
 
           {/* Footer Notify Action */}
-          <div className="mt-4 pt-3 border-t border-pink-200/60">
-            <div className="flex items-center justify-between rounded-xl bg-white/80 p-2.5 border border-pink-200/50">
-              <span className="text-[11px] font-bold text-[#7E4D77] flex items-center gap-1.5">
-                <Clock className="h-3.5 w-3.5" />
+          <div className="mt-3 sm:mt-4 pt-2.5 sm:pt-3 border-t border-pink-200/60">
+            <div className="flex items-center justify-between rounded-xl bg-white/80 p-2 sm:p-2.5 border border-pink-200/50">
+              <span className="text-[10px] sm:text-[11px] font-bold text-[#7E4D77] flex items-center gap-1">
+                <Clock className="h-3 w-3 sm:h-3.5 sm:w-3.5 shrink-0" />
                 Launching Soon
               </span>
-              <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#7E4D77] bg-pink-100 px-2 py-0.5 rounded-md">
+              <span className="text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wider text-[#7E4D77] bg-pink-100 px-1.5 sm:px-2 py-0.5 rounded-md">
                 Stay Tuned
               </span>
             </div>
@@ -206,5 +199,6 @@ export default function CategoryProducts({ products, productsCategory }: any) {
         </div>
       </div>
     </div>
+
   );
 }
