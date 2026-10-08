@@ -97,6 +97,31 @@ export const EmailVerificationClient = () => {
   };
   return (
     <div className="relative flex min-h-screen w-full items-center justify-center lg:justify-end">
+      {/* Top Header Navigation Bar */}
+      <div className="absolute top-4 left-4 right-4 z-20 flex items-center justify-between sm:top-6 sm:left-6 sm:right-6">
+        <Link
+          href="/"
+          className="flex items-center gap-2 rounded-full bg-white/95 px-3.5 py-1.5 shadow-md backdrop-blur-sm transition-all hover:bg-white"
+        >
+          <div className="bg-[#075965] px-2.5 py-1 rounded-xl">
+            <Image
+              src="/logo-white.png"
+              alt="Potent Hygiene"
+              width={110}
+              height={32}
+              className="h-5 sm:h-6 w-auto object-contain"
+            />
+          </div>
+        </Link>
+
+        <Link
+          href="/shop"
+          className="flex items-center gap-1.5 rounded-full bg-white/95 px-4 py-2 text-xs sm:text-sm font-semibold text-[#075965] shadow-md backdrop-blur-sm transition-all hover:bg-white hover:scale-105"
+        >
+          <span>← Back to Shop</span>
+        </Link>
+      </div>
+
       <Image
         src="/loginbg.png"
         alt="background"
@@ -125,9 +150,13 @@ export const EmailVerificationClient = () => {
             />
           </div>
 
-          {/* LOGO */}
+          {/* CLICKABLE LOGO */}
           <div className="mb-4 flex justify-center">
-            <div className="bg-[#075965] px-5 py-2.5 rounded-2xl shadow-sm inline-flex items-center justify-center">
+            <Link
+              href="/"
+              title="Go to Home"
+              className="bg-[#075965] px-5 py-2.5 rounded-2xl shadow-sm inline-flex items-center justify-center transition-all hover:bg-[#05434c] hover:scale-105 cursor-pointer"
+            >
               <Image
                 src="/logo-white.png"
                 alt="Potent Hygiene"
@@ -136,7 +165,7 @@ export const EmailVerificationClient = () => {
                 className="h-9 sm:h-11 w-auto object-contain"
                 priority
               />
-            </div>
+            </Link>
           </div>
           <h2 className="text-center text-2xl font-semibold text-[#3399ac]">
             Email Verification

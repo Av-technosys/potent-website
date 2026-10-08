@@ -26,7 +26,7 @@ export function BrandAccordion() {
         <div className="grid grid-cols-2 items-stretch gap-3 sm:grid-cols-1 md:grid-cols-3 sm:gap-6 lg:gap-8">
           {/* Card 1: Ovy */}
           <Link
-            href="/shop"
+            href="/ovy"
             className="group relative flex min-h-[200px] flex-col justify-between rounded-2xl border border-purple-100/50 bg-[#f5e7eb] p-4 transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl sm:min-h-[380px] sm:rounded-[28px] sm:p-8 lg:p-10"
           >
             <div className="space-y-3 sm:space-y-6">
@@ -63,7 +63,7 @@ export function BrandAccordion() {
 
           {/* Card 2: Looway (with top patterned strip) */}
           <Link
-            href="/looway-yatra-kit"
+            href="/looway"
             className="group relative flex min-h-[200px] flex-col justify-between overflow-hidden rounded-2xl border border-teal-100/50 bg-[#E6F4F6] p-4 transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl sm:min-h-[380px] sm:rounded-[28px] sm:p-8 lg:p-10"
           >
             {/* Top Checkerboard Accent Pattern */}

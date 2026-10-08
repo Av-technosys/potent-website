@@ -355,16 +355,35 @@ export default function BestsellingProducts({
   return (
     <section className="w-full border-b border-gray-100 bg-[#FAF8F5] py-14 sm:py-20">
       <div className="mx-auto max-w-7xl px-4 sm:px-8 lg:px-16">
-        {/* Section Header */}
-        <div className="mb-8 flex flex-col justify-between gap-4 sm:mb-10 sm:gap-6 md:mb-14 md:flex-row md:items-end">
-          <div className="max-w-2xl space-y-2 text-left sm:space-y-3">
-            <span className="text-[11px] font-bold tracking-widest text-[#016271] uppercase sm:text-xs">
+        {/* Section Header - Mobile View (< sm) */}
+        <div className="mb-6 flex flex-col space-y-1.5 text-left sm:hidden">
+          <span className="text-[11px] font-bold tracking-widest text-[#016271] uppercase">
+            {isOvySection ? "OVY" : "SHOP"}
+          </span>
+          <h2 className="font-serif text-2xl leading-snug font-bold text-gray-900">
+            {isOvySection ? "Your whole cycle, covered." : "Everything, one tap away."}
+          </h2>
+          <div className="pt-1">
+            <Link
+              href={buttonHref}
+              className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#016271] transition-opacity hover:opacity-80"
+            >
+              <span>{isOvySection ? "All Ovy products" : "Shop all"}</span>
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+        </div>
+
+        {/* Section Header - Desktop View (>= sm) */}
+        <div className="mb-10 hidden flex-row items-end justify-between gap-6 sm:flex md:mb-14">
+          <div className="max-w-2xl space-y-3 text-left">
+            <span className="text-xs font-bold tracking-widest text-[#016271] uppercase">
               {sectionBadge}
             </span>
-            <h2 className="font-serif text-2xl leading-tight font-bold text-gray-900 sm:text-4xl lg:text-5xl">
+            <h2 className="font-serif text-4xl leading-tight font-bold text-gray-900 lg:text-5xl">
               {sectionTitle}
             </h2>
-            <p className="text-xs leading-relaxed font-normal text-gray-600 sm:text-base md:text-lg">
+            <p className="text-base leading-relaxed font-normal text-gray-600 md:text-lg">
               {sectionDesc}
             </p>
           </div>
@@ -374,10 +393,10 @@ export default function BestsellingProducts({
             <Link href={buttonHref}>
               <Button
                 variant="outline"
-                className="flex cursor-pointer items-center gap-2 rounded-full border-[#016271] px-4 py-2 text-xs font-semibold text-[#016271] shadow-xs transition-all duration-300 hover:bg-[#016271] hover:text-white sm:px-5 sm:py-2.5 sm:text-sm"
+                className="flex cursor-pointer items-center gap-2 rounded-full border-[#016271] px-5 py-2.5 text-sm font-semibold text-[#016271] shadow-xs transition-all duration-300 hover:bg-[#016271] hover:text-white"
               >
                 {buttonText}
-                <ArrowRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                <ArrowRight className="h-4 w-4" />
               </Button>
             </Link>
           </div>
@@ -404,25 +423,25 @@ export default function BestsellingProducts({
 
       {/* Quick View Modal */}
       {quickViewProduct && (
-        <div className="animate-fadeIn fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs">
+        <div className="animate-fadeIn fixed inset-0 z-[100000] flex items-center justify-center bg-black/60 p-3 sm:p-6 backdrop-blur-xs overflow-y-auto">
           <div
             className="fixed inset-0"
             onClick={() => setQuickViewProduct(null)}
           />
 
-          <div className="relative z-10 grid w-full max-w-2xl grid-cols-1 items-center gap-6 rounded-3xl border border-gray-100 bg-white p-6 shadow-2xl sm:grid-cols-12 sm:p-8">
+          <div className="relative z-10 grid w-full max-w-2xl grid-cols-1 items-start gap-4 sm:gap-6 rounded-3xl border border-gray-100 bg-white p-4 sm:p-8 shadow-2xl sm:grid-cols-12 max-h-[85vh] sm:max-h-[90vh] overflow-y-auto my-auto no-scrollbar sm:items-center">
             {/* Close Button */}
             <button
               type="button"
               onClick={() => setQuickViewProduct(null)}
               aria-label="Close modal"
-              className="absolute top-4 right-4 z-20 rounded-full p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
+              className="absolute top-3 right-3 sm:top-4 sm:right-4 z-30 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-gray-700 shadow-md backdrop-blur-md transition-colors hover:bg-gray-100 cursor-pointer"
             >
-              <X className="h-5 w-5" />
+              <X className="h-4 w-4" />
             </button>
 
             {/* Modal Image */}
-            <div className="relative aspect-[4/5] overflow-hidden rounded-2xl bg-[#F5EEF0] sm:col-span-5">
+            <div className="relative aspect-[16/11] sm:aspect-[4/5] w-full shrink-0 overflow-hidden rounded-2xl bg-[#F5EEF0] sm:col-span-5">
               <Image
                 unoptimized
                 src={getImageUrl(
@@ -437,38 +456,38 @@ export default function BestsellingProducts({
             </div>
 
             {/* Modal Content */}
-            <div className="flex flex-col space-y-3.5 text-left sm:col-span-7">
-              <span className="w-fit rounded-full bg-[#016271]/10 px-3 py-1 text-xs font-bold text-[#016271]">
+            <div className="flex flex-col space-y-2.5 sm:space-y-3.5 text-left sm:col-span-7">
+              <span className="w-fit rounded-full bg-[#016271]/10 px-2.5 py-0.5 text-[11px] font-bold text-[#016271] sm:px-3 sm:py-1 sm:text-xs">
                 {quickViewProduct.badge || "Bestseller"}
               </span>
 
-              <h3 className="font-serif text-2xl font-bold text-gray-900">
+              <h3 className="font-serif text-lg font-bold text-gray-900 sm:text-2xl leading-tight">
                 {quickViewProduct.name}
               </h3>
 
-              <p className="text-sm leading-relaxed font-normal text-gray-600">
+              <p className="text-xs sm:text-sm leading-relaxed font-normal text-gray-600 line-clamp-3 sm:line-clamp-none">
                 {quickViewProduct.description ||
                   "Safe, organic and dermatologically tested feminine hygiene care."}
               </p>
 
               {/* Highlights */}
-              <ul className="space-y-1.5 border-y border-gray-100 py-2.5">
+              <ul className="space-y-1 sm:space-y-1.5 border-y border-gray-100 py-2 sm:py-2.5">
                 {getProductHighlights(quickViewProduct).map(
                   (item: string, i: number) => (
                     <li
                       key={i}
                       className="flex items-center gap-2 text-xs font-medium text-gray-700 sm:text-sm"
                     >
-                      <Check className="h-4 w-4 shrink-0 text-[#016271]" />
+                      <Check className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0 text-[#016271]" />
                       <span>{item}</span>
                     </li>
                   ),
                 )}
               </ul>
 
-              <div className="flex items-baseline gap-1 pt-1">
+              <div className="flex items-baseline gap-1 pt-0.5 sm:pt-1">
                 <span className="text-xs font-normal text-gray-500">from</span>
-                <span className="text-2xl font-bold text-gray-900">
+                <span className="text-xl sm:text-2xl font-bold text-gray-900">
                   {selectedVariant
                     ? `₹${Number(selectedVariant.price || 0)}`
                     : formatProductPrice(quickViewProduct)}
@@ -476,7 +495,7 @@ export default function BestsellingProducts({
               </div>
 
               {quickViewVariants.length > 1 && (
-                <label className="flex flex-col gap-1 text-sm font-semibold text-gray-700">
+                <label className="flex flex-col gap-1 text-xs sm:text-sm font-semibold text-gray-700">
                   Choose variant
                   <select
                     value={selectedVariant?.id || ""}
@@ -487,7 +506,7 @@ export default function BestsellingProducts({
                         ),
                       )
                     }
-                    className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-normal outline-none focus:border-[#016271]"
+                    className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs sm:text-sm font-normal outline-none focus:border-[#016271] cursor-pointer"
                   >
                     {quickViewVariants.map((variant) => (
                       <option key={variant.id} value={variant.id}>
@@ -500,12 +519,12 @@ export default function BestsellingProducts({
               )}
 
               {/* Action Buttons */}
-              <div className="flex flex-col items-center gap-3 pt-2 sm:flex-row">
+              <div className="flex flex-col items-center gap-2 pt-1.5 sm:flex-row sm:gap-3 sm:pt-2">
                 <button
                   type="button"
                   onClick={handleModalAdd}
                   disabled={modalAdding}
-                  className={`flex w-full flex-1 cursor-pointer items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold shadow-md transition-all sm:w-auto ${
+                  className={`flex w-full flex-1 cursor-pointer items-center justify-center gap-2 rounded-full px-5 py-2.5 sm:px-6 sm:py-3 text-xs sm:text-sm font-semibold shadow-md transition-all sm:w-auto ${
                     modalAdded
                       ? "bg-emerald-600 text-white"
                       : "bg-[#016271] text-white hover:scale-[1.02] hover:bg-[#014d59]"
@@ -529,7 +548,7 @@ export default function BestsellingProducts({
                 <Link
                   href={`/product-detail/${quickViewProduct.slug}`}
                   onClick={() => setQuickViewProduct(null)}
-                  className="w-full py-2 text-center text-xs font-semibold text-[#016271] hover:underline sm:w-auto sm:text-sm"
+                  className="w-full py-1 text-center text-xs font-semibold text-[#016271] hover:underline sm:w-auto sm:text-sm"
                 >
                   View full details →
                 </Link>

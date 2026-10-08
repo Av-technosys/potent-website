@@ -246,6 +246,28 @@ export default function ProductDetailPage({
 
   const availableSubscriptionPlans = getPdpSubscriptionPlans(productInfo);
   const shownSubscriptionPlans = [BUY_ONCE_PLAN, ...availableSubscriptionPlans];
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const searchParams = new URLSearchParams(window.location.search);
+    const planParam = searchParams.get("plan");
+    const hash = window.location.hash;
+
+    if (planParam === "mixYourBox" || hash === "#mix-your-box" || hash === "#mix-box") {
+      if (canCustomizeBox) {
+        setSelectedPlanType("mixYourBox");
+      }
+    } else if (planParam === "cycleSync" || hash === "#cycle-sync") {
+      const cycleSyncPlan = shownSubscriptionPlans.find(
+        (p: any) => p.subscriptionType === "cycle_sync" || p.id === "cycle_sync"
+      );
+      if (cycleSyncPlan) {
+        setSelectedPlan(cycleSyncPlan);
+        setIsSubscribed(true);
+      }
+    }
+  }, [canCustomizeBox, shownSubscriptionPlans]);
+
   const subscriptionType = selectedPlan?.subscriptionType ?? "buy_once";
   const purchaseType =
     subscriptionType === "buy_once" ? "one_time" : "subscription";
@@ -1731,7 +1753,7 @@ export default function ProductDetailPage({
 
       {/* Sticky Mobile Buying Bar */}
       <div
-        className={`fixed left-0 right-0 bottom-0 z-40 flex items-center gap-4 border-t border-gray-200/80 bg-white/95 p-3.5 px-5 shadow-lg backdrop-blur-md transition-transform duration-300 ${
+        className={`fixed left-0 right-0 bottom-[56px] md:bottom-0 z-40 flex items-center gap-4 border-t border-gray-200/80 bg-white/95 p-3.5 px-5 shadow-lg backdrop-blur-md transition-transform duration-300 ${
           showStickyBar ? "translate-y-0 pointer-events-auto" : "translate-y-[115%] pointer-events-none"
         }`}
       >

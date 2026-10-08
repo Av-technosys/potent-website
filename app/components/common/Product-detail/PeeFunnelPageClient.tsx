@@ -170,6 +170,34 @@ export default function PeeFunnelPageClient({ product, content }: Props) {
     return () => window.removeEventListener("scroll", handleScroll);
   }, [headerHeight]);
 
+  // Auto-scroll to #how-it-works section if specified in URL
+  useEffect(() => {
+    const checkAndScroll = () => {
+      if (typeof window !== "undefined") {
+        const hash = window.location.hash;
+        const search = window.location.search;
+        if (
+          hash === "#how-it-works" ||
+          hash.includes("how-it-works") ||
+          search.includes("how-it-works")
+        ) {
+          setTimeout(() => {
+            const el = document.getElementById("how-it-works");
+            if (el) {
+              const yOffset = -90;
+              const y = el.getBoundingClientRect().top + window.pageYOffset + yOffset;
+              window.scrollTo({ top: y, behavior: "smooth" });
+            }
+          }, 350);
+        }
+      }
+    };
+
+    checkAndScroll();
+    window.addEventListener("hashchange", checkAndScroll);
+    return () => window.removeEventListener("hashchange", checkAndScroll);
+  }, []);
+
   // Dynamic Variants from DB product object
   const variantsList = useMemo(() => {
     if (

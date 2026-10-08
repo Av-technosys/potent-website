@@ -114,7 +114,7 @@ const StoryTruth = (_props: Props) => {
                     10 L and 11 XL pads plus 4 liners. Two sizes, so she learns her own flow from day one.
                   </p>
                   <Link
-                    href="/products/ovy-teen-starter-pack"
+                    href="/product-detail/ovy-teen"
                     className="inline-flex items-center text-[11px] sm:text-xs font-semibold text-[#8C4F7C] hover:gap-2 transition-all gap-1 mt-auto group"
                   >
                     Shop Starter <span className="transition-transform group-hover:translate-x-1">→</span>
@@ -144,7 +144,7 @@ const StoryTruth = (_props: Props) => {
                     Three sizes, sport-tested wings and sweat-wicking fibres. For the girl who will not hit pause.
                   </p>
                   <Link
-                    href="/products/ovy-for-active-teens"
+                    href="/product-detail/ovy-teen"
                     className="inline-flex items-center text-[11px] sm:text-xs font-semibold text-[#8C4F7C] hover:gap-2 transition-all gap-1 mt-auto group"
                   >
                     Shop Pro-Active <span className="transition-transform group-hover:translate-x-1">→</span>

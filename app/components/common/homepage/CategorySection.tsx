@@ -11,7 +11,7 @@ const MOMENTS = [
   {
     label: "Her first period",
     body: "A kit that explains itself, with a wrapper that stays silent at school.",
-    href: "/menstrual-cup",
+    href: "/product-detail/ovy-teen",
     image: "/products/teen.jpg",
   },
   {

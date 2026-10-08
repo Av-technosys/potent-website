@@ -24,7 +24,7 @@ const HERO_SLIDES: HeroSlide[] = [
     hook: "Car sick? Morning sick? Nowhere to go?",
     sub: "Sealable pee and puke bags for the traffic jam, motion sickness on a hill road, pregnancy nausea on a flight, the elder on a long journey. Odour locked in about 60 seconds.",
     cta: { label: "Shop the bags", href: "/product-detail/looway-pee-puke" },
-    cta2: { label: "See all Looway", href: "/looway-yatra-kit" },
+    cta2: { label: "See all Looway", href: "/looway" },
     image: "/looway/scen-bags-sick.jpg",
     image2: "/products/pukebags.jpg",
     alt: "A teenager in a car using a Looway bag for motion sickness",
@@ -45,8 +45,8 @@ const HERO_SLIDES: HeroSlide[] = [
   {
     hook: "Squat toilet? Stand up.",
     sub: "The Looway pee funnel. Stand, go, touch nothing, clothes just moved aside. Reusable, with its own carry pouch.",
-    cta: { label: "Shop the funnel", href: "/looway-toilet-seat-covers" },
-    cta2: { label: "How it works", href: "/looway-toilet-seat-covers" },
+    cta: { label: "Shop the funnel", href: "/product-detail/looway-pee-funnel" },
+    cta2: { label: "How it works", href: "/product-detail/looway-pee-funnel?scroll=how-it-works#how-it-works" },
     image: "/looway/scen-funnel.jpg",
     image2: "/products/funnel.jpg",
     alt: "A pregnant woman holding the Looway pee funnel beside a clean toilet",
@@ -56,8 +56,8 @@ const HERO_SLIDES: HeroSlide[] = [
   {
     hook: "Her first period, handled with love.",
     sub: "Two pad sizes so she learns her own flow, a guidebook written for her, and a wrapper that stays silent at school.",
-    cta: { label: "Shop teen kits", href: "/menstrual-cup" },
-    cta2: { label: "See the First Period Box", href: "/menstrual-cup" },
+    cta: { label: "Shop teen kits", href: "/product-detail/ovy-teen" },
+    cta2: { label: "See the First Period Box", href: "/product-detail/ovy-teen" },
     image: "/products/teen.jpg",
     image2: "/products/teen-pro.jpg",
     alt: "Ovy Teen Starter Pack",
@@ -67,8 +67,8 @@ const HERO_SLIDES: HeroSlide[] = [
   {
     hook: "Three sizes. One box. Your mix.",
     sub: "Build a 21-pad box across L, XL and XL+, with 4 liners always in, then let Cycle-Sync land it about 5 days before you are due.",
-    cta: { label: "Build your box", href: "/shop" },
-    cta2: { label: "How Cycle-Sync works", href: "/shop" },
+    cta: { label: "Build your box", href: "/product-detail/ovy-pads?plan=mixYourBox#mix-your-box" },
+    cta2: { label: "How Cycle-Sync works", href: "/product-detail/ovy-pads?plan=cycleSync#cycle-sync" },
     image: "/products/pads-l.jpg",
     image2: "/products/pads-xlplus.jpg",
     alt: "Ovy organic sanitary pads in L and XL+",
@@ -79,7 +79,7 @@ const HERO_SLIDES: HeroSlide[] = [
     hook: "One cup. Twelve hours. Zero waste.",
     sub: "Medical-grade silicone, up to 12 hours between changes, and a 30-second size finder so you get it right first time.",
     cta: { label: "Shop the cup", href: "/menstrual-cup" },
-    cta2: { label: "Find my size", href: "/menstrual-cup" },
+    cta2: { label: "Find my size", href: "/menstrual-cup?scroll=size-finder#size-finder" },
     image: "/products/cup-rbw.jpg",
     image2: "/products/cup.jpg",
     alt: "Ovy reusable menstrual cup with its carry pouch",
@@ -190,55 +190,139 @@ export function Hero() {
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
-        <div className="mx-auto grid max-w-7xl grid-cols-1 items-center gap-8 lg:grid-cols-12 lg:gap-12">
-          {/* 
-            MOBILE ORDERING: 
-            On Mobile: Image Stage is ORDER 1 (Top). Text Copy is ORDER 2 (Bottom).
-            On Desktop (lg:): Text Copy is ORDER 1 (Left), Image Stage is ORDER 2 (Right).
-          */}
+        {/* ================= MOBILE HERO VIEW (< lg) ================= */}
+        <div className="block lg:hidden w-full max-w-xl mx-auto">
+          <div className="grid grid-cols-12 items-center gap-3 sm:gap-6">
+            {/* Left Column: Title & Primary CTA Pill */}
+            <div className="col-span-6 flex flex-col items-start justify-center space-y-3">
+              <h1 className="font-serif text-2xl sm:text-2xl font-bold tracking-tight text-gray-900 leading-[1.25]">
+                {slide.hook}
+              </h1>
 
+              <Link href={slide.cta.href} className="inline-block">
+                <Button className="flex items-center gap-1.5 rounded-full bg-[#016271] px-4 py-2 text-xs sm:text-sm font-semibold text-white shadow-md transition-all hover:bg-[#014d59] cursor-pointer">
+                  <span>{slide.cta.label}</span>
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Button>
+              </Link>
+            </div>
+
+            {/* Right Column: Image Card with Floating Badges */}
+            <div className="col-span-6 relative flex justify-end">
+              <div className="relative aspect-[4/5] w-full max-w-[165px] sm:max-w-[220px] overflow-hidden rounded-[24px] border-2 border-white bg-white shadow-lg">
+                <Image
+                  src={slide.image}
+                  alt={slide.alt}
+                  fill
+                  priority
+                  className="object-cover"
+                  sizes="(max-width: 640px) 170px, 240px"
+                />
+
+                {/* Top-Right Badge (White Pill) */}
+                {slide.stickers[0] && (
+                  <div className="absolute top-2 right-2 z-20 rounded-full border border-gray-100 bg-white/95 px-2.5 py-1 text-[10px] sm:text-xs font-extrabold text-[#016271] shadow-md backdrop-blur-xs">
+                    {slide.stickers[0]}
+                  </div>
+                )}
+
+                {/* Bottom-Left Badge (Dark Teal Pill) */}
+                {slide.stickers[1] && (
+                  <div className="absolute bottom-2 left-2 z-20 rounded-full bg-[#016271] px-2.5 py-1 text-[10px] sm:text-xs font-semibold text-white shadow-md">
+                    {slide.stickers[1]}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom Carousel Pagination Dots & Pause Control Pill */}
+          <div className="mt-4 flex justify-end">
+            <div className="flex items-center gap-3 rounded-full border border-gray-100 bg-white/95 px-9 py-1.5 shadow-md backdrop-blur-md">
+              <div
+                className="flex items-center gap-2.5"
+                role="group"
+                aria-label="Choose slide"
+              >
+                {HERO_SLIDES.map((_, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    aria-label={`Go to slide ${idx + 1}`}
+                    onClick={() => goToSlide(idx)}
+                    className={`relative h-2 rounded-full transition-all duration-300 cursor-pointer ${
+                      idx === activeIdx
+                        ? "w-6 bg-[#016271]"
+                        : "w-2 bg-gray-300 hover:bg-gray-400"
+                    }`}
+                  >
+                    {idx === activeIdx && !isPaused && (
+                      <span className="absolute inset-0 animate-pulse rounded-full bg-[#016271]" />
+                    )}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsPaused((prev) => !prev)}
+                aria-label={isPaused ? "Play slideshow" : "Pause slideshow"}
+                className="ml-1 rounded-full p-0.5 text-gray-600 transition-colors hover:bg-gray-100 hover:text-[#016271] cursor-pointer"
+              >
+                {isPaused ? (
+                  <Play className="h-3 w-3 fill-current" />
+                ) : (
+                  <Pause className="h-3 w-3 fill-current" />
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* ================= DESKTOP HERO VIEW (lg:) ================= */}
+        <div className="hidden lg:grid mx-auto max-w-7xl grid-cols-12 items-center gap-12">
           {/* Right Stage (Dual Image Cards & Carousel Controls) */}
-          <div className="relative order-1 flex w-full items-center justify-center lg:order-2 lg:col-span-5">
-            <div className="relative aspect-[1/0.92] w-full max-w-[340px] sm:aspect-[1/1.02] sm:max-w-[420px]">
+          <div className="relative order-2 col-span-5 flex w-full items-center justify-center">
+            <div className="relative aspect-[1/1.02] w-full max-w-[420px]">
               {/* Secondary Layered Image Card (Tucked Behind Bottom-Left) */}
-              <div className="absolute bottom-[4%] left-0 z-10 aspect-[4/5] w-[38%] -rotate-6 transform overflow-hidden rounded-[18px] border-4 border-white/90 bg-white shadow-lg transition-all duration-500 sm:bottom-[6%] sm:w-[40%] sm:rounded-[22px]">
+              <div className="absolute bottom-[6%] left-0 z-10 aspect-[4/5] w-[40%] -rotate-6 transform overflow-hidden rounded-[22px] border-4 border-white/90 bg-white shadow-lg transition-all duration-500">
                 <Image
                   src={slide.image2}
                   alt=""
                   fill
                   className="object-cover"
-                  sizes="(max-width: 640px) 130px, 180px"
+                  sizes="180px"
                 />
               </div>
 
               {/* Primary Main Image Card (Right Aligned Top) */}
-              <div className="absolute top-0 right-0 z-20 aspect-[4/5] w-[74%] overflow-hidden rounded-[24px] border-4 border-white bg-white shadow-2xl transition-all duration-500 sm:w-[78%] sm:rounded-[28px]">
+              <div className="absolute top-0 right-0 z-20 aspect-[4/5] w-[78%] overflow-hidden rounded-[28px] border-4 border-white bg-white shadow-2xl transition-all duration-500">
                 <Image
                   src={slide.image}
                   alt={slide.alt}
                   fill
                   priority
                   className="object-cover transition-all duration-700 hover:scale-105"
-                  sizes="(max-width: 640px) 260px, 480px"
+                  sizes="480px"
                 />
               </div>
 
               {/* Sticker 1 (Top Right - Pinned Label, rotated) */}
               {slide.stickers[0] && (
-                <div className="absolute top-[6%] right-[-2px] z-30 rotate-6 transform rounded-full border border-gray-100 bg-white px-3 py-1.5 text-xs font-extrabold whitespace-nowrap text-[#016271] shadow-md sm:right-[-6px] sm:px-4 sm:py-2 sm:text-sm">
+                <div className="absolute top-[6%] right-[-6px] z-30 rotate-6 transform rounded-full border border-gray-100 bg-white px-4 py-2 text-sm font-extrabold whitespace-nowrap text-[#016271] shadow-md">
                   {slide.stickers[0]}
                 </div>
               )}
 
               {/* Sticker 2 (Bottom Right - Dark Label, rotated) */}
               {slide.stickers[1] && (
-                <div className="absolute right-[4%] bottom-[20%] z-30 -rotate-3 transform rounded-full bg-[#016271] px-3.5 py-1.5 text-xs font-semibold whitespace-nowrap text-white shadow-lg sm:right-[6%] sm:bottom-[22%] sm:px-4 sm:py-2 sm:text-sm">
+                <div className="absolute right-[6%] bottom-[22%] z-30 -rotate-3 transform rounded-full bg-[#016271] px-4 py-2 text-sm font-semibold whitespace-nowrap text-white shadow-lg">
                   {slide.stickers[1]}
                 </div>
               )}
 
               {/* Carousel Controls Bar (Dots & Play/Pause Button) */}
-              <div className="absolute right-[2%] bottom-0 z-40 flex items-center gap-2 rounded-full border border-gray-100 bg-white/95 px-3 py-1.5 shadow-md backdrop-blur-md sm:right-[0%]">
+              <div className="absolute right-[0%] bottom-0 z-40 flex items-center gap-2 rounded-full border border-gray-100 bg-white/95 px-3 py-1.5 shadow-md backdrop-blur-md">
                 <div
                   className="flex items-center gap-1.5"
                   role="group"
@@ -252,7 +336,7 @@ export function Hero() {
                       onClick={() => goToSlide(idx)}
                       className={`relative h-2.5 rounded-full transition-all duration-300 ${
                         idx === activeIdx
-                          ? "w-7 bg-[#016271] sm:w-9"
+                          ? "w-9 bg-[#016271]"
                           : "w-2.5 bg-gray-300 hover:bg-gray-400"
                       }`}
                     >
@@ -280,40 +364,40 @@ export function Hero() {
           </div>
 
           {/* Left Text Column */}
-          <div className="order-2 flex flex-col items-start space-y-5 text-left lg:order-1 lg:col-span-7">
-            <Badge className="rounded-full border-none bg-white/95 px-3.5 py-1.5 text-[10px] font-bold tracking-wider text-[#1A8D91] uppercase shadow-xs backdrop-blur-xs sm:text-xs">
+          <div className="order-1 col-span-7 flex flex-col items-start space-y-5 text-left">
+            <Badge className="rounded-full border-none bg-white/95 px-3.5 py-1.5 text-xs font-bold tracking-wider text-[#1A8D91] uppercase shadow-xs backdrop-blur-xs">
               INDIA’S FIRST SCENARIO-BASED HYGIENE BRAND
             </Badge>
 
-            <div className="flex min-h-[170px] flex-col justify-center space-y-3 sm:min-h-[160px]">
-              <h1 className="font-serif text-[32px] leading-[1.14] font-bold tracking-tight text-gray-900 transition-all duration-500 sm:text-4xl lg:text-[60px]">
+            <div className="flex min-h-[160px] flex-col justify-center space-y-3">
+              <h1 className="font-serif text-[60px] leading-[1.14] font-bold tracking-tight text-gray-900 transition-all duration-500">
                 {slide.hook}
               </h1>
 
-              <p className="max-w-2xl text-base leading-relaxed font-normal text-gray-600 sm:text-lg">
+              <p className="max-w-2xl text-lg leading-relaxed font-normal text-gray-600">
                 {slide.sub}
               </p>
             </div>
 
-            <div className="flex w-full flex-wrap items-center gap-3 pt-2 sm:w-auto">
-              <Link href={slide.cta.href} className="w-full sm:w-auto">
-                <Button className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-full bg-[#016271] px-7 py-6 text-base font-semibold text-white shadow-md transition-all hover:scale-[1.02] hover:bg-[#137688] sm:w-auto">
+            <div className="flex flex-wrap items-center gap-3 pt-2">
+              <Link href={slide.cta.href}>
+                <Button className="flex min-h-[48px] items-center justify-center gap-2 rounded-full bg-[#016271] px-7 py-6 text-base font-semibold text-white shadow-md transition-all hover:scale-[1.02] hover:bg-[#137688]">
                   {slide.cta.label}
                   <ArrowRight className="h-5 w-5" />
                 </Button>
               </Link>
 
-              <Link href={slide.cta2.href} className="w-full sm:w-auto">
+              <Link href={slide.cta2.href}>
                 <Button
                   variant="outline"
-                  className="flex min-h-[48px] w-full items-center justify-center rounded-full border-[#016271] px-7 py-6 text-base font-semibold text-[#016271] transition-all hover:bg-[#016271]/10 sm:w-auto"
+                  className="flex min-h-[48px] items-center justify-center rounded-full border-[#016271] px-7 py-6 text-base font-semibold text-[#016271] transition-all hover:bg-[#016271]/10"
                 >
                   {slide.cta2.label}
                 </Button>
               </Link>
             </div>
 
-            <p className="pt-1 text-xs font-medium text-gray-500 sm:text-sm">
+            <p className="pt-1 text-sm font-medium text-gray-500">
               Woman-founded. Made in Jaipur. Live on Amazon.in.
             </p>
           </div>
@@ -333,7 +417,7 @@ export function Hero() {
       </div>
 
       {/* Trust Items Strip */}
-      <div className="w-full border-b border-gray-100 bg-white px-4 py-3.5">
+      <div className="hidden sm:block w-full border-b border-gray-100 bg-white px-4 py-3.5">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs font-medium text-gray-600 sm:text-sm">
           {TRUST_ITEMS.map((item, idx) => (
             <div key={idx} className="flex items-center space-x-1.5">

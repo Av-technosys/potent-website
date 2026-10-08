@@ -141,7 +141,7 @@ export function Navbar() {
       )}
 
       {/* MAIN DARK TEAL NAVIGATION BAR */}
-      <nav className="w-full bg-[#075965] px-4 text-white sm:px-6 lg:px-8">
+      <nav className="relative w-full bg-[#075965] px-4 text-white sm:px-6 lg:px-8">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 h-16 sm:h-20">
           {/* LEFT SIDE LOGOS */}
           <div className="flex shrink-0 items-center gap-2.5 sm:gap-3.5">
@@ -281,7 +281,7 @@ export function Navbar() {
               </button>
 
               {searchOpen && (
-                <div className="absolute top-full right-0 z-50 mt-3">
+                <div className="hidden sm:block absolute top-full right-0 z-50 mt-3 w-80">
                   <ProductSearch onClose={() => setSearchOpen(false)} />
                 </div>
               )}
@@ -487,6 +487,13 @@ export function Navbar() {
           </div>
         </div>
       </nav>
+
+      {/* MOBILE EXPANDABLE FULL-WIDTH SEARCH BAR (< sm) */}
+      {searchOpen && (
+        <div className="block sm:hidden border-t border-gray-100 bg-white p-3 shadow-xl animate-in slide-in-from-top-1 duration-200">
+          <ProductSearch onClose={() => setSearchOpen(false)} />
+        </div>
+      )}
     </header>
   );
 }
@@ -525,23 +532,24 @@ function ProductSearch({ onClose }: { onClose?: () => void }) {
   }, [searchTerm]);
 
   return (
-    <div className="animate-fadeIn w-72 rounded-2xl border border-gray-100 bg-white p-3 text-gray-900 shadow-2xl sm:w-80">
+    <div className="animate-fadeIn w-full rounded-2xl border border-gray-100 bg-white p-3 text-gray-900 shadow-2xl sm:w-80">
       <div className="relative flex items-center">
+        <Search className="absolute left-3 h-4 w-4 text-gray-400 pointer-events-none" />
         <input
           type="text"
           autoFocus
           placeholder="Search products..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full rounded-xl border border-gray-200 py-2 pr-8 pl-3 text-xs focus:border-[#004851] focus:outline-hidden sm:text-sm"
+          className="w-full rounded-xl border border-gray-200 py-2.5 pr-8 pl-9 text-xs focus:border-[#004851] focus:outline-hidden sm:text-sm"
         />
         {onClose && (
           <button
             type="button"
             onClick={onClose}
-            className="absolute right-2 cursor-pointer p-1 text-gray-400 hover:text-gray-700"
+            className="absolute right-2.5 cursor-pointer p-1 text-gray-400 hover:text-gray-700"
           >
-            <X className="h-3.5 w-3.5" />
+            <X className="h-4 w-4" />
           </button>
         )}
       </div>

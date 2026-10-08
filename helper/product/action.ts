@@ -511,17 +511,14 @@ export async function updateProduct(formData: FormData): Promise<void> {
 
 export async function getFullProductDetails(identifier: string) {
   try {
-    if (!identifier) throw new Error("Missing product identifier");
-
-    // const isThroughId = isUUID(identifier);
-    // if (!isThroughId) throw new Error("Invalid product identifier");
+    if (!identifier) return null;
 
     const [productDeails] = await db
       .select()
       .from(product)
       .where(eq(product.slug, identifier))
       .limit(1);
-    if (!productDeails) throw new Error("Product not found");
+    if (!productDeails) return null;
 
     const productVariantsRes = await db
       .select()
@@ -560,8 +557,8 @@ export async function getFullProductDetails(identifier: string) {
       filters: [],
     };
   } catch (error) {
-    console.error("getFullProduct failed:", error);
-    throw new Error("Unable to fetch product");
+    console.error("getFullProductDetails error:", error);
+    return null;
   }
 }
 

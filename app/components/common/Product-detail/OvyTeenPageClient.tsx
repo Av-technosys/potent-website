@@ -110,7 +110,8 @@ const KITS_DATA: Record<string, any> = {
     name: "Ovy Organic Teen Pads — First Period Box",
     price: 899,
     mrp: 999,
-    badge: "50-piece kit · 14 L + 14 XL + 14 XL+ + Extras",
+    isComingSoon: true,
+    badge: "Coming Soon · 50-piece milestone kit",
     short:
       "The ultimate first-period milestone gift box. Packed with 50 premium organic pads across three sizes, panty liners, period panty, toilet seat covers, wipes, pain relief patches, and a friendly step-by-step guidebook.",
     box: [
@@ -701,7 +702,7 @@ export default function OvyTeenPageClient({
                       isSelected ? "bg-white/20 text-white" : "bg-[#F3E6F0] text-[#7E4D77]"
                     }`}
                   >
-                    {key === "FIRST" ? "50 pcs" : "25 pcs"}
+                    {key === "FIRST" ? "Coming soon" : "25 pcs"}
                   </span>
                 </button>
               );
@@ -880,10 +881,10 @@ export default function OvyTeenPageClient({
                           {kit.pieces}
                         </div>
                         <div className="text-[9px] sm:text-[10px] font-bold text-[#7E4D77] mt-1.5 sm:mt-2 bg-[#F3E6F0]/80 inline-block px-1.5 py-0.5 rounded">
-                          {kit.flow}
+                          {key === "FIRST" ? "Coming Soon" : kit.flow}
                         </div>
                         <div className="mt-1.5 sm:mt-2 font-serif text-xs sm:text-sm font-bold text-[#1A150F]">
-                          ₹{displayPrice}
+                          {key === "FIRST" ? "Coming soon" : `₹${displayPrice}`}
                         </div>
                       </button>
                     );
@@ -938,9 +939,31 @@ export default function OvyTeenPageClient({
 
             {/* Buying Options Container */}
             <div className="bg-white border border-[#1A150F]/10 rounded-3xl p-5 sm:p-6 shadow-md">
-              <span className="block text-xs font-bold uppercase tracking-wider text-[#1A150F]/60 mb-3">
-                Select Purchase Mode
-              </span>
+              {activeKit.isComingSoon ? (
+                <div className="rounded-2xl border-2 border-dashed border-[#9A5B90]/40 bg-[#FBF1FB]/60 p-6 sm:p-8 text-center space-y-3">
+                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#F3E6F0] text-[#9A5B90]">
+                    <Clock className="h-6 w-6" />
+                  </div>
+                  <h3 className="font-serif text-xl sm:text-2xl font-bold text-[#1A150F]">
+                    First Period Box — Coming Soon
+                  </h3>
+                  <p className="mx-auto max-w-sm text-xs sm:text-sm text-[#1A150F]/70 leading-relaxed">
+                    Our 50-piece milestone gift box is currently being prepared and will be launching soon. Nothing is available to buy yet.
+                  </p>
+                  <div className="pt-2">
+                    <button
+                      disabled
+                      className="w-full rounded-full bg-gray-200 py-3.5 px-6 text-sm font-bold text-gray-600 cursor-not-allowed"
+                    >
+                      Coming Soon — Not available to buy yet
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <span className="block text-xs font-bold uppercase tracking-wider text-[#1A150F]/60 mb-3">
+                    Select Purchase Mode
+                  </span>
 
               {/* Purchase Options Grid */}
               <div className="space-y-3">
@@ -1178,6 +1201,8 @@ export default function OvyTeenPageClient({
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
+            </>
+          )}
 
               {/* Trust Badges */}
               <div className="flex items-center justify-center gap-4 flex-wrap mt-5 pt-4 border-t border-[#1A150F]/5 text-[11px] font-medium text-[#1A150F]/70">
@@ -1955,18 +1980,35 @@ export default function OvyTeenPageClient({
       )}
 
       {/* Mobile Sticky Buy Bar */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-[#1A150F]/10 p-3 shadow-lg flex items-center justify-between gap-3">
-        <div>
-          <span className="block text-[10px] font-bold text-[#7E4D77] uppercase">{activeKit.label}</span>
-          <b className="font-serif text-lg font-bold text-[#1A150F]">₹{totalPrice}</b>
-        </div>
-        <button
-          onClick={handleAddToCart}
-          disabled={adding}
-          className="px-6 py-2.5 rounded-full bg-[#9A5B90] text-white font-bold text-xs hover:bg-[#7E4D77] transition-all shadow-md cursor-pointer disabled:opacity-50"
-        >
-          {adding ? "Adding..." : "Add to Cart"}
-        </button>
+      <div className="lg:hidden fixed bottom-[56px] left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-[#1A150F]/10 p-3 shadow-lg flex items-center justify-between gap-3">
+        {activeKit.isComingSoon ? (
+          <div className="flex w-full items-center justify-between">
+            <div>
+              <span className="block text-[10px] font-bold text-[#7E4D77] uppercase">{activeKit.label}</span>
+              <b className="font-serif text-sm font-bold text-[#1A150F]">Coming Soon</b>
+            </div>
+            <button
+              disabled
+              className="rounded-full bg-gray-200 px-5 py-2 text-xs font-bold text-gray-600 cursor-not-allowed"
+            >
+              Coming Soon
+            </button>
+          </div>
+        ) : (
+          <>
+            <div>
+              <span className="block text-[10px] font-bold text-[#7E4D77] uppercase">{activeKit.label}</span>
+              <b className="font-serif text-lg font-bold text-[#1A150F]">₹{totalPrice}</b>
+            </div>
+            <button
+              onClick={handleAddToCart}
+              disabled={adding}
+              className="px-6 py-2.5 rounded-full bg-[#9A5B90] text-white font-bold text-xs hover:bg-[#7E4D77] transition-all shadow-md cursor-pointer disabled:opacity-50"
+            >
+              {adding ? "Adding..." : "Add to Cart"}
+            </button>
+          </>
+        )}
       </div>
     </div>
   );

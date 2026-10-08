@@ -14,7 +14,7 @@ const hiddenPathPrefixes = [
 
 export function WhatsAppWidget() {
   const pathname = usePathname();
-  const phoneNumber = "91987";
+  const phoneNumber = "916375881514";
   const message = "Hi! I have a question about your products.";
 
   const isHidden = hiddenPathPrefixes.some((prefix) =>

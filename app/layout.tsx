@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Caveat, Fredoka } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "sonner";
@@ -30,6 +30,12 @@ const fredoka = Fredoka({
 export const metadata: Metadata = {
   title: "Potent Hygiene",
   description: "Potent Hygiene",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
 };
 
 export default function RootLayout({

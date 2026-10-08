@@ -2332,7 +2332,7 @@ export default function SeatCoversPageClient({ product, content }: Props) {
       )}
 
       {/* Floating Section Quick-Nav Strap */}
-      <div className="no-scrollbar fixed bottom-6 left-1/2 z-40 flex max-w-[94vw] -translate-x-1/2 items-center gap-2 overflow-x-auto rounded-full border border-[#E5DAC9] bg-[#FAF7F2]/95 px-3 py-2 shadow-xl backdrop-blur-md">
+      <div className="no-scrollbar fixed bottom-[72px] md:bottom-6 left-1/2 z-40 flex max-w-[94vw] -translate-x-1/2 items-center gap-2 overflow-x-auto rounded-full border border-[#E5DAC9] bg-[#FAF7F2]/95 px-3 py-2 shadow-xl backdrop-blur-md">
         {[
           { id: "pdp-hero", label: "Packs & Buy" },
           { id: "clean-seat", label: "Clean seat" },

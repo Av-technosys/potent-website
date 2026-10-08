@@ -303,7 +303,14 @@ export function OvyShopSection({
             const currentVariant =
               renderedCard.variants[currentVarIdx] || renderedCard.variants[0];
             const currentPrice = currentVariant?.price || 0;
+            const isVariantComingSoon = Boolean(
+              currentVariant?.label?.toLowerCase().includes("first period") ||
+              currentVariant?.label?.toLowerCase().includes("50 pcs") ||
+              currentVariant?.sku?.toLowerCase().includes("first")
+            );
+
             const canAddToCart = Boolean(
+              !isVariantComingSoon &&
               fullProduct &&
               dynamicVariants.length > 0 &&
               currentVariant?.variantId &&
@@ -406,23 +413,31 @@ export function OvyShopSection({
                   {/* Mobile Price & Add to Bag Row */}
                   <div className="mt-4 flex items-center justify-between gap-2 border-t border-gray-100 pt-3">
                     <div className="font-serif text-xl font-bold text-[#1F1915]">
-                      {currentPrice > 0
+                      {isVariantComingSoon
+                        ? "Coming soon"
+                        : currentPrice > 0
                         ? `₹${currentPrice}`
                         : "Price unavailable"}
                     </div>
 
                     <button
                       onClick={() => handleAddProductToCart(renderedCard)}
-                      disabled={isAdding || !canAddToCart}
-                      className="flex cursor-pointer items-center justify-center gap-1.5 rounded-full bg-[#602E55] px-5 py-2 text-xs font-semibold text-white shadow-sm transition-all hover:bg-[#4E2445] disabled:opacity-50"
+                      disabled={isAdding || !canAddToCart || isVariantComingSoon}
+                      className={`flex cursor-pointer items-center justify-center gap-1.5 rounded-full px-5 py-2 text-xs font-semibold shadow-sm transition-all ${
+                        isVariantComingSoon
+                          ? "bg-gray-200 text-gray-600 cursor-not-allowed"
+                          : "bg-[#602E55] text-white hover:bg-[#4E2445] disabled:opacity-50"
+                      }`}
                     >
-                      <ShoppingBag className="h-3.5 w-3.5" />
+                      {!isVariantComingSoon && <ShoppingBag className="h-3.5 w-3.5" />}
                       <span>
-                        {isAdding
+                        {isVariantComingSoon
+                          ? "Coming soon"
+                          : isAdding
                           ? "Adding..."
                           : isAdded
-                            ? "Added! ✓"
-                            : "+ Add to bag"}
+                          ? "Added! ✓"
+                          : "+ Add to bag"}
                       </span>
                     </button>
                   </div>
@@ -546,23 +561,31 @@ export function OvyShopSection({
                     {/* Price & Add to Bag Row */}
                     <div className="flex items-center justify-between gap-2">
                       <div className="font-serif text-xl font-bold text-[#1F1915] sm:text-2xl">
-                        {currentPrice > 0
+                        {isVariantComingSoon
+                          ? "Coming soon"
+                          : currentPrice > 0
                           ? `₹${currentPrice}`
                           : "Price unavailable"}
                       </div>
 
                       <button
                         onClick={() => handleAddProductToCart(renderedCard)}
-                        disabled={isAdding || !canAddToCart}
-                        className="flex cursor-pointer items-center justify-center gap-1.5 rounded-full bg-[#602E55] px-4 py-2.5 text-xs font-semibold text-white shadow-sm transition-all hover:scale-105 hover:bg-[#4E2445] disabled:opacity-50"
+                        disabled={isAdding || !canAddToCart || isVariantComingSoon}
+                        className={`flex cursor-pointer items-center justify-center gap-1.5 rounded-full px-4 py-2.5 text-xs font-semibold shadow-sm transition-all ${
+                          isVariantComingSoon
+                            ? "bg-gray-200 text-gray-600 cursor-not-allowed"
+                            : "bg-[#602E55] text-white hover:scale-105 hover:bg-[#4E2445] disabled:opacity-50"
+                        }`}
                       >
-                        <ShoppingBag className="h-3.5 w-3.5" />
+                        {!isVariantComingSoon && <ShoppingBag className="h-3.5 w-3.5" />}
                         <span>
-                          {isAdding
+                          {isVariantComingSoon
+                            ? "Coming soon"
+                            : isAdding
                             ? "Adding..."
                             : isAdded
-                              ? "Added! ✓"
-                              : "+ Add to bag"}
+                            ? "Added! ✓"
+                            : "+ Add to bag"}
                         </span>
                       </button>
                     </div>
