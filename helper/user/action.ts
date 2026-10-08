@@ -241,3 +241,38 @@ export async function subscribeEmail(email: string) {
 
   return { success: true, message: "Subscribed successfully 🎉" };
 }
+
+export async function submitContactMessage(data: {
+  name: string;
+  email: string;
+  phone?: string;
+  message: string;
+}) {
+  if (!data.name || !data.email || !data.message) {
+    return { success: false, message: "Please fill in all required fields." };
+  }
+
+  if (!emailRegex.test(data.email.trim())) {
+    return { success: false, message: "Please enter a valid email address." };
+  }
+
+  try {
+    await db.insert(contactUs).values({
+      name: data.name.trim(),
+      email: data.email.trim(),
+      phone: data.phone ? data.phone.trim() : null,
+      message: data.message.trim(),
+    });
+
+    return {
+      success: true,
+      message: "Thank you! Your message has been sent successfully. We will get back to you shortly.",
+    };
+  } catch (error) {
+    console.error("Error submitting contact form:", error);
+    return {
+      success: false,
+      message: "Something went wrong. Please try again or WhatsApp us directly.",
+    };
+  }
+}

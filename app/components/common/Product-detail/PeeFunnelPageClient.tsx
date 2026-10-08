@@ -40,6 +40,11 @@ import {
 import { toast } from "sonner";
 import { addToCart as addToCartAction } from "@/store/cartActions";
 import { getImageUrl } from "@/lib/imageUrl";
+import { useWishlistStore } from "@/store/WishlistStore";
+import {
+  addToWishlist as addToWishlistAction,
+  removeFromWishlist as removeFromWishlistAction,
+} from "@/store/WishlistActions";
 
 // Import 10 Funnel section components
 import FunnelNoToiletSection from "./FunnelNoToiletSection";
@@ -70,8 +75,42 @@ export default function PeeFunnelPageClient({ product, content }: Props) {
     err?: boolean;
   } | null>(null);
   const [adding, setAdding] = useState<boolean>(false);
+  const [isWishlistUpdating, setIsWishlistUpdating] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState<number>(0);
-  const [isWishlisted, setIsWishlisted] = useState<boolean>(false);
+  const wishlistItems = useWishlistStore((state) => state.items);
+  const isWishlisted = useMemo(() => {
+    return wishlistItems.some(
+      (i: any) =>
+        i.productId === product?.id ||
+        i.productId === product?.slug ||
+        i.slug === product?.slug ||
+        i.slug === "looway-pee-funnel"
+    );
+  }, [wishlistItems, product]);
+
+  const handleToggleWishlist = async () => {
+    if (isWishlistUpdating) return;
+    setIsWishlistUpdating(true);
+    try {
+      if (isWishlisted) {
+        await removeFromWishlistAction(product?.id || "looway-pee-funnel");
+      } else {
+        await addToWishlistAction({
+          ...product,
+          productId: product?.id || "looway-pee-funnel",
+          name: product?.name || "Looway Reusable Female Pee Funnel",
+          selectedVariant: selectedPack,
+          image: selectedPack?.image || "/products/funnel/hero.jpg",
+          slug: product?.slug || "looway-pee-funnel",
+        });
+      }
+    } catch (error) {
+      console.error("PDP wishlist toggle failed:", error);
+      toast.error("Unable to update wishlist. Please try again.");
+    } finally {
+      setIsWishlistUpdating(false);
+    }
+  };
   const [headerHeight, setHeaderHeight] = useState<number>(100);
   const [activeNavId, setActiveNavId] = useState<string>("guide");
 
@@ -402,7 +441,8 @@ export default function PeeFunnelPageClient({ product, content }: Props) {
 
                 {/* Wishlist Heart Button */}
                 <button
-                  onClick={() => setIsWishlisted(!isWishlisted)}
+                  onClick={handleToggleWishlist}
+                  disabled={isWishlistUpdating}
                   aria-pressed={isWishlisted}
                   className={`absolute top-4 right-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/90 shadow-md backdrop-blur-xs transition-all hover:scale-105 ${
                     isWishlisted ? "text-red-500 bg-white" : "text-[#5A0E30]/60 hover:text-[#C21E63]"
@@ -747,7 +787,8 @@ export default function PeeFunnelPageClient({ product, content }: Props) {
                   </button>
 
                   <button
-                    onClick={() => setIsWishlisted(!isWishlisted)}
+                    onClick={handleToggleWishlist}
+                    disabled={isWishlistUpdating}
                     aria-pressed={isWishlisted}
                     className={`w-full flex cursor-pointer items-center justify-center gap-2 rounded-full border border-[#EAD6DC] bg-white py-2.5 text-xs font-semibold transition-all hover:border-[#C21E63] ${
                       isWishlisted ? "text-red-500 border-red-300" : "text-[#5A0E30]"

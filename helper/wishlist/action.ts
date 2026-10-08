@@ -77,8 +77,16 @@ export async function getWishlistDB() {
     .select({
       productId: wishlistItem.productId,
       name: product.name,
-      price: productVariant.price,
+      slug: product.slug,
+      basePrice: product.startingPrice,
       image: product.bannerImage,
+      productVariantId: productVariant.id,
+      sku: productVariant.sku,
+      variantName: productVariant.name,
+      variantPrice: productVariant.price,
+      variantOriginalPrice: productVariant.strikethroughPrice,
+      variantImage: productVariant.bannerImage,
+      variantFlowType: productVariant.flowType,
     })
     .from(wishlistItem)
     .innerJoin(
@@ -95,10 +103,47 @@ export async function getWishlistDB() {
     )
     .where(eq(wishlist.userId, userId));
 
-  const seen = new Set();
-  return result.filter((item: any) => {
-    if (seen.has(item.productId)) return false;
-    seen.add(item.productId);
-    return true;
-  });
+  type SyncedWishlistItem = {
+    productId: string;
+    name: string | null;
+    slug: string;
+    basePrice: string | null;
+    image: string | null;
+    variants: Array<{
+      productVariantId: string;
+      sku: string | null;
+      name: string | null;
+      price: number | null;
+      strikethroughPrice: number | null;
+      bannerImage: string | null;
+      flowType: string | null;
+    }>;
+  };
+  const grouped = new Map<string, SyncedWishlistItem>();
+  for (const row of result) {
+    if (!row.productId) continue;
+    const existing = grouped.get(row.productId) || {
+      productId: row.productId,
+      name: row.name,
+      slug: row.slug,
+      basePrice: row.basePrice,
+      image: row.image,
+      variants: [],
+    };
+
+    if (row.productVariantId) {
+      existing.variants.push({
+        productVariantId: row.productVariantId,
+        sku: row.sku,
+        name: row.variantName,
+        price: row.variantPrice,
+        strikethroughPrice: row.variantOriginalPrice,
+        bannerImage: row.variantImage || row.image,
+        flowType: row.variantFlowType,
+      });
+    }
+    grouped.set(row.productId, existing);
+  }
+
+  return Array.from(grouped.values());
 }

@@ -1,103 +1,163 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import Image from "next/image";
-import { getImageUrl } from "@/lib/imageUrl";
+import { useEffect, useMemo, useState } from "react";
+import { Heart, Loader2, ShoppingBag } from "lucide-react";
+import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Heart } from "lucide-react";
-import { useWishlistStore } from "@/store/WishlistStore";
+import { getImageUrl } from "@/lib/imageUrl";
+import { useWishlistStore, type WishlistItem, type WishlistVariant } from "@/store/WishlistStore";
 import { removeFromWishlist } from "@/store/WishlistActions";
 import { addToCart } from "@/store/cartActions";
-import Link from "next/link";
-import { NEXT_PUBLIC_S3_URL } from "@/env";
+
+const getVariant = (item: WishlistItem, variantId?: string): WishlistVariant =>
+  item.variants.find((variant) => variant.productVariantId === variantId) ||
+  item.variants[0] || {
+    productVariantId: item.productVariantId,
+    sku: item.sku,
+    name: item.title,
+    price: item.price || item.basePrice,
+    image: item.image,
+  };
 
 export default function WishlistProducts() {
   const products = useWishlistStore((state) => state.items);
+  const [selectedVariants, setSelectedVariants] = useState<Record<string, string>>({});
+  const [busyProductId, setBusyProductId] = useState<string | null>(null);
 
-  const removeWishlist = async (productId: string) => {
-    await removeFromWishlist(productId);
-  };
-
-  const addToCartHandler = async (product: any) => {
-    await addToCart({
-      productId: product.productId,
-      sku: "default",
-      slug: product.slug || "",
-      title: product.name,
-      image: product.image || "/product.png",
-      price: product.price || 0,
-      quantity: 1,
-      isQuantityChangable: true,
-      originalPrice: product.strikethroughPrice,
+  useEffect(() => {
+    setSelectedVariants((current) => {
+      const next = { ...current };
+      products.forEach((product) => {
+        if (!next[product.productId] || !product.variants.some((variant) => variant.productVariantId === next[product.productId])) {
+          next[product.productId] = product.productVariantId || product.variants[0]?.productVariantId;
+        }
+      });
+      return next;
     });
+  }, [products]);
 
-    // optional: remove after adding
-    await removeFromWishlist(product.productId);
+  const selectedByProduct = useMemo(() => {
+    const result = new Map<string, WishlistVariant>();
+    products.forEach((product) => {
+      result.set(product.productId, getVariant(product, selectedVariants[product.productId]));
+    });
+    return result;
+  }, [products, selectedVariants]);
+
+  const addToCartHandler = async (product: WishlistItem) => {
+    if (busyProductId) return;
+    const variant = selectedByProduct.get(product.productId) || getVariant(product);
+    const price = Number(variant.price || product.basePrice || product.price);
+    setBusyProductId(product.productId);
+
+    try {
+      const added = await addToCart({
+        productId: product.productId,
+        productVariantId: variant.productVariantId,
+        sku: variant.sku,
+        slug: product.slug || "",
+        title: product.title || product.name,
+        image: variant.image || product.image || "/product.png",
+        price,
+        quantity: 1,
+        isQuantityChangable: true,
+        originalPrice: variant.originalPrice || product.originalPrice,
+      });
+
+      if (added) {
+        await removeFromWishlist(product.productId);
+      }
+    } catch (error) {
+      console.error("Wishlist add-to-cart failed:", error);
+      toast.error("Unable to add this item to cart. Please try again.");
+    } finally {
+      setBusyProductId(null);
+    }
   };
 
-  if (!products || products.length === 0) {
-    return (
-      <div className="py-20 text-center text-gray-500">
-        Your wishlist is empty
-      </div>
-    );
+  if (!products.length) {
+    return <div className="py-20 text-center text-gray-500">Your wishlist is empty</div>;
   }
 
   return (
-    <div className="grid grid-cols-2 gap-6 md:grid-cols-3 xl:grid-cols-4">
-      {products.map((product: any) => (
-        <Card key={product.productId} className="rounded-3xl p-0 shadow-sm">
-          <CardContent className="p-4">
-            <div className="relative flex w-full items-center justify-center rounded-xl">
-              <button
-                onClick={() => removeWishlist(product.productId)}
-                className="absolute top-2 left-2 rounded-full bg-white p-1 shadow"
-              >
-                <Heart className="h-4 w-4 fill-red-500 text-red-500" />
-              </button>
+    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      {products.map((product) => {
+        const selectedVariant = selectedByProduct.get(product.productId) || getVariant(product);
+        const isBusy = busyProductId === product.productId;
+        const displayPrice = Number(selectedVariant.price || product.basePrice || product.price);
 
-              <Image
-                alt={"product image"}
-                src={getImageUrl(product.image)}
-                width={180}
-                height={180}
-                className="h-auto w-full object-contain"
-              />
-            </div>
-
-            <div className="mt-4 space-y-3">
-              <h3 className="font-semibold text-gray-800">{product.name}</h3>
-
-              {product.price && (
-                <div className="flex items-center gap-2">
-                  <span className="font-bold">₹{product.price}</span>
-                  {product.strikethroughPrice && (
-                    <span className="text-xs text-gray-400 line-through">
-                      ₹{product.strikethroughPrice}
-                    </span>
-                  )}
-                </div>
-              )}
-
-              {product.hasVarientBox ? (
-                <Link href={`/product-detail/${product.slug}`}>
-                  <Button className="w-full rounded-md bg-[#016271] py-5 text-sm font-semibold text-white hover:bg-[#146e71]">
-                    Add to Cart
-                  </Button>
-                </Link>
-              ) : (
-                <Button
-                  onClick={() => addToCartHandler(product)}
-                  className="w-full rounded-xl bg-[#1A8D91] text-white"
+        return (
+          <Card key={product.productId} className="overflow-hidden rounded-3xl border-[#E4DED0] p-0 shadow-sm">
+            <CardContent className="p-4">
+              <div className="relative flex aspect-square w-full items-center justify-center overflow-hidden rounded-2xl bg-[#FAF8F3]">
+                <button
+                  type="button"
+                  onClick={() => removeFromWishlist(product.productId)}
+                  disabled={isBusy}
+                  aria-label={`Remove ${product.name} from wishlist`}
+                  className="absolute top-3 left-3 z-10 rounded-full bg-white p-2 shadow-sm transition hover:scale-105 disabled:opacity-50"
                 >
-                  Add to Cart
+                  <Heart className="h-4 w-4 fill-red-500 text-red-500" />
+                </button>
+                <Image
+                  alt={product.name || product.title}
+                  src={getImageUrl(selectedVariant.image || product.image)}
+                  width={360}
+                  height={360}
+                  className="h-full w-full object-contain"
+                  unoptimized
+                />
+              </div>
+
+              <div className="mt-4 space-y-3">
+                <div>
+                  <h3 className="line-clamp-2 font-semibold text-gray-800">{product.name || product.title}</h3>
+                  <div className="mt-1 flex items-center gap-2">
+                    <span className="font-bold text-[#004851]">₹{displayPrice}</span>
+                    {selectedVariant.originalPrice && selectedVariant.originalPrice > displayPrice ? (
+                      <span className="text-xs text-gray-400 line-through">₹{selectedVariant.originalPrice}</span>
+                    ) : null}
+                  </div>
+                </div>
+
+                <label className="block text-xs font-semibold uppercase tracking-wide text-gray-600" htmlFor={`wishlist-variant-${product.productId}`}>
+                  Choose variant
+                </label>
+                <select
+                  id={`wishlist-variant-${product.productId}`}
+                  value={selectedVariant.productVariantId}
+                  onChange={(event) =>
+                    setSelectedVariants((current) => ({
+                      ...current,
+                      [product.productId]: event.target.value,
+                    }))
+                  }
+                  disabled={isBusy}
+                  className="w-full rounded-xl border border-[#0B6873] bg-white px-3 py-2.5 text-sm font-medium text-gray-800 outline-none transition focus:ring-2 focus:ring-[#1A8D91]/30 disabled:opacity-60"
+                >
+                  {product.variants.map((variant) => (
+                    <option key={variant.productVariantId} value={variant.productVariantId}>
+                      {variant.name}{variant.size && variant.size !== variant.name ? ` (${variant.size})` : ""} - ₹{variant.price}
+                    </option>
+                  ))}
+                </select>
+
+                <Button
+                  type="button"
+                  onClick={() => addToCartHandler(product)}
+                  disabled={Boolean(busyProductId)}
+                  className="w-full rounded-xl bg-[#1A8D91] text-white hover:bg-[#0E7277] disabled:opacity-60"
+                >
+                  {isBusy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShoppingBag className="mr-2 h-4 w-4" />}
+                  {isBusy ? "Adding..." : "Add to Cart"}
                 </Button>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      ))}
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })}
     </div>
   );
 }

@@ -78,6 +78,7 @@ export const addToCart = async (item: CartItem) => {
     uuid: item.uuid 
   };
 
+  const previousCartItems = useCartStore.getState().items;
   // ✅ optimistic UI
   useCartStore.getState().addItem(normalizedItem);
 
@@ -89,7 +90,11 @@ export const addToCart = async (item: CartItem) => {
       console.error("Failed to sync with DB:", error);
       return { success: false };
     });
-    if (!result?.success) return false;
+    if (!result?.success) {
+      useCartStore.getState().setCart(previousCartItems);
+      toast.error("Failed to add item to cart. Please try again.");
+      return false;
+    }
     toast.success("Item added to cart");
   } else {
     // ✅ DB sync
@@ -99,7 +104,11 @@ export const addToCart = async (item: CartItem) => {
       console.error("Failed to sync with DB:", error);
       return { success: false };
     });
-    if (!result?.success) return false;
+    if (!result?.success) {
+      useCartStore.getState().setCart(previousCartItems);
+      toast.error("Failed to add item to cart. Please try again.");
+      return false;
+    }
     toast.success("Item added to cart");
   }
 

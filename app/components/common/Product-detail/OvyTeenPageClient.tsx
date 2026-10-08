@@ -255,6 +255,7 @@ export default function OvyTeenPageClient({
 
   // Wishlist State & Action
   const wishlistItems = useWishlistStore((state) => state.items);
+  const [isWishlistUpdating, setIsWishlistUpdating] = useState(false);
   const isWishlisted = useMemo(() => {
     const targetId = product?.id || "ovy-teen";
     return wishlistItems.some(
@@ -265,19 +266,30 @@ export default function OvyTeenPageClient({
   const handleToggleWishlist = async () => {
     const targetId = product?.id || "ovy-teen";
     const targetSlug = product?.slug || "ovy-teen";
-    if (isWishlisted) {
-      await removeFromWishlistAction(targetId);
-      toast.success("Removed from wishlist");
-    } else {
-      await addToWishlistAction({
-        productId: targetId,
-        name: activeKit.name,
-        price: basePrice,
-        image: mediaList[0] || "/product.png",
-        hasVarientBox: true,
-        slug: targetSlug,
-      });
-      toast.success("Saved to wishlist");
+    if (isWishlistUpdating) return;
+    setIsWishlistUpdating(true);
+    try {
+      if (isWishlisted) {
+        await removeFromWishlistAction(targetId);
+        toast.success("Removed from wishlist");
+      } else {
+        await addToWishlistAction({
+          ...product,
+          productId: targetId,
+          name: product?.name || activeKit.name,
+          selectedVariant: currentVariant,
+          price: basePrice,
+          image: mediaList[0] || "/product.png",
+          hasVarientBox: true,
+          slug: targetSlug,
+        });
+        toast.success("Saved to wishlist");
+      }
+    } catch (error) {
+      console.error("PDP wishlist toggle failed:", error);
+      toast.error("Unable to update wishlist. Please try again.");
+    } finally {
+      setIsWishlistUpdating(false);
     }
   };
 
@@ -783,6 +795,7 @@ export default function OvyTeenPageClient({
                 <button
                   type="button"
                   onClick={handleToggleWishlist}
+                  disabled={isWishlistUpdating}
                   className={`inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
                     isWishlisted
                       ? "border-rose-300 bg-rose-50 text-rose-600 hover:bg-rose-100 shadow-xs"

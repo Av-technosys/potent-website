@@ -139,6 +139,7 @@ export default function ProductDetailPage({
 
   // Wishlist State & Action
   const wishlistItems = useWishlistStore((state) => state.items);
+  const [isWishlistUpdating, setIsWishlistUpdating] = useState(false);
   const isWishlisted = useMemo(() => {
     return wishlistItems.some(
       (i: any) => i.productId === productInfo?.id || i.productId === productInfo?.slug || i.slug === productInfo?.slug
@@ -146,19 +147,27 @@ export default function ProductDetailPage({
   }, [wishlistItems, productInfo]);
 
   const handleToggleWishlist = async () => {
-    if (isWishlisted) {
-      await removeFromWishlistAction(productInfo.id);
-      toast.success("Removed from wishlist");
-    } else {
-      await addToWishlistAction({
-        productId: productInfo.id,
-        name: productInfo.name,
-        price: activeVariant?.price ? Number(activeVariant.price) : Number(productInfo.basePrice || productInfo.startingPrice || 299),
-        image: activeImage || productInfo.bannerImage || "/product.png",
-        hasVarientBox: Boolean(productInfo.hasVarientBox),
-        slug: productInfo.slug,
-      });
-      toast.success("Saved to wishlist");
+    if (isWishlistUpdating) return;
+    setIsWishlistUpdating(true);
+    try {
+      if (isWishlisted) {
+        await removeFromWishlistAction(productInfo.id);
+      } else {
+        await addToWishlistAction({
+          ...productInfo,
+          productId: productInfo.id,
+          name: productInfo.name,
+          selectedVariant: activeVariant,
+          image: activeImage || productInfo.bannerImage || "/product.png",
+          hasVarientBox: Boolean(productInfo.hasVarientBox),
+          slug: productInfo.slug,
+        });
+      }
+    } catch (error) {
+      console.error("PDP wishlist toggle failed:", error);
+      toast.error("Unable to update wishlist. Please try again.");
+    } finally {
+      setIsWishlistUpdating(false);
     }
   };
 
@@ -909,18 +918,19 @@ export default function ProductDetailPage({
             <button
               type="button"
               onClick={handleToggleWishlist}
+              disabled={isWishlistUpdating}
               className={`inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
                 isWishlisted
                   ? "border-rose-300 bg-rose-50 text-rose-600 hover:bg-rose-100 shadow-xs"
                   : "border-gray-300/80 bg-white text-gray-700 hover:border-[#9A5B90] hover:text-[#7E4D77] shadow-xs"
               }`}
             >
-              <Heart
+              {isWishlistUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Heart
                 className={`h-4 w-4 transition-transform active:scale-125 ${
                   isWishlisted ? "fill-rose-500 text-rose-500" : "text-gray-600"
                 }`}
-              />
-              <span>{isWishlisted ? "Saved to wishlist" : "Save to wishlist"}</span>
+              />}
+              <span>{isWishlistUpdating ? "Saving..." : isWishlisted ? "Saved to wishlist" : "Save to wishlist"}</span>
             </button>
           </div>
 

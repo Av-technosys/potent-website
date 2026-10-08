@@ -42,6 +42,11 @@ import {
 import { toast } from "sonner";
 import { addToCart as addToCartAction } from "@/store/cartActions";
 import { getImageUrl } from "@/lib/imageUrl";
+import { useWishlistStore } from "@/store/WishlistStore";
+import {
+  addToWishlist as addToWishlistAction,
+  removeFromWishlist as removeFromWishlistAction,
+} from "@/store/WishlistActions";
 import {
   getPdpSubscriptionDiscount,
   getPdpSubscriptionPlans,
@@ -151,8 +156,42 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
     err?: boolean;
   } | null>(null);
   const [adding, setAdding] = useState<boolean>(false);
+  const [isWishlistUpdating, setIsWishlistUpdating] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState<number>(0);
-  const [isWishlisted, setIsWishlisted] = useState<boolean>(false);
+  const wishlistItems = useWishlistStore((state) => state.items);
+  const isWishlisted = useMemo(() => {
+    return wishlistItems.some(
+      (i: any) =>
+        i.productId === product?.id ||
+        i.productId === product?.slug ||
+        i.slug === product?.slug ||
+        i.slug === "looway-pee-puke"
+    );
+  }, [wishlistItems, product]);
+
+  const handleToggleWishlist = async () => {
+    if (isWishlistUpdating) return;
+    setIsWishlistUpdating(true);
+    try {
+      if (isWishlisted) {
+        await removeFromWishlistAction(product?.id || "looway-pee-puke");
+      } else {
+        await addToWishlistAction({
+          ...product,
+          productId: product?.id || "looway-pee-puke",
+          name: product?.name || "Looway Pee & Puke Bags",
+          selectedVariant: selectedPack,
+          image: selectedPack?.image || "/products/peepuke/hero.jpg",
+          slug: product?.slug || "looway-pee-puke",
+        });
+      }
+    } catch (error) {
+      console.error("PDP wishlist toggle failed:", error);
+      toast.error("Unable to update wishlist. Please try again.");
+    } finally {
+      setIsWishlistUpdating(false);
+    }
+  };
   const [headerHeight, setHeaderHeight] = useState<number>(100);
   const [htuTab, setHtuTab] = useState<"pee" | "puke">("pee");
 
@@ -612,7 +651,8 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
 
                 {/* Wishlist Heart Button (Top-Right) */}
                 <button
-                  onClick={() => setIsWishlisted(!isWishlisted)}
+                  onClick={handleToggleWishlist}
+                  disabled={isWishlistUpdating}
                   aria-pressed={isWishlisted}
                   className={`absolute top-4 right-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/90 shadow-md backdrop-blur-xs transition-all hover:scale-105 ${
                     isWishlisted ? "text-red-500 bg-white" : "text-[#17271E]/60 hover:text-[#0E5C3A]"
@@ -1011,7 +1051,8 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
 
                 {/* Save to Wishlist Button */}
                 <button
-                  onClick={() => setIsWishlisted(!isWishlisted)}
+                  onClick={handleToggleWishlist}
+                  disabled={isWishlistUpdating}
                   aria-pressed={isWishlisted}
                   className={`mt-2.5 flex w-full cursor-pointer items-center justify-center gap-2 rounded-full border border-[#E4DED0] bg-white py-3 text-sm font-semibold transition-all hover:border-[#0E5C3A] ${
                     isWishlisted ? "text-red-500 border-red-300" : "text-[#17271E]"
