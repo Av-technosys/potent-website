@@ -14,8 +14,13 @@ const AddToWishlist = ({ product }: any) => {
   const items = useWishlistStore((state) => state.items);
   const [isLoading, setIsLoading] = useState(false);
 
+  const prodId = product?.id || product?._id || product?.slug;
   const isActive = items.some(
-    (i) => i.productId === product.id
+    (i) =>
+      i.productId === prodId ||
+      i.productId === product?.id ||
+      i.productId === product?.slug ||
+      i.slug === product?.slug,
   );
 
   const toggleWishlist = async () => {
@@ -23,7 +28,7 @@ const AddToWishlist = ({ product }: any) => {
     setIsLoading(true);
     try {
       if (isActive) {
-        await removeFromWishlist(product.id);
+        await removeFromWishlist(prodId);
         return;
       }
 
@@ -34,29 +39,35 @@ const AddToWishlist = ({ product }: any) => {
         const response = await fetch(`/api/catalog/products/${encodeURIComponent(product.slug)}`);
         if (response.ok) {
           const payload = await response.json();
-          if (!payload.product) throw new Error("Product details were not returned");
-          productWithVariants = { ...product, ...payload.product };
-        } else if (
-          !Array.isArray(product?.productVariants) &&
-          !Array.isArray(product?.prodcutVarientBoxRes) &&
-          !Array.isArray(product?.variants)
-        ) {
-          throw new Error("Unable to load product variants");
+          if (payload.product) {
+            productWithVariants = { ...product, ...payload.product };
+          }
         }
       }
 
+      const selectedVar =
+        productWithVariants.selectedVariant ||
+        productWithVariants.productVariants?.[0] ||
+        productWithVariants.prodcutVarientBoxRes?.[0] ||
+        productWithVariants.variants?.[0];
+
+      const allVars =
+        productWithVariants.productVariants ||
+        productWithVariants.prodcutVarientBoxRes ||
+        productWithVariants.variants;
+
       await addToWishlist({
         ...productWithVariants,
-        productId: productWithVariants.id || product.id,
+        productId: prodId,
         name: productWithVariants.name || product.name,
-        image: productWithVariants.bannerImage || product.bannerImage || "/product.png",
-        hasVarientBox: productWithVariants.hasVarientBox,
+        image: selectedVar?.image || productWithVariants.bannerImage || product.bannerImage || "/product.png",
+        hasVarientBox: Boolean(productWithVariants.hasVarientBox),
         slug: productWithVariants.slug || product.slug,
+        selectedVariant: selectedVar,
+        variants: allVars,
       });
     } catch (error) {
       console.error("Wishlist toggle failed:", error);
-      // addToWishlist/removeFromWishlist handle their own rollback/toast;
-      // this catches fetch/network failures before they reach those actions.
       toast.error("Unable to update wishlist. Please try again.");
     } finally {
       setIsLoading(false);

@@ -17,13 +17,13 @@ const MOMENTS = [
   {
     label: "Heavy nights",
     body: "A 320mm pad with a widened back, because night leaks travel backwards.",
-    href: "/shop",
+    href: "/product-detail/ovy-pads?size=xlplus#xlplus",
     image: "/products/pads-xlplus.jpg",
   },
   {
     label: "The seven-hour train",
     body: "Stand, go, touch nothing. The funnel that ends the dirty-toilet dread.",
-    href: "/looway-toilet-seat-covers",
+    href: "/product-detail/looway-pee-funnel",
     image: "/products/funnel.jpg",
   },
   {
@@ -151,56 +151,55 @@ export function CategoryGrid({
           </div>
         )}
 
-        {/* Tab Panel 2: Shop by Category (Dynamic DB Categories + Extra Coming Soon Tile) */}
+        {/* Tab Panel 2: Shop by Category */}
         {activeTab === "category" && (
-          <div className="animate-fadeIn grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-6 lg:grid-cols-4">
-            {allCategories.map((category) => (
-              <Link
-                key={category.id}
-                href={category.redirectSlug}
-                className="group border-gray-150 flex flex-col justify-between overflow-hidden rounded-2xl border bg-white transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
-              >
-                <div className="relative aspect-[4/5] overflow-hidden bg-[#F5EEF0]">
-                  <Image
-                    unoptimized
-                    src={getImageUrl(
-                      category.bannerImage || "/placeholder.jpg",
-                    )}
-                    alt={category.name || "Category"}
-                    fill
-                    className="object-cover transition-transform duration-500 group-hover:scale-105"
-                    sizes="(max-width: 768px) 50vw, 300px"
-                  />
-                </div>
+          <div className="animate-fadeIn mx-auto grid max-w-5xl grid-cols-3 gap-2 sm:gap-6 justify-center">
+            {allCategories
+              .filter((category) => {
+                const name = (category.name || "").toLowerCase();
+                const slug = (category.slug || "").toLowerCase();
+                return !name.includes("panties") && !slug.includes("panties") && !name.includes("pantey");
+              })
+              .map((category) => {
+                let displayName = category.name || "Category";
+                let targetHref = category.redirectSlug || "/shop";
 
-                <div className="flex items-center justify-between border-t border-gray-50 p-3.5 sm:p-4">
-                  <h3 className="truncate pr-2 text-sm font-semibold text-gray-900 capitalize transition-colors group-hover:text-[#016271] sm:text-base">
-                    {category.name}
-                  </h3>
-                  <ArrowRight className="h-4 w-4 shrink-0 transform text-[#016271] transition-transform group-hover:translate-x-1" />
-                </div>
-              </Link>
-            ))}
+                const lowerName = displayName.toLowerCase();
+                if (lowerName.includes("teen")) {
+                  displayName = "Teen Periods";
+                  targetHref = "/product-detail/ovy-teen";
+                } else if (lowerName.includes("menstrual hygiene") || lowerName.includes("hygiene")) {
+                  targetHref = "/ovy#products";
+                }
 
-            {/* Extra Coming Soon Category Card */}
-            <div className="group border-gray-150 flex cursor-default flex-col justify-between overflow-hidden rounded-2xl border bg-white transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
-              <div
-                className="relative flex aspect-[4/5] items-center justify-center overflow-hidden p-4 text-center"
-                style={{
-                  background:
-                    "repeating-linear-gradient(-45deg, #FBF4F8, #FBF4F8 14px, #F3E5F0 14px, #F3E5F0 28px)",
-                }}
-              >
-                <span className="-rotate-3 transform font-serif text-2xl font-medium tracking-wide text-[#864A76] italic sm:text-3xl">
-                  Coming soon
-                </span>
-              </div>
-              <div className="flex items-center justify-between border-t border-gray-100 bg-white p-3.5 sm:p-4">
-                <h3 className="truncate text-sm font-semibold text-gray-400 capitalize sm:text-base">
-                  Period panties
-                </h3>
-              </div>
-            </div>
+                return (
+                  <Link
+                    key={category.id}
+                    href={targetHref}
+                    className="group border-gray-150 flex flex-col justify-between overflow-hidden rounded-xl border bg-white transition-all duration-300 hover:-translate-y-1 hover:shadow-lg sm:rounded-2xl"
+                  >
+                    <div className="relative aspect-[4/5] overflow-hidden bg-[#F5EEF0]">
+                      <Image
+                        unoptimized
+                        src={getImageUrl(
+                          category.bannerImage || "/placeholder.jpg",
+                        )}
+                        alt={displayName}
+                        fill
+                        className="object-cover transition-transform duration-500 group-hover:scale-105"
+                        sizes="(max-width: 640px) 33vw, (max-width: 768px) 50vw, 300px"
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between border-t border-gray-50 p-2 sm:p-3.5 md:p-4">
+                      <h3 className="truncate pr-1 text-[10px] font-semibold leading-tight text-gray-900 capitalize transition-colors group-hover:text-[#016271] sm:text-sm md:text-base">
+                        {displayName}
+                      </h3>
+                      <ArrowRight className="h-3 w-3 shrink-0 transform text-[#016271] transition-transform group-hover:translate-x-1 sm:h-4 sm:w-4" />
+                    </div>
+                  </Link>
+                );
+              })}
           </div>
         )}
       </div>

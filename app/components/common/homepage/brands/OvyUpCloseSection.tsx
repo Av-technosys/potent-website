@@ -387,7 +387,7 @@ export function OvyUpCloseSection({ productsBySlug }: OvyUpCloseSectionProps) {
               {/* Side-by-Side 2 Buttons Row */}
               <div className="grid grid-cols-2 gap-2">
                 <Link
-                  href="/shop/menstrual-cup"
+                  href="/product-detail/ovy-cup"
                   className="bg-[#602E55] text-white rounded-full py-2.5 px-3 text-xs font-semibold hover:bg-[#4A2040] transition-colors flex items-center justify-center gap-1 text-center"
                 >
                   Shop the cup <ArrowRight className="w-3.5 h-3.5" />
@@ -541,7 +541,7 @@ export function OvyUpCloseSection({ productsBySlug }: OvyUpCloseSectionProps) {
               </button>
 
               <Link
-                href="/shop/ovy-daily-panty-liners"
+                href="/product-detail/ovy-liners"
                 className="w-full bg-[#602E55] text-white rounded-full py-2.5 text-xs font-semibold hover:bg-[#4A2040] transition-colors flex items-center justify-center gap-1.5 text-center shadow-xs"
               >
                 Shop liners <ArrowRight className="w-3.5 h-3.5" />

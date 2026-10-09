@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -15,6 +15,8 @@ import {
 import { addToCart } from "@/store/cartActions";
 import { getImageUrl } from "@/lib/imageUrl";
 import { toast } from "sonner";
+import { useWishlistStore } from "@/store/WishlistStore";
+import { addToWishlist, removeFromWishlist } from "@/store/WishlistActions";
 import {
   getOvyProductId,
   getOvyVariantLabel,
@@ -184,16 +186,63 @@ export function OvyShopSection({
     "ovy-liners": 0,
   });
 
+  const wishlistItems = useWishlistStore((state) => state.items);
   const [addingState, setAddingState] = useState<Record<string, boolean>>({});
   const [addedState, setAddedState] = useState<Record<string, boolean>>({});
-  const [likedState, setLikedState] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const hash = window.location.hash;
+      const search = window.location.search;
+      if (
+        hash === "#products" ||
+        hash.includes("products") ||
+        search.includes("products")
+      ) {
+        setTimeout(() => {
+          const el = document.getElementById("products");
+          if (el) {
+            el.scrollIntoView({ behavior: "smooth", block: "start" });
+          }
+        }, 300);
+      }
+    }
+  }, []);
 
   const handleSelectVariant = (productId: string, variantIdx: number) => {
     setSelectedVariants((prev) => ({ ...prev, [productId]: variantIdx }));
   };
 
-  const toggleLike = (productId: string) => {
-    setLikedState((prev) => ({ ...prev, [productId]: !prev[productId] }));
+  const handleToggleWishlist = async (cardData: ProductCardData, fullProd: ProductDetails | null) => {
+    const prodId = getOvyProductId(fullProd) || cardData.id;
+    if (!prodId) return;
+    const isLiked = wishlistItems.some(
+      (item) => item.productId === prodId || item.productId === cardData.slug || item.slug === cardData.slug
+    );
+    if (isLiked) {
+      await removeFromWishlist(prodId);
+    } else {
+      const vIdx = selectedVariants[cardData.id] || 0;
+      const variantObj = cardData.variants[vIdx] || cardData.variants[0];
+      const realVariant = fullProd
+        ? getOvyVariants(fullProd).find(
+            (variant) => getOvyVariantId(variant) === variantObj?.variantId,
+          )
+        : null;
+
+      const currentSelectedVariant = realVariant || variantObj;
+      const availableVariants = fullProd ? getOvyVariants(fullProd) : cardData.variants;
+
+      await addToWishlist({
+        ...(fullProd || {}),
+        productId: prodId,
+        name: cardData.title,
+        image: cardData.image,
+        slug: cardData.slug,
+        selectedVariant: currentSelectedVariant,
+        variants: availableVariants,
+      });
+    }
   };
 
   const handleAddProductToCart = async (cardData: ProductCardData) => {
@@ -244,7 +293,7 @@ export function OvyShopSection({
   };
 
   return (
-    <section className="w-full bg-[#FAF5E8] pt-10 pb-0">
+    <section id="products" className="w-full bg-[#FAF5E8] pt-10 pb-0">
       {/* Header */}
       <div className="mx-auto mb-8 max-w-3xl px-4 text-center sm:mb-10">
         <span className="mb-2 inline-block rounded-full border border-gray-200 bg-white/90 px-4 py-1 text-[10px] font-bold tracking-widest text-[#016271] uppercase shadow-2xs sm:mb-3 sm:text-[11px]">
@@ -316,9 +365,15 @@ export function OvyShopSection({
               currentVariant?.variantId &&
               currentVariant.price > 0,
             );
+            const realProductId = getOvyProductId(fullProduct) || card.id;
             const isAdding = addingState[card.id];
             const isAdded = addedState[card.id];
-            const isLiked = likedState[card.id];
+            const isLiked = wishlistItems.some(
+              (item) =>
+                item.productId === realProductId ||
+                item.productId === card.slug ||
+                item.slug === card.slug,
+            );
 
             return (
               <div
@@ -483,7 +538,7 @@ export function OvyShopSection({
 
                       {/* Heart button top-right */}
                       <button
-                        onClick={() => toggleLike(card.id)}
+                        onClick={() => handleToggleWishlist(renderedCard, fullProduct)}
                         className="absolute top-3 right-3 z-20 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 shadow-2xs transition-transform hover:scale-110"
                       >
                         <Heart
@@ -645,7 +700,7 @@ export function OvyShopSection({
 
           <div className="flex w-full shrink-0 flex-col items-center gap-3 sm:w-auto sm:flex-row">
             <Link
-              href="/shop"
+              href="/product-detail/ovy-pads?plan=mixYourBox#mix-your-box"
               className="flex w-full items-center justify-center gap-2 rounded-full bg-[#602E55] px-6 py-2.5 text-center text-xs font-semibold text-white shadow-md transition-all hover:bg-[#4E2445] sm:w-auto sm:px-7 sm:py-3"
             >
               <span>Build your box</span>

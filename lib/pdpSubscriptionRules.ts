@@ -132,6 +132,16 @@ export function isPdpSubscriptionEligible(product: any) {
   const slug = String(product?.slug || "").toLowerCase();
 
   if (PDP_NO_SUBSCRIPTION_SLUGS.has(slug)) return false;
+  if (product?.isInStock === false || product?.is_in_stock === false) return false;
+  if (
+    Array.isArray(product?.productVariants) &&
+    product.productVariants.length > 0 &&
+    product.productVariants.every(
+      (v: any) => v.isInStock === false || v.is_in_stock === false,
+    )
+  ) {
+    return false;
+  }
   if (PDP_SUBSCRIPTION_SLUGS.has(slug)) return true;
 
   // Keep the generic PDP safe for equivalent product slugs while ensuring

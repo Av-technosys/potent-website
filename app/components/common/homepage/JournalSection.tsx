@@ -1,37 +1,66 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { ArrowRight } from "lucide-react";
+import Link from "next/link";
+import { getBlogs } from "@/helper/blog/action";
+
+const FALLBACK_ARTICLES = [
+  {
+    category: "SANITARY PADS",
+    title: "Why choose sanitary pads instead of cloth during periods?",
+    date: "19 Aug 2026",
+    link: "/blog/why-choose-sanitary-pads-instead-of-cloth-during-periods",
+  },
+  {
+    category: "PROTECTION",
+    title: "Protection and women's hygiene",
+    date: "19 Aug 2026",
+    link: "/blog/protection-and-womens-hygiene",
+    highlighted: true,
+  },
+  {
+    category: "SKIN",
+    title: "Skin pimples: causes, prevention and simple care tips",
+    date: "19 Aug 2026",
+    link: "/blog/skin-pimples-causes-prevention-and-simple-care-tips",
+  },
+  {
+    category: "AT WORK",
+    title:
+      "Periods, power, productivity: managing menstrual health at work",
+    date: "2026",
+    link: "/blog/periods-power-productivity-how-managing-menstrual-health-can-skyrocket-your-efficiency",
+  },
+];
 
 export function JournalSection() {
-  const articles = [
-    {
-      category: "SANITARY PADS",
-      title: "Why choose sanitary pads instead of cloth during periods?",
-      date: "19 Aug 2026",
-      link: "/blog",
-    },
-    {
-      category: "PROTECTION",
-      title: "Protection and women's hygiene",
-      date: "19 Aug 2026",
-      link: "/blog",
-      highlighted: true,
-    },
-    {
-      category: "SKIN",
-      title: "Skin pimples: causes, prevention and simple care tips",
-      date: "19 Aug 2026",
-      link: "/blog",
-    },
-    {
-      category: "AT WORK",
-      title:
-        "Periods, power, productivity: managing menstrual health at work",
-      date: "2026",
-      link: "/blog",
-    },
-  ];
+  const [articles, setArticles] = useState(FALLBACK_ARTICLES);
+
+  useEffect(() => {
+    async function loadBlogs() {
+      try {
+        const blogs = await getBlogs();
+        if (blogs && blogs.length > 0) {
+          const mapped = blogs.slice(0, 4).map((b: any, idx: number) => ({
+            category: (b.blogCategory || "JOURNAL").toUpperCase(),
+            title: b.title,
+            date: b.date || "Recent",
+            link: `/blog/${b.slug}`,
+            highlighted: idx === 1,
+          }));
+          if (mapped.length < 4) {
+            setArticles([...mapped, ...FALLBACK_ARTICLES.slice(mapped.length)]);
+          } else {
+            setArticles(mapped);
+          }
+        }
+      } catch (err) {
+        console.error("Failed loading journal section blogs:", err);
+      }
+    }
+    loadBlogs();
+  }, []);
 
   return (
     <section className="hidden sm:block py-12 sm:py-16 md:py-20 bg-[#F8F6F1]">
@@ -51,18 +80,18 @@ export function JournalSection() {
             </p>
           </div>
 
-          <a
+          <Link
             href="/blog"
             className="border border-[#016271] text-[#016271] hover:bg-[#016271] hover:text-white px-6 py-2.5 rounded-full font-medium text-sm transition-all whitespace-nowrap self-start sm:self-auto cursor-pointer inline-flex items-center gap-2 shrink-0"
           >
             Read the journal <ArrowRight className="w-4 h-4" />
-          </a>
+          </Link>
         </div>
 
         {/* 4 CARDS GRID */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 md:gap-6">
           {articles.map((item, idx) => (
-            <a
+            <Link
               key={idx}
               href={item.link}
               className={`bg-white rounded-2xl p-6 shadow-xs transition-all flex flex-col justify-between group ${
@@ -87,7 +116,7 @@ export function JournalSection() {
               <span className="text-xs text-gray-400 font-medium mt-auto">
                 {item.date}
               </span>
-            </a>
+            </Link>
           ))}
         </div>
       </div>

@@ -56,12 +56,7 @@ const StoryTruth = (_props: Props) => {
                 <p className="text-xs sm:text-sm text-gray-600 leading-relaxed mb-4">
                   You do not need the perfect words, just calm and open ones. Tell her it happens to everyone, there is no rush to have it all figured out, and she can always come to you.
                 </p>
-                <Link
-                  href="/blog/periods-power-productivity-how-managing-menstrual-health-can-skyrocket-your-efficiency"
-                  className="inline-flex items-center text-xs sm:text-sm font-semibold text-[#8C4F7C] hover:underline group gap-1"
-                >
-                  Read the parents' corner <span className="transition-transform group-hover:translate-x-1">→</span>
-                </Link>
+               
               </div>
             </div>
 
@@ -114,7 +109,7 @@ const StoryTruth = (_props: Props) => {
                     10 L and 11 XL pads plus 4 liners. Two sizes, so she learns her own flow from day one.
                   </p>
                   <Link
-                    href="/product-detail/ovy-teen"
+                    href="/product-detail/ovy-teen?kit=STARTER#starter"
                     className="inline-flex items-center text-[11px] sm:text-xs font-semibold text-[#8C4F7C] hover:gap-2 transition-all gap-1 mt-auto group"
                   >
                     Shop Starter <span className="transition-transform group-hover:translate-x-1">→</span>
@@ -144,7 +139,7 @@ const StoryTruth = (_props: Props) => {
                     Three sizes, sport-tested wings and sweat-wicking fibres. For the girl who will not hit pause.
                   </p>
                   <Link
-                    href="/product-detail/ovy-teen"
+                    href="/product-detail/ovy-teen?kit=PRO#pro"
                     className="inline-flex items-center text-[11px] sm:text-xs font-semibold text-[#8C4F7C] hover:gap-2 transition-all gap-1 mt-auto group"
                   >
                     Shop Pro-Active <span className="transition-transform group-hover:translate-x-1">→</span>

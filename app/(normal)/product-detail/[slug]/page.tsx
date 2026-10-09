@@ -16,6 +16,9 @@ import PeePukeBagsPageClient from "@/app/components/common/Product-detail/PeePuk
 import PeeFunnelPageClient from "@/app/components/common/Product-detail/PeeFunnelPageClient";
 import { loowayPeePuke, loowayPeeFunnel, loowayToiletSeatCovers, ovyCup, ovyTeen } from "@/const/productsContent";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function Page({ params }: any) {
   const { slug } = await params;
 

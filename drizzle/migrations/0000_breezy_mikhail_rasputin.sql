@@ -204,7 +204,7 @@ CREATE TABLE "products" (
 	"subscribe_bi_montly_discount" integer DEFAULT 0,
 	"cycle_sync_discount" integer DEFAULT 0,
 	"max_quantity_purchase" integer DEFAULT 6,
-	"free_shipping_over" integer DEFAULT 599,
+	"free_shipping_over" integer DEFAULT 399,
 	"created_at" timestamp DEFAULT now(),
 	"updated_at" timestamp DEFAULT now(),
 	CONSTRAINT "products_slug_unique" UNIQUE("slug")

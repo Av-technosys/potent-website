@@ -129,7 +129,7 @@ const AboutStory: React.FC<AboutStoryProps> = ({
             {/* Action Button */}
             <div>
               <Link
-                href="/product-detail/ovy-teen?scroll=starter#starter"
+                href="/product-detail/ovy-pads?plan=mixYourBox#mix-your-box"
                 className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-full py-3 px-7 text-xs font-semibold text-white shadow-md transition-all hover:scale-105 lg:inline-flex lg:w-auto sm:text-sm"
                 style={{ backgroundColor: buttonColor }}
               >

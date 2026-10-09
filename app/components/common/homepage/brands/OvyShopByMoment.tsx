@@ -28,6 +28,7 @@ interface MomentData {
   variantHint?: string;
   variantIndex?: number;
   compareLinkText: string;
+  compareHref?: string;
 }
 
 interface ProductDetails {
@@ -72,6 +73,7 @@ const MOMENTS_DATA: MomentData[] = [
     slug: "ovy-teen",
     variantHint: "Starter",
     compareLinkText: "Compare the two teen kits →",
+    compareHref: "/product-detail/ovy-teen",
   },
   {
     id: "school-work",
@@ -84,6 +86,7 @@ const MOMENTS_DATA: MomentData[] = [
     slug: "ovy-pads",
     variantIndex: 0,
     compareLinkText: "See all pad sizes →",
+    compareHref: "/product-detail/ovy-pads",
   },
   {
     id: "heavy-days",
@@ -96,6 +99,7 @@ const MOMENTS_DATA: MomentData[] = [
     slug: "ovy-pads",
     variantHint: "XL+",
     compareLinkText: "Explore night pads →",
+    compareHref: "/product-detail/ovy-pads?size=xlplus#xlplus",
   },
   {
     id: "sport-swim",
@@ -108,6 +112,7 @@ const MOMENTS_DATA: MomentData[] = [
     slug: "ovy-cup",
     variantHint: "Medium Rainbow",
     compareLinkText: "Find your cup size →",
+    compareHref: "/product-detail/ovy-cup",
   },
   {
     id: "after-baby",
@@ -120,6 +125,7 @@ const MOMENTS_DATA: MomentData[] = [
     slug: "ovy-pads",
     variantHint: "XL+",
     compareLinkText: "Learn about post-natal care →",
+    compareHref: "/product-detail/ovy-pads?size=xlplus#xlplus",
   },
   {
     id: "every-day",
@@ -132,6 +138,7 @@ const MOMENTS_DATA: MomentData[] = [
     slug: "ovy-liners",
     variantHint: "40",
     compareLinkText: "Choose liner pack size →",
+    compareHref: "/product-detail/ovy-liners",
   },
 ];
 
@@ -367,7 +374,7 @@ export function OvyShopByMoment({
 
             {/* Compare Link */}
             <Link
-              href="/shop"
+              href={currentMoment.compareHref || `/product-detail/${currentMoment.slug}`}
               className="mt-3 inline-block text-xs font-semibold text-[#602E55] hover:underline"
             >
               {currentMoment.compareLinkText}
@@ -493,7 +500,7 @@ export function OvyShopByMoment({
               </div>
 
               <Link
-                href="/shop"
+                href={currentMoment.compareHref || `/product-detail/${currentMoment.slug}`}
                 className="mt-4 inline-block text-xs font-semibold text-[#602E55] hover:underline"
               >
                 {currentMoment.compareLinkText}

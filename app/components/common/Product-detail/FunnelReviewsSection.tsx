@@ -3,6 +3,7 @@
 
 import React, { useState, useRef } from "react";
 import { Star, CheckCircle2, ChevronLeft, ChevronRight, Check } from "lucide-react";
+import { WriteReviewModal } from "../dashboard-review/WriteReviewModal";
 
 type Review = {
   id: number;
@@ -193,6 +194,13 @@ export default function FunnelReviewsSection() {
               <div className="mt-3 inline-flex items-center gap-1.5 text-xs font-bold text-[#15803D]">
                 <CheckCircle2 className="h-4 w-4 text-[#15803D]" />
                 <span>Every review from a verified purchase</span>
+              </div>
+
+              <div className="mt-4">
+                <WriteReviewModal
+                  product={{ name: "Looway Pee Funnel", slug: "looway-pee-funnel" }}
+                  btnClassName="px-4 py-2 text-xs font-bold rounded-full bg-[#5A0E30] text-white hover:bg-[#430922] transition cursor-pointer inline-flex items-center gap-1.5"
+                />
               </div>
             </div>
 

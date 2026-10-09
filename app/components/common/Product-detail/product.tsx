@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowRight,
   CheckCircle2,
@@ -92,6 +92,7 @@ export default function ProductDetailPage({
   themeColor,
 }: any) {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const variantsList = Array.isArray(productInfo?.productVariants)
     ? productInfo.productVariants
@@ -195,7 +196,13 @@ export default function ProductDetailPage({
     staticContent,
   );
   const canCustomizeBox = Boolean(
-    productInfo?.isMixBox || productInfo?.hasVarientBox,
+    productInfo?.isMixBox ||
+      productInfo?.hasVarientBox ||
+      productInfo?.slug === "ovy-pads" ||
+      (Array.isArray(productInfo?.prodcutVarientBoxRes) &&
+        productInfo.prodcutVarientBoxRes.length > 0) ||
+      (Array.isArray(productInfo?.productVariants) &&
+        productInfo.productVariants.length > 1),
   );
   const isMixBoxCheckout = canCustomizeBox && selectedPlanType === "mixYourBox";
   const isQuantityChangable = !isMixBoxCheckout;
@@ -244,8 +251,23 @@ export default function ProductDetailPage({
     productInfo?.freeShippingOver || 599,
   );
 
-  const availableSubscriptionPlans = getPdpSubscriptionPlans(productInfo);
-  const shownSubscriptionPlans = [BUY_ONCE_PLAN, ...availableSubscriptionPlans];
+  const isOutOfStock = Boolean(
+    activeVariant
+      ? activeVariant.isInStock === false ||
+        activeVariant.is_in_stock === false
+      : variantsList.length > 0
+        ? variantsList.every(
+            (v: any) => v.isInStock === false || v.is_in_stock === false,
+          )
+        : productInfo?.isInStock === false || productInfo?.is_in_stock === false,
+  );
+
+  const availableSubscriptionPlans = isOutOfStock
+    ? []
+    : getPdpSubscriptionPlans(productInfo);
+  const shownSubscriptionPlans = isOutOfStock
+    ? []
+    : [BUY_ONCE_PLAN, ...availableSubscriptionPlans];
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -253,20 +275,50 @@ export default function ProductDetailPage({
     const planParam = searchParams.get("plan");
     const hash = window.location.hash;
 
-    if (planParam === "mixYourBox" || hash === "#mix-your-box" || hash === "#mix-box") {
+    if (
+      planParam === "mixYourBox" ||
+      planParam === "mix-your-box" ||
+      hash === "#mix-your-box" ||
+      hash === "#mix-box" ||
+      hash === "#mixYourBox"
+    ) {
       if (canCustomizeBox) {
         setSelectedPlanType("mixYourBox");
+        const variants =
+          productInfo?.prodcutVarientBoxRes ||
+          productInfo?.productVariants ||
+          [];
+        if (variants.length > 0) {
+          const baseQuantity = Math.floor(21 / Math.max(variants.length, 1));
+          let remaining = 21;
+          const selectedVarientInfo = variants.map(
+            (item: any, index: number) => {
+              const qty =
+                index === variants.length - 1 ? remaining : baseQuantity;
+              remaining -= qty;
+              return {
+                name: item.name,
+                quantity: qty,
+                price: Number(item.price || 0),
+              };
+            },
+          );
+          setCartSizes(selectedVarientInfo);
+          setSelectedVarient(selectedVarientInfo);
+          setTotal(21);
+        }
       }
     } else if (planParam === "cycleSync" || hash === "#cycle-sync") {
       const cycleSyncPlan = shownSubscriptionPlans.find(
-        (p: any) => p.subscriptionType === "cycle_sync" || p.id === "cycle_sync"
+        (p: any) =>
+          p.subscriptionType === "cycle_sync" || p.id === "cycle_sync",
       );
       if (cycleSyncPlan) {
         setSelectedPlan(cycleSyncPlan);
         setIsSubscribed(true);
       }
     }
-  }, [canCustomizeBox, shownSubscriptionPlans]);
+  }, [canCustomizeBox, shownSubscriptionPlans, productInfo]);
 
   const subscriptionType = selectedPlan?.subscriptionType ?? "buy_once";
   const purchaseType =
@@ -341,7 +393,7 @@ export default function ProductDetailPage({
   );
 
   const syncHash = (sizeKey: string | null) => {
-    if (!sizeKey || typeof window === "undefined") return;
+    if (!sizeKey || typeof window === "undefined" || selectedPlanType === "mixYourBox") return;
     const hash =
       staticContent?.SIZES?.[sizeKey]?.hash || `#${sizeKey.toLowerCase()}`;
     window.history.replaceState(
@@ -373,7 +425,11 @@ export default function ProductDetailPage({
       if (
         hash === "#starter" ||
         hash.includes("starter") ||
-        search.includes("starter")
+        search.includes("starter") ||
+        hash.includes("mix-your-box") ||
+        hash.includes("mix-box") ||
+        search.includes("mixYourBox") ||
+        search.includes("mix-your-box")
       ) {
         setTimeout(() => {
           document
@@ -385,33 +441,44 @@ export default function ProductDetailPage({
   }, []);
 
   useEffect(() => {
-    if (!staticContent || typeof window === "undefined") return;
-    const hashSizeKey = resolveStaticSizeKey(
-      window.location.hash,
-      activeVariant,
-      staticContent,
-    );
-    const hashVariant = variantsList.find(
-      (variant: any) =>
-        resolveStaticSizeKey(variant.size, variant, staticContent) ===
-        hashSizeKey,
-    );
+    if (!staticContent || typeof window === "undefined" || variantsList.length === 0) return;
 
-    if (hashVariant && hashVariant.id !== activeVariant?.id) {
-      setSelectedSize(hashVariant.size || selectedSize);
-      setSelectedFlow(hashVariant.flowType || selectedFlow);
-      setActiveVariant(hashVariant);
-      if (hashVariant.bannerImage || hashVariant.image) {
-        setActiveImage(hashVariant.bannerImage || hashVariant.image);
+    const applyUrlSize = () => {
+      const currentParams = new URLSearchParams(window.location.search);
+      const sizeParam = currentParams.get("size");
+      const hash = window.location.hash;
+
+      const targetStr = [sizeParam, hash, window.location.search].filter(Boolean).join(" ");
+      if (!targetStr.trim()) return;
+
+      const requestedKey = resolveStaticSizeKey(targetStr, null, staticContent);
+      if (!requestedKey) return;
+
+      const matchedVariant = variantsList.find(
+        (v: any) =>
+          resolveStaticSizeKey(v.size || v.name || v.sku, null, staticContent) ===
+          requestedKey,
+      );
+
+      if (matchedVariant) {
+        setActiveVariant(matchedVariant);
+        if (matchedVariant.size) setSelectedSize(matchedVariant.size);
+        if (matchedVariant.flowType) setSelectedFlow(matchedVariant.flowType);
+        if (matchedVariant.bannerImage || matchedVariant.image) {
+          setActiveImage(matchedVariant.bannerImage || matchedVariant.image);
+        }
       }
-    } else {
-      syncHash(staticSizeKey);
-    }
-  }, []);
+    };
 
-  useEffect(() => {
-    syncHash(staticSizeKey);
-  }, [staticSizeKey]);
+    applyUrlSize();
+
+    window.addEventListener("hashchange", applyUrlSize);
+    window.addEventListener("popstate", applyUrlSize);
+    return () => {
+      window.removeEventListener("hashchange", applyUrlSize);
+      window.removeEventListener("popstate", applyUrlSize);
+    };
+  }, [staticContent, variantsList, searchParams]);
 
   useEffect(() => {
     if (!canCustomizeBox && selectedPlanType === "mixYourBox") {
@@ -424,7 +491,22 @@ export default function ProductDetailPage({
     }
   }, [canCustomizeBox, selectedPlanType, productInfo?.prodcutVarientBoxRes]);
 
+  useEffect(() => {
+    if (variantsList.length > 0) {
+      const currentId = activeVariant?.id;
+      const matched = variantsList.find((v: any) => v.id === currentId) || variantsList[0];
+      if (matched && (matched.isInStock !== activeVariant?.isInStock || matched.id !== activeVariant?.id)) {
+        setActiveVariant(matched);
+      }
+    }
+  }, [productInfo, variantsList]);
+
   const addToCart = async () => {
+    if (isOutOfStock) {
+      toast.error("This item is currently out of stock.");
+      return false;
+    }
+
     if (isMixBoxCheckout) {
       if (!mixBoxPricing?.valid) {
         toast.error(
@@ -493,6 +575,11 @@ export default function ProductDetailPage({
   };
 
   const handleBuyNow = async () => {
+    if (isOutOfStock) {
+      toast.error("This item is currently out of stock.");
+      return;
+    }
+
     if (effectivePurchaseType !== "subscription") {
       const added = await addToCart();
       if (added) router.push("/checkout");
@@ -660,19 +747,16 @@ export default function ProductDetailPage({
   // Quiz Recommendation Calculation
   const recommendedQuizResult = useMemo(() => {
     const { flow, leaks, duration } = quizAnswers;
-    if (flow === "variable" || duration === "7+" || (flow === "heavy" && duration === "5-7")) {
-      return {
-        size: "Mix Your Box",
-        badge: "RECOMMENDED FOR YOUR CYCLE",
-        why: "Your period flow varies across your cycle. Mix Your Box gives you L for light days, XL for regular days, and XL+ for heavy flow & overnight in a single box!",
-        type: "mixYourBox",
-        variantSize: "Mix Your Box",
-        price: Number(activeVariant?.price || 349),
-        image: activeVariant?.bannerImage || productInfo?.bannerImage,
-      };
-    }
-    if (flow === "extra_heavy" || leaks === "often") {
-      const match = variantsList.find((v: any) => v.size?.includes("320"));
+
+    // 1. Heavy flow or frequent leaks always leads to XL+ (320mm)
+    if (flow === "heavy" || flow === "extra_heavy" || leaks === "often") {
+      const match = variantsList.find(
+        (v: any) =>
+          v.size?.includes("320") ||
+          v.name?.includes("XL+") ||
+          v.sku?.toLowerCase().includes("xlplus") ||
+          v.size?.toLowerCase().includes("xl+"),
+      );
       return {
         size: "XL+ (320mm)",
         badge: "BEST MATCH FOR HEAVY FLOW",
@@ -683,8 +767,29 @@ export default function ProductDetailPage({
         image: match?.bannerImage || match?.image || activeVariant?.bannerImage || productInfo?.bannerImage,
       };
     }
+
+    // 2. Variable flow across cycle days or long cycle leads to Mix Your Box
+    if (flow === "variable" || (duration === "7+" && flow !== "heavy")) {
+      return {
+        size: "Mix Your Box",
+        badge: "RECOMMENDED FOR YOUR CYCLE",
+        why: "Your period flow varies across your cycle. Mix Your Box gives you L for light days, XL for regular days, and XL+ for heavy flow & overnight in a single box!",
+        type: "mixYourBox",
+        variantSize: "Mix Your Box",
+        price: Number(activeVariant?.price || 349),
+        image: activeVariant?.bannerImage || productInfo?.bannerImage,
+      };
+    }
+
+    // 3. Light flow leads to L (240mm)
     if (flow === "light") {
-      const match = variantsList.find((v: any) => v.size?.includes("240"));
+      const match = variantsList.find(
+        (v: any) =>
+          v.size?.includes("240") ||
+          v.name?.includes("L ") ||
+          v.sku?.toLowerCase().includes("size-l") ||
+          v.size?.toLowerCase().includes("240mm"),
+      );
       return {
         size: "L (240mm)",
         badge: "BEST MATCH FOR LIGHT FLOW",
@@ -695,7 +800,15 @@ export default function ProductDetailPage({
         image: match?.bannerImage || match?.image || activeVariant?.bannerImage || productInfo?.bannerImage,
       };
     }
-    const match = variantsList.find((v: any) => v.size?.includes("280"));
+
+    // 4. Default / Regular / Medium flow leads to XL (280mm)
+    const match = variantsList.find(
+      (v: any) =>
+        v.size?.includes("280") ||
+        (v.name?.includes("XL") && !v.name?.includes("XL+")) ||
+        v.sku?.toLowerCase().includes("size-xl") ||
+        v.size?.toLowerCase().includes("280mm"),
+    );
     return {
       size: "XL (280mm)",
       badge: "MOST POPULAR CHOICE",
@@ -727,7 +840,13 @@ export default function ProductDetailPage({
       setSelectedPlanType("pickSize");
       const targetSize = recommendedQuizResult.variantSize;
       const match = variantsList.find(
-        (v: any) => v.size === targetSize || v.name?.includes(targetSize?.split(" ")[0]),
+        (v: any) =>
+          v.size === targetSize ||
+          v.name?.includes(targetSize?.split(" ")[0]) ||
+          (targetSize?.includes("XL+") &&
+            (v.name?.includes("XL+") ||
+              v.size?.includes("320") ||
+              v.sku?.toLowerCase().includes("xlplus"))),
       );
       if (match) {
         handleVariantChange(match);
@@ -739,9 +858,16 @@ export default function ProductDetailPage({
   const handleDirectQuizAddToCart = async () => {
     applyQuizRecommendation();
     const targetSize = recommendedQuizResult.variantSize;
-    const targetVariant = variantsList.find(
-      (v: any) => v.size === targetSize || v.name?.includes(targetSize?.split(" ")[0]),
-    ) || activeVariant;
+    const targetVariant =
+      variantsList.find(
+        (v: any) =>
+          v.size === targetSize ||
+          v.name?.includes(targetSize?.split(" ")[0]) ||
+          (targetSize?.includes("XL+") &&
+            (v.name?.includes("XL+") ||
+              v.size?.includes("320") ||
+              v.sku?.toLowerCase().includes("xlplus"))),
+      ) || activeVariant;
 
     const basePrice = Number(recommendedQuizResult.price || targetVariant?.price || 349);
 
@@ -1006,6 +1132,7 @@ export default function ProductDetailPage({
                   const sizeName = variant.size?.split(" ")[0] || variant.name?.split(" ")[0] || `Size ${idx + 1}`;
                   const mmText = variant.size?.match(/\((.*?)\)/)?.[1] || (idx === 0 ? "240mm" : idx === 1 ? "280mm" : "320mm");
                   const flowDesc = variant.flowType || (idx === 0 ? "Light Flow" : idx === 1 ? "Medium-Heavy" : "Heavy & Overnight");
+                  const variantIsOutOfStock = variant.isInStock === false || variant.is_in_stock === false;
 
                   return (
                     <button
@@ -1019,7 +1146,12 @@ export default function ProductDetailPage({
                           : "border-gray-200/80 bg-white hover:-translate-y-0.5 hover:border-[#9A5B90]"
                       }`}
                     >
-                      <div className="font-serif text-base sm:text-xl font-semibold text-[#1A150F]">{sizeName}</div>
+                      <div className="flex items-center justify-between gap-1">
+                        <div className="font-serif text-base sm:text-xl font-semibold text-[#1A150F]">{sizeName}</div>
+                        {variantIsOutOfStock && (
+                          <span className="text-[9px] font-bold text-stone-500 bg-stone-100 px-1.5 py-0.5 rounded">Out of stock</span>
+                        )}
+                      </div>
                       <div className="mt-0.5 text-[10px] sm:text-xs font-medium text-gray-600">{mmText} • ₹{variant.price || 349}</div>
                       <div className="mt-1 sm:mt-2 text-[10px] sm:text-xs font-semibold tracking-tight text-[#7E4D77] line-clamp-1">{flowDesc}</div>
                       <div
@@ -1340,28 +1472,40 @@ export default function ProductDetailPage({
 
             {/* Primary & Secondary Action Buttons */}
             <div className="space-y-3 pt-2">
-              {subscriptionType === "buy_once" && (
+              {isOutOfStock ? (
                 <button
                   type="button"
-                  onClick={addToCart}
-                  disabled={Boolean(isMixBoxCheckout && !mixBoxPricing?.valid)}
-                  className="flex w-full cursor-pointer items-center justify-center gap-2 border-none rounded-2xl bg-[#9A5B90] p-4 text-base font-semibold text-white shadow-md transition-all hover:-translate-y-0.5 hover:bg-[#7E4D77] disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled
+                  className="flex w-full cursor-not-allowed items-center justify-center gap-2 border-none rounded-2xl bg-gray-200 p-4 text-base font-semibold text-gray-500 shadow-none"
                 >
-                  <ShoppingBag className="h-5 w-5" />
-                  Add to Cart • ₹{typeof totalAmount === "number" ? totalAmount : ""}
+                  Out of stock
                 </button>
-              )}
+              ) : (
+                <>
+                  {subscriptionType === "buy_once" && (
+                    <button
+                      type="button"
+                      onClick={addToCart}
+                      disabled={Boolean(isMixBoxCheckout && !mixBoxPricing?.valid)}
+                      className="flex w-full cursor-pointer items-center justify-center gap-2 border-none rounded-2xl bg-[#9A5B90] p-4 text-base font-semibold text-white shadow-md transition-all hover:-translate-y-0.5 hover:bg-[#7E4D77] disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <ShoppingBag className="h-5 w-5" />
+                      Add to Cart • ₹{typeof totalAmount === "number" ? totalAmount : ""}
+                    </button>
+                  )}
 
-              <button
-                type="button"
-                onClick={handleBuyNow}
-                disabled={Boolean(isMixBoxCheckout && !mixBoxPricing?.valid)}
-                className="w-full cursor-pointer border-none rounded-2xl bg-[#141413] p-4 text-base font-semibold text-white transition-all hover:bg-[#2a2a28] disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {effectivePurchaseType === "subscription"
-                  ? "Checkout Subscription →"
-                  : "Buy Now →"}
-              </button>
+                  <button
+                    type="button"
+                    onClick={handleBuyNow}
+                    disabled={Boolean(isMixBoxCheckout && !mixBoxPricing?.valid)}
+                    className="w-full cursor-pointer border-none rounded-2xl bg-[#141413] p-4 text-base font-semibold text-white transition-all hover:bg-[#2a2a28] disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {effectivePurchaseType === "subscription"
+                      ? "Checkout Subscription →"
+                      : "Buy Now →"}
+                  </button>
+                </>
+              )}
             </div>
 
             {/* Shop With Confidence & Trust Assurance Section */}
@@ -1759,16 +1903,26 @@ export default function ProductDetailPage({
       >
         <div>
           <div className="font-serif text-xl font-bold text-[#1A150F]">₹{typeof totalAmount === "number" ? totalAmount : 349}</div>
-          <div className="text-xs text-gray-500">21 Pads + 4 Free Liners</div>
+          <div className="text-xs text-gray-500">{isOutOfStock ? "Out of stock" : "21 Pads + 4 Free Liners"}</div>
         </div>
-        <button
-          type="button"
-          onClick={addToCart}
-          disabled={Boolean(isMixBoxCheckout && !mixBoxPricing?.valid)}
-          className="flex-1 cursor-pointer rounded-2xl bg-[#9A5B90] p-3.5 text-sm font-semibold text-white transition hover:bg-[#7E4D77] disabled:opacity-50"
-        >
-          Add to Cart
-        </button>
+        {isOutOfStock ? (
+          <button
+            type="button"
+            disabled
+            className="flex-1 cursor-not-allowed rounded-2xl bg-gray-200 p-3.5 text-sm font-semibold text-gray-500 shadow-none"
+          >
+            Out of stock
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={addToCart}
+            disabled={Boolean(isMixBoxCheckout && !mixBoxPricing?.valid)}
+            className="flex-1 cursor-pointer rounded-2xl bg-[#9A5B90] p-3.5 text-sm font-semibold text-white transition hover:bg-[#7E4D77] disabled:opacity-50"
+          >
+            Add to Cart
+          </button>
+        )}
       </div>
     </div>
   );

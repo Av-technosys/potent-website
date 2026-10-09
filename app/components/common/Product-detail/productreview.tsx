@@ -1,7 +1,7 @@
 "use client";
 
 import { Star, ThumbsUp, User } from "lucide-react";
-import Link from "next/link";
+import { WriteReviewModal } from "../dashboard-review/WriteReviewModal";
 
 export default function ProductReviews({ reviews, product, themeColor }: any) {
   const reviewCounts = [1, 2, 3, 4, 5].reduce(
@@ -63,11 +63,14 @@ export default function ProductReviews({ reviews, product, themeColor }: any) {
             </div>
           </div>
 
-          <button style={{borderColor:themeColor.darkColor, color:themeColor.darkColor}} className="mt-6 px-5 py-2 text-sm border rounded-full hover:bg-teal-50 transition">
-           <Link href={`/dashboard/reviews`}>
-            Write a Review
-           </Link>
-          </button>
+          <WriteReviewModal
+            product={product}
+            btnStyle={{
+              borderColor: themeColor?.darkColor || "#016271",
+              color: themeColor?.darkColor || "#016271",
+            }}
+            btnClassName="mt-6 px-5 py-2 text-sm border border-[#016271] rounded-full hover:bg-teal-50 transition bg-transparent font-medium cursor-pointer inline-flex items-center gap-2"
+          />
         </div>
 
         {/* RIGHT - Breakdown */}

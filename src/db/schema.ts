@@ -35,19 +35,26 @@ export const subscriptionTypeEnum = pgEnum("subscription_type", [
 
 // ================= USERS =================
 
-export const users = pgTable("users", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  name: text("name").notNull(),
-  cognitoId: text("cognito_id").notNull().unique(),
-  email: text("email").notNull().unique(),
-  phone: varchar("phone", { length: 15 }).notNull(),
-  isEmailVerified: boolean("is_email_verified").default(false),
-  isPhoneVerified: boolean("is_phone_verified").default(false),
-  rewardOrderCoins: integer("reward_order_coins").default(0),
-  referralCoins: integer("referral_coins").default(0),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
+export const users = pgTable(
+  "users",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    cognitoId: text("cognito_id").notNull().unique(),
+    email: text("email").notNull().unique(),
+    phone: varchar("phone", { length: 15 }).notNull(),
+    referralCode: varchar("referral_code", { length: 50 }).unique(),
+    isEmailVerified: boolean("is_email_verified").default(false),
+    isPhoneVerified: boolean("is_phone_verified").default(false),
+    rewardOrderCoins: integer("reward_order_coins").default(0),
+    referralCoins: integer("referral_coins").default(0),
+    createdAt: timestamp("created_at").defaultNow(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (table) => [
+    index("users_referral_code_idx").on(table.referralCode),
+  ],
+);
 
 export const rewardCoinsHistory = pgTable("reward_coins_history", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -154,7 +161,7 @@ export const product = pgTable(
     ),
     cycleSyncDiscount: integer("cycle_sync_discount").default(0),
     maxQuantityPurchase: integer("max_quantity_purchase").default(6),
-    freeShippingOver: integer("free_shipping_over").default(599),
+    freeShippingOver: integer("free_shipping_over").default(399),
 
     createdAt: timestamp("created_at").defaultNow(),
     updatedAt: timestamp("updated_at").defaultNow(),

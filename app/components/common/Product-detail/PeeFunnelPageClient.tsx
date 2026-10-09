@@ -249,6 +249,7 @@ export default function PeeFunnelPageClient({ product, content }: Props) {
           flag,
           sku: v.sku || "LOOWAY-FUNNEL-01",
           image: v.bannerImage || product?.bannerImage || "",
+          isInStock: v.isInStock !== false && v.is_in_stock !== false,
         };
       });
       return map;
@@ -307,6 +308,14 @@ export default function PeeFunnelPageClient({ product, content }: Props) {
   const totalPrice = unitPrice * quantity;
   const totalMrp = mrpPrice * quantity;
   const totalSavings = totalMrp - totalPrice;
+
+  const isOutOfStock = Boolean(
+    selectedPack?.variantId
+      ? selectedPack.isInStock === false
+      : variantsList.length > 0
+        ? variantsList.every((v: any) => v.isInStock === false || v.is_in_stock === false)
+        : product?.isInStock === false || product?.is_in_stock === false,
+  );
 
   // Labeled Media Thumbnails
   const mediaItems = useMemo(() => {
@@ -387,6 +396,10 @@ export default function PeeFunnelPageClient({ product, content }: Props) {
   };
 
   const handleAddToCart = async (isBuyNow = false) => {
+    if (isOutOfStock) {
+      toast.error("This item is currently out of stock.");
+      return;
+    }
     try {
       setAdding(true);
       const targetVariantId = selectedPack.variantId || product?.productVariants?.[0]?.id;
@@ -666,11 +679,15 @@ export default function PeeFunnelPageClient({ product, content }: Props) {
                             : "border-[#EAD6DC] bg-white hover:border-[#C21E63]"
                         }`}
                       >
-                        {pk.flag && (
+                        {pk.flag ? (
                           <span className="absolute -top-2.5 right-3 rounded-full bg-[#F4C430] px-2.5 py-0.5 text-[9.5px] font-extrabold text-[#5A0E30] uppercase shadow-2xs">
                             {pk.flag}
                           </span>
-                        )}
+                        ) : pk.isInStock === false ? (
+                          <span className="absolute -top-2.5 right-3 rounded-full bg-stone-200 px-2.5 py-0.5 text-[9.5px] font-bold text-stone-600 uppercase shadow-2xs">
+                            Out of stock
+                          </span>
+                        ) : null}
 
                         <div>
                           <div className="font-serif text-base font-bold text-[#5A0E30]">
@@ -796,23 +813,35 @@ export default function PeeFunnelPageClient({ product, content }: Props) {
 
                 {/* CTAs */}
                 <div className="mt-4 space-y-2">
-                  <button
-                    onClick={() => handleAddToCart(false)}
-                    disabled={adding}
-                    className="w-full flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#C21E63] py-3.5 px-4 text-sm font-bold text-white shadow-md transition-all hover:bg-[#a81a57] active:scale-[0.98] disabled:opacity-60"
-                  >
-                    <ShoppingBag className="h-4 w-4" />
-                    <span>{adding ? "Adding..." : `Add to Cart — ₹${totalPrice}`}</span>
-                  </button>
+                  {isOutOfStock ? (
+                    <button
+                      type="button"
+                      disabled
+                      className="w-full flex items-center justify-center gap-2 rounded-xl bg-gray-200 py-3.5 px-4 text-sm font-bold text-gray-500 shadow-none cursor-not-allowed"
+                    >
+                      Out of stock
+                    </button>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => handleAddToCart(false)}
+                        disabled={adding}
+                        className="w-full flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#C21E63] py-3.5 px-4 text-sm font-bold text-white shadow-md transition-all hover:bg-[#a81a57] active:scale-[0.98] disabled:opacity-60"
+                      >
+                        <ShoppingBag className="h-4 w-4" />
+                        <span>{adding ? "Adding..." : `Add to Cart — ₹${totalPrice}`}</span>
+                      </button>
 
-                  <button
-                    onClick={() => handleAddToCart(true)}
-                    disabled={adding}
-                    className="w-full flex cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-[#450A25] py-3.5 px-4 text-sm font-bold text-white transition-all hover:bg-[#32061A] active:scale-[0.98]"
-                  >
-                    <Truck className="h-4 w-4 text-[#F4C430]" />
-                    <span>Buy now</span>
-                  </button>
+                      <button
+                        onClick={() => handleAddToCart(true)}
+                        disabled={adding}
+                        className="w-full flex cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-[#450A25] py-3.5 px-4 text-sm font-bold text-white transition-all hover:bg-[#32061A] active:scale-[0.98]"
+                      >
+                        <Truck className="h-4 w-4 text-[#F4C430]" />
+                        <span>Buy now</span>
+                      </button>
+                    </>
+                  )}
 
                   <button
                     onClick={handleToggleWishlist}
@@ -831,12 +860,15 @@ export default function PeeFunnelPageClient({ product, content }: Props) {
 
                 {/* Shipping Micro-copy */}
                 <p className="mt-3 text-center text-[11px] leading-relaxed text-[#5A0E30]/60">
-                  Free shipping over ₹599 · ships in 24 hrs · secure checkout. If it&apos;s not right, <strong>we&apos;ll make it right</strong>. Questions? Email <a href="mailto:care@potenhygiene.com" className="text-[#C21E63] underline">care@potenhygiene.com</a>
+                  Free shipping over ₹599 · ships in 24 hrs · secure checkout. If it&apos;s not right, <strong>we&apos;ll make it right</strong>. Questions? Email <a href="mailto:care@potenthygiene.com" className="text-[#C21E63] underline">care@potenthygiene.com</a>
                   <span className="block mt-1 font-bold text-[#C21E63]">📈 Add ₹300 for free shipping</span>
                 </p>
 
                 {/* Potent Rewards Banner */}
-                <div className="mt-4 flex items-center justify-between rounded-xl bg-[#FDEEF4] p-3 text-xs text-[#5A0E30]">
+                <Link
+                  href="/dashboard/security"
+                  className="mt-4 flex items-center justify-between rounded-xl bg-[#FDEEF4] p-3 text-xs text-[#5A0E30] transition hover:bg-[#FADDE8]"
+                >
                   <div className="flex items-center gap-2">
                     <span className="text-base">⭐</span>
                     <span>
@@ -844,7 +876,7 @@ export default function PeeFunnelPageClient({ product, content }: Props) {
                     </span>
                   </div>
                   <ArrowRight className="h-4 w-4 shrink-0 text-[#C21E63]" />
-                </div>
+                </Link>
 
                 {/* SHOP WITH CONFIDENCE */}
                 <div className="mt-5 border-t border-gray-100 pt-4">

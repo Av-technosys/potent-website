@@ -62,9 +62,6 @@ import MarketComparisonSection from "./MarketComparisonSection";
 import LoowayReviewsSection from "./LoowayReviewsSection";
 import LoowayFaqSection from "./LoowayFaqSection";
 
-
-
-
 type Props = {
   product: any;
   reviewWithMedia?: any;
@@ -165,7 +162,7 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
         i.productId === product?.id ||
         i.productId === product?.slug ||
         i.slug === product?.slug ||
-        i.slug === "looway-pee-puke"
+        i.slug === "looway-pee-puke",
     );
   }, [wishlistItems, product]);
 
@@ -274,6 +271,7 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
           flag,
           sku: v.sku || "LOOWAY-PUKE-01",
           image: v.bannerImage || product?.bannerImage || "",
+          isInStock: v.isInStock !== false && v.is_in_stock !== false,
         };
       });
       return map;
@@ -286,7 +284,7 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
           id: "p10",
           name: "Pack of 10",
           bags: 10,
-          mrp: 599,
+          mrp: 399,
           price: 499,
           sub: "10 bags — one complete travel supply",
         },
@@ -314,29 +312,37 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
     }
   }, [packs, selectedPackId, packKeys]);
 
-  const selectedPack =
-    packs[selectedPackId] ||
+  const selectedPack = packs[selectedPackId] ||
     Object.values(packs)[0] || {
       id: "p10",
       name: "Pack of 10",
       bags: 10,
-      mrp: 599,
+      mrp: 399,
       price: 499,
       sub: "10 bags — one complete travel supply",
     };
 
   const packBasePrice = selectedPack?.price || Number(product?.price) || 499;
   const mrpPrice =
-    selectedPack?.mrp || Number(product?.mrp) || Math.round(packBasePrice * 1.25);
+    selectedPack?.mrp ||
+    Number(product?.mrp) ||
+    Math.round(packBasePrice * 1.25);
   const unitPrice = packBasePrice;
   const totalPrice = unitPrice * quantity;
   const totalMrp = mrpPrice * quantity;
   const totalSavings = totalMrp - totalPrice;
   const perBagPrice = (unitPrice / (selectedPack?.bags || 10)).toFixed(1);
 
+  const isOutOfStock = Boolean(
+    selectedPack?.variantId
+      ? selectedPack.isInStock === false
+      : variantsList.length > 0
+        ? variantsList.every((v: any) => v.isInStock === false || v.is_in_stock === false)
+        : product?.isInStock === false || product?.is_in_stock === false,
+  );
+
   const availableSubscriptionPlans = useMemo(
-    () =>
-      getPdpSubscriptionPlans(product),
+    () => getPdpSubscriptionPlans(product),
     [product],
   );
 
@@ -345,7 +351,8 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
   };
 
   const handleSubscribeNow = () => {
-    const selectedPlan = selectedSubscriptionPlan || getPdpSubscriptionPlans(product)[0];
+    const selectedPlan =
+      selectedSubscriptionPlan || getPdpSubscriptionPlans(product)[0];
     const subscriptionType = selectedPlan?.subscriptionType;
 
     if (!subscriptionType || subscriptionType === "buy_once") {
@@ -378,17 +385,22 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
 
     // 1. Primary Product Banner
     if (product?.bannerImage) {
-      rawList.push({ url: getImageUrl(product.bannerImage), label: "Packaging" });
+      rawList.push({
+        url: getImageUrl(product.bannerImage),
+        label: "Packaging",
+      });
     }
 
     // 2. Product Media from DB (productMediaRes / productImages / images)
     if (Array.isArray(product?.productMediaRes)) {
       product.productMediaRes.forEach((item: any, idx: number) => {
-        const url = item?.mediaURL || item?.image || item?.url || item?.bannerImage;
+        const url =
+          item?.mediaURL || item?.image || item?.url || item?.bannerImage;
         if (url) {
           rawList.push({
             url: getImageUrl(url),
-            label: item?.title || item?.name || defaultLabels[rawList.length % 4],
+            label:
+              item?.title || item?.name || defaultLabels[rawList.length % 4],
           });
         }
       });
@@ -396,7 +408,10 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
 
     if (Array.isArray(product?.productImages)) {
       product.productImages.forEach((img: any) => {
-        const url = typeof img === "string" ? img : img?.image || img?.url || img?.bannerImage;
+        const url =
+          typeof img === "string"
+            ? img
+            : img?.image || img?.url || img?.bannerImage;
         if (url) {
           rawList.push({
             url: getImageUrl(url),
@@ -468,7 +483,10 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
     return result;
   }, [product, content]);
 
-  const mediaList = useMemo(() => mediaItems.map((item) => item.url), [mediaItems]);
+  const mediaList = useMemo(
+    () => mediaItems.map((item) => item.url),
+    [mediaItems],
+  );
 
   const handleSelectPack = (packId: string) => {
     setSelectedPackId(packId);
@@ -509,7 +527,14 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
   // Scroll Spy for section nav strap
   useEffect(() => {
     const handleScroll = () => {
-      const sections = ["pdp-hero", "how-it-works", "where-to-use", "why-looway", "reviews", "faq"];
+      const sections = [
+        "pdp-hero",
+        "how-it-works",
+        "where-to-use",
+        "why-looway",
+        "reviews",
+        "faq",
+      ];
 
       const scrollPos = window.scrollY + headerHeight + 60;
       for (const sec of sections) {
@@ -531,11 +556,17 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
 
   // Cart action integration
   const handleAddToCart = async (isBuyNow = false) => {
+    if (isOutOfStock) {
+      toast.error("This item is currently out of stock.");
+      return;
+    }
     const variantId =
       selectedPack?.variantId ||
       product?.productVariants?.find(
         (v: any) =>
-          v.name?.toLowerCase().includes(selectedPack?.name?.toLowerCase() || "") ||
+          v.name
+            ?.toLowerCase()
+            .includes(selectedPack?.name?.toLowerCase() || "") ||
           v.name?.includes(String(selectedPack?.bags || "")),
       )?.id ||
       product?.productVariants?.[0]?.id;
@@ -583,7 +614,10 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
 
   const handleCheckPincode = () => {
     if (!pincode || pincode.trim().length !== 6) {
-      setPincodeResult({ msg: "Please enter a valid 6-digit Pincode", err: true });
+      setPincodeResult({
+        msg: "Please enter a valid 6-digit Pincode",
+        err: true,
+      });
       return;
     }
     setPincodeResult({
@@ -593,19 +627,20 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
   };
 
   const stops = content?.STOPS || [];
-  const currentStop = stops[activeStopIndex] || stops[0] || [
-    "car",
-    "Cars & road trips",
-    "Highways can run for hours with no clean toilet in sight. Keep the drive moving — discreet relief right from your seat.",
-    "the glovebox",
-  ];
+  const currentStop = stops[activeStopIndex] ||
+    stops[0] || [
+      "car",
+      "Cars & road trips",
+      "Highways can run for hours with no clean toilet in sight. Keep the drive moving — discreet relief right from your seat.",
+      "the glovebox",
+    ];
 
   return (
-    <div className="min-h-screen bg-[#FBF8F1] text-[#17271E] font-sans antialiased selection:bg-[#0E5C3A] selection:text-white">
+    <div className="min-h-screen bg-[#FBF8F1] font-sans text-[#17271E] antialiased selection:bg-[#0E5C3A] selection:text-white">
       {/* ========================================================================= */}
       {/* TOP CHECKERBOARD PATTERN PATTI / STRAP                                    */}
       {/* ========================================================================= */}
-        <div
+      <div
         className="mb-10 h-3 w-full border-b border-teal-900/10"
         style={{
           background:
@@ -619,22 +654,25 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-12">
           {/* Breadcrumbs */}
           <nav className="mb-4 flex items-center gap-2 text-xs font-medium text-[#17271E]/60">
-            <Link href="/" className="hover:text-[#0E5C3A] transition-colors">
+            <Link href="/" className="transition-colors hover:text-[#0E5C3A]">
               Home
             </Link>
             <span>/</span>
-            <Link href="/looway" className="hover:text-[#0E5C3A] transition-colors">
+            <Link
+              href="/looway"
+              className="transition-colors hover:text-[#0E5C3A]"
+            >
               Looway
             </Link>
             <span>/</span>
-            <span className="text-[#0E5C3A] font-bold">Pee & Puke Bags</span>
+            <span className="font-bold text-[#0E5C3A]">Pee & Puke Bags</span>
           </nav>
 
           <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-12 lg:gap-12">
             {/* ===================================================================== */}
             {/* LEFT COLUMN: STICKY PRODUCT GALLERY                                 */}
             {/* ===================================================================== */}
-            <div className="lg:col-span-6 lg:sticky lg:top-24">
+            <div className="lg:sticky lg:top-24 lg:col-span-6">
               {/* Main Image Box */}
               <div className="relative aspect-square w-full overflow-hidden rounded-[24px] border-2 border-dashed border-[#0E5C3A]/20 bg-[#F1F7F3] shadow-sm transition-all">
                 {/* Floating Badges (Top-Left) */}
@@ -655,7 +693,9 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
                   disabled={isWishlistUpdating}
                   aria-pressed={isWishlisted}
                   className={`absolute top-4 right-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/90 shadow-md backdrop-blur-xs transition-all hover:scale-105 ${
-                    isWishlisted ? "text-red-500 bg-white" : "text-[#17271E]/60 hover:text-[#0E5C3A]"
+                    isWishlisted
+                      ? "bg-white text-red-500"
+                      : "text-[#17271E]/60 hover:text-[#0E5C3A]"
                   }`}
                   aria-label="Save to Wishlist"
                 >
@@ -667,7 +707,9 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
                 {/* Main Product Image */}
                 <div className="relative h-full w-full">
                   <Image
-                    src={mediaList[selectedImageIndex] || "/products/pukebags.jpg"}
+                    src={
+                      mediaList[selectedImageIndex] || "/products/pukebags.jpg"
+                    }
                     alt={product?.name || "Looway Pee & Puke Bags"}
                     fill
                     className="object-contain p-6 transition-transform duration-500 hover:scale-105"
@@ -685,7 +727,7 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
                           prev === 0 ? mediaList.length - 1 : prev - 1,
                         )
                       }
-                      className="absolute top-1/2 left-3 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white text-[#0E5C3A] shadow-md hover:bg-[#E4F0E8] transition-all"
+                      className="absolute top-1/2 left-3 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white text-[#0E5C3A] shadow-md transition-all hover:bg-[#E4F0E8]"
                       aria-label="Previous image"
                     >
                       <ChevronLeft className="h-5 w-5 stroke-[2.5]" />
@@ -696,7 +738,7 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
                           prev === mediaList.length - 1 ? 0 : prev + 1,
                         )
                       }
-                      className="absolute top-1/2 right-3 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white text-[#0E5C3A] shadow-md hover:bg-[#E4F0E8] transition-all"
+                      className="absolute top-1/2 right-3 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white text-[#0E5C3A] shadow-md transition-all hover:bg-[#E4F0E8]"
                       aria-label="Next image"
                     >
                       <ChevronRight className="h-5 w-5 stroke-[2.5]" />
@@ -713,7 +755,7 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
                     <button
                       key={idx}
                       onClick={() => setSelectedImageIndex(idx)}
-                      className={`group relative flex flex-col items-center justify-between rounded-2xl p-2 sm:p-3 text-center transition-all cursor-pointer ${
+                      className={`group relative flex cursor-pointer flex-col items-center justify-between rounded-2xl p-2 text-center transition-all sm:p-3 ${
                         isActive
                           ? "border-2 border-[#0E5C3A] bg-[#E4F0E8] shadow-xs"
                           : "border-2 border-dashed border-[#0E5C3A]/30 bg-[#F1F7F3]/60 hover:border-[#0E5C3A] hover:bg-white"
@@ -729,7 +771,7 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
                         />
                       </div>
                       <span
-                        className={`mt-1.5 text-[10.5px] sm:text-xs font-bold leading-tight ${
+                        className={`mt-1.5 text-[10.5px] leading-tight font-bold sm:text-xs ${
                           isActive ? "text-[#0E5C3A]" : "text-[#17271E]/70"
                         }`}
                       >
@@ -753,7 +795,7 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
               </div>
 
               {/* Product Title */}
-              <h1 className="mt-3 font-serif text-3xl font-extrabold tracking-tight text-[#0A4A2E] sm:text-4xl lg:text-[46px] leading-tight">
+              <h1 className="mt-3 font-serif text-3xl leading-tight font-extrabold tracking-tight text-[#0A4A2E] sm:text-4xl lg:text-[46px]">
                 Pee & Puke Bags
               </h1>
 
@@ -778,7 +820,7 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
               {/* Rating Row (Clickable smooth-scroll to #reviews) */}
               <a
                 href="#reviews"
-                className="mt-3.5 flex items-center gap-2 text-xs font-semibold text-[#17271E]/80 group cursor-pointer w-fit"
+                className="group mt-3.5 flex w-fit cursor-pointer items-center gap-2 text-xs font-semibold text-[#17271E]/80"
               >
                 <div className="flex items-center text-[#F4C430]">
                   <Star className="h-4 w-4 fill-[#F4C430]" />
@@ -791,38 +833,42 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
                   4.8 out of 5
                 </span>
                 <span className="text-[#17271E]/40">•</span>
-                <span className="underline decoration-dotted underline-offset-4 group-hover:text-[#0E5C3A] font-bold">
+                <span className="font-bold underline decoration-dotted underline-offset-4 group-hover:text-[#0E5C3A]">
                   108 verified reviews
                 </span>
               </a>
 
-
               {/* Highlight Chips Row 2 */}
               <div className="mt-3.5 flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-[#E4F0E8]/80 border border-[#0E5C3A]/20 px-3 py-1 text-[11.5px] font-bold text-[#0E5C3A]">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-[#0E5C3A]/20 bg-[#E4F0E8]/80 px-3 py-1 text-[11.5px] font-bold text-[#0E5C3A]">
                   <Check className="h-3.5 w-3.5 stroke-[3]" />
                   Leak-proof & sealable
                 </span>
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-[#E4F0E8]/80 border border-[#0E5C3A]/20 px-3 py-1 text-[11.5px] font-bold text-[#0E5C3A]">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-[#0E5C3A]/20 bg-[#E4F0E8]/80 px-3 py-1 text-[11.5px] font-bold text-[#0E5C3A]">
                   <Check className="h-3.5 w-3.5 stroke-[3]" />
                   Odour-controlling
                 </span>
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-[#E4F0E8]/80 border border-[#0E5C3A]/20 px-3 py-1 text-[11.5px] font-bold text-[#0E5C3A]">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-[#0E5C3A]/20 bg-[#E4F0E8]/80 px-3 py-1 text-[11.5px] font-bold text-[#0E5C3A]">
                   <ShieldCheck className="h-3.5 w-3.5" />
                   Unisex - all ages
                 </span>
               </div>
 
               {/* Description Paragraph */}
-              <p className="mt-4 text-xs sm:text-sm leading-relaxed text-[#17271E]/75 font-normal max-w-xl">
-                The mess stops here. Compact, sealable urine & vomit bags for every moment a clean toilet isn&apos;t an option. Pop one open, use it, seal it — the super-absorbent strip solidifies liquid in seconds. No spills, no smell, no stress.
+              <p className="mt-4 max-w-xl text-xs leading-relaxed font-normal text-[#17271E]/75 sm:text-sm">
+                The mess stops here. Compact, sealable urine & vomit bags for
+                every moment a clean toilet isn&apos;t an option. Pop one open,
+                use it, seal it — the super-absorbent strip solidifies liquid in
+                seconds. No spills, no smell, no stress.
               </p>
 
               {/* Banner Callout Box */}
               <div className="mt-4 flex items-start gap-2.5 rounded-2xl border border-[#E4F0E8] bg-[#F1F7F3] p-3.5 text-xs text-[#0A4A2E]">
-                <CheckCircle2 className="h-4 w-4 shrink-0 text-[#0E5C3A] mt-0.5" />
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#0E5C3A]" />
                 <span>
-                  <strong>Works for men, women & kids of every age.</strong> One bag handles either pee or vomit, and a simple picture guide makes the very first use easy.
+                  <strong>Works for men, women & kids of every age.</strong> One
+                  bag handles either pee or vomit, and a simple picture guide
+                  makes the very first use easy.
                 </span>
               </div>
 
@@ -830,12 +876,12 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
               {/* PACK SELECTOR GRID ("SELECT YOUR PACK")                                 */}
               {/* ======================================================================= */}
               <div className="mt-6">
-                <div className="flex items-center justify-between mb-2">
+                <div className="mb-2 flex items-center justify-between">
                   <span className="text-xs font-extrabold tracking-wider text-[#0A4A2E] uppercase">
                     SELECT YOUR PACK
                   </span>
                   <span className="text-xs font-medium text-[#17271E]/60">
-                   Pack of 20 saves more
+                    Pack of 20 saves more
                   </span>
                 </div>
 
@@ -847,18 +893,22 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
                       <button
                         key={pk.id}
                         onClick={() => handleSelectPack(pk.id)}
-                        className={`relative flex flex-col justify-between rounded-2xl border-2 p-3.5 sm:p-4 text-left transition-all ${
+                        className={`relative flex flex-col justify-between rounded-2xl border-2 p-3.5 text-left transition-all sm:p-4 ${
                           isSelected
                             ? "border-[#0E5C3A] bg-[#F1F7F3] shadow-sm"
                             : "border-[#E4DED0] bg-[#FBF8F1] hover:border-gray-300"
                         }`}
                       >
-                        {/* Gold Badge if Best Value */}
-                        {pk.flag && (
+                        {/* Gold Badge if Best Value or Out of Stock */}
+                        {pk.flag ? (
                           <span className="absolute -top-2.5 right-3 rounded-full bg-[#F4C430] px-2.5 py-0.5 text-[9.5px] font-extrabold text-[#0A4A2E] uppercase shadow-2xs">
                             {pk.flag}
                           </span>
-                        )}
+                        ) : pk.isInStock === false ? (
+                          <span className="absolute -top-2.5 right-3 rounded-full bg-stone-200 px-2.5 py-0.5 text-[9.5px] font-bold text-stone-600 uppercase shadow-2xs">
+                            Out of stock
+                          </span>
+                        ) : null}
 
                         <div>
                           <div className="font-serif text-base font-bold text-[#0A4A2E]">
@@ -869,7 +919,7 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
                           </div>
                         </div>
 
-                        <div className="mt-3 border-t border-[#E4DED0]/60 pt-2 flex items-baseline justify-between">
+                        <div className="mt-3 flex items-baseline justify-between border-t border-[#E4DED0]/60 pt-2">
                           <div className="font-serif text-lg font-extrabold text-[#0E5C3A]">
                             ₹{pk.price}
                           </div>
@@ -907,7 +957,8 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
                 </div>
 
                 <div className="mt-1 text-xs text-[#17271E]/60">
-                  Total price for {quantity}x {selectedPack?.name || "Pack"} (₹{perBagPrice} per bag)
+                  Total price for {quantity}x {selectedPack?.name || "Pack"} (₹
+                  {perBagPrice} per bag)
                 </div>
 
                 {/* Quantity Stepper & Quick Chips */}
@@ -936,7 +987,7 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
                       </button>
                     </div>
 
-                    <div className="hidden sm:flex gap-1">
+                    <div className="hidden gap-1 sm:flex">
                       {[1, 2, 3, 4].map((num) => (
                         <button
                           key={num}
@@ -954,25 +1005,39 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
                   </div>
                 </div>
 
-                {/* Add to Cart & Buy Now Buttons for One-Time Purchase */}
-                <div className="mt-4 grid grid-cols-12 gap-2.5">
-                  <button
-                    onClick={() => handleAddToCart(false)}
-                    disabled={adding}
-                    className="col-span-7 flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#0E5C3A] py-3.5 px-4 text-sm font-bold text-white shadow-md transition-all hover:bg-[#0B4D31] active:scale-[0.98] disabled:opacity-60"
-                  >
-                    <ShoppingBag className="h-4 w-4" />
-                    <span>{adding ? "Adding..." : `Add to Bag — ₹${totalPrice}`}</span>
-                  </button>
+                {/* Add to Cart & Buy Now Buttons or Out of Stock */}
+                <div className="mt-4">
+                  {isOutOfStock ? (
+                    <button
+                      type="button"
+                      disabled
+                      className="w-full flex items-center justify-center gap-2 rounded-xl bg-gray-200 py-3.5 text-sm font-bold text-gray-500 shadow-none cursor-not-allowed"
+                    >
+                      Out of stock
+                    </button>
+                  ) : (
+                    <div className="grid grid-cols-12 gap-2.5">
+                      <button
+                        onClick={() => handleAddToCart(false)}
+                        disabled={adding}
+                        className="col-span-7 flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#0E5C3A] px-4 py-3.5 text-sm font-bold text-white shadow-md transition-all hover:bg-[#0B4D31] active:scale-[0.98] disabled:opacity-60"
+                      >
+                        <ShoppingBag className="h-4 w-4" />
+                        <span>
+                          {adding ? "Adding..." : `Add to Bag — ₹${totalPrice}`}
+                        </span>
+                      </button>
 
-                  <button
-                    onClick={() => handleAddToCart(true)}
-                    disabled={adding}
-                    className="col-span-5 flex cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-[#114E36] py-3.5 px-4 text-sm font-bold text-white transition-all hover:bg-[#0C3B29] active:scale-[0.98]"
-                  >
-                    <Truck className="h-4 w-4 text-[#F4C430]" />
-                    <span>Buy Now</span>
-                  </button>
+                      <button
+                        onClick={() => handleAddToCart(true)}
+                        disabled={adding}
+                        className="col-span-5 flex cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-[#114E36] px-4 py-3.5 text-sm font-bold text-white transition-all hover:bg-[#0C3B29] active:scale-[0.98]"
+                      >
+                        <Truck className="h-4 w-4 text-[#F4C430]" />
+                        <span>Buy Now</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {/* ======================================================================= */}
@@ -982,14 +1047,16 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
                   <div className="mt-6 rounded-2xl border border-[#0E5C3A]/20 bg-[#F1F7F3] p-4 shadow-2xs sm:p-5">
                     <div className="mb-4 flex items-start justify-between gap-3">
                       <div>
-                        <p className="text-xs font-extrabold uppercase tracking-wider text-[#0E5C3A]">
+                        <p className="text-xs font-extrabold tracking-wider text-[#0E5C3A] uppercase">
                           Subscribe &amp; save
                         </p>
-                        <h4 className="mt-1 text-base font-serif font-bold text-[#0A4A2E]">
+                        <h4 className="mt-1 font-serif text-base font-bold text-[#0A4A2E]">
                           Never run out of travel essentials
                         </h4>
                         <p className="mt-1 text-xs leading-relaxed text-[#17271E]/70">
-                          Choose a delivery rhythm. Billing and auto-delivery occur per your schedule. Pause or cancel anytime in 2 clicks.
+                          Choose a delivery rhythm. Billing and auto-delivery
+                          occur per your schedule. Pause or cancel anytime in 2
+                          clicks.
                         </p>
                       </div>
                       <span className="shrink-0 rounded-full bg-[#F4C430] px-2.5 py-1 text-[10px] font-bold text-[#0A4A2E]">
@@ -999,9 +1066,12 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
 
                     <div className="grid gap-2.5 sm:grid-cols-3">
                       {availableSubscriptionPlans.map((plan: any) => {
-                        const isSelected = selectedSubscriptionPlan?.id === plan.id;
+                        const isSelected =
+                          selectedSubscriptionPlan?.id === plan.id;
                         const discount = getSubscriptionDiscount(plan);
-                        const subscriptionPrice = Math.round(packBasePrice * (1 - discount / 100));
+                        const subscriptionPrice = Math.round(
+                          packBasePrice * (1 - discount / 100),
+                        );
                         const billingLabel =
                           plan.subscriptionType === "every_2_months"
                             ? "Every 60 days"
@@ -1013,23 +1083,29 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
                             type="button"
                             aria-pressed={isSelected}
                             onClick={() => setSelectedSubscriptionPlan(plan)}
-                            className={`rounded-xl border-2 p-3 text-left transition-all cursor-pointer ${
+                            className={`cursor-pointer rounded-xl border-2 p-3 text-left transition-all ${
                               isSelected
                                 ? "border-[#0E5C3A] bg-white shadow-sm"
                                 : "border-[#E4DED0] bg-white/70 hover:border-[#0E5C3A]"
                             }`}
                           >
                             <div className="flex items-start justify-between gap-2">
-                              <span className="text-xs font-bold text-[#0A4A2E]">{plan.label}</span>
+                              <span className="text-xs font-bold text-[#0A4A2E]">
+                                {plan.label}
+                              </span>
                               {isSelected && (
                                 <CheckCircle2 className="h-4 w-4 shrink-0 text-[#0E5C3A]" />
                               )}
                             </div>
                             <p className="mt-2 text-base font-bold text-[#0E5C3A]">
                               ₹{subscriptionPrice}
-                              <span className="ml-1 text-[10px] font-normal text-gray-500">/ pack</span>
+                              <span className="ml-1 text-[10px] font-normal text-gray-500">
+                                / pack
+                              </span>
                             </p>
-                            <p className="mt-1 text-[11px] text-gray-500">{billingLabel} · Save {discount}%</p>
+                            <p className="mt-1 text-[11px] text-gray-500">
+                              {billingLabel} · Save {discount}%
+                            </p>
                           </button>
                         );
                       })}
@@ -1040,11 +1116,15 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
                       onClick={handleSubscribeNow}
                       className="mt-4 flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#0E5C3A] px-4 py-3.5 text-sm font-bold text-white shadow-sm transition-all hover:bg-[#0A4A2E] active:scale-[0.99]"
                     >
-                      <span>Subscribe with {selectedSubscriptionPlan?.label || "selected plan"}</span>
+                      <span>
+                        Subscribe with{" "}
+                        {selectedSubscriptionPlan?.label || "selected plan"}
+                      </span>
                       <ArrowRight className="h-4 w-4" />
                     </button>
                     <p className="mt-2 text-center text-[11px] text-gray-500">
-                      Pause or cancel from your account anytime · Secure recurring payments
+                      Pause or cancel from your account anytime · Secure
+                      recurring payments
                     </p>
                   </div>
                 )}
@@ -1055,21 +1135,30 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
                   disabled={isWishlistUpdating}
                   aria-pressed={isWishlisted}
                   className={`mt-2.5 flex w-full cursor-pointer items-center justify-center gap-2 rounded-full border border-[#E4DED0] bg-white py-3 text-sm font-semibold transition-all hover:border-[#0E5C3A] ${
-                    isWishlisted ? "text-red-500 border-red-300" : "text-[#17271E]"
+                    isWishlisted
+                      ? "border-red-300 text-red-500"
+                      : "text-[#17271E]"
                   }`}
                 >
                   <Heart
                     className={`h-4 w-4 ${isWishlisted ? "fill-red-500 text-red-500" : "text-[#17271E]"}`}
                   />
-                  <span>{isWishlisted ? "Saved to wishlist" : "Save to wishlist"}</span>
+                  <span>
+                    {isWishlisted ? "Saved to wishlist" : "Save to wishlist"}
+                  </span>
                 </button>
 
                 {/* Microcopy & Support Email */}
-                <div className="mt-4 text-center text-xs text-[#17271E]/70 space-y-1">
-                  <p>Free shipping over ₹599 • ships in 24 hrs • secure checkout</p>
+                <div className="mt-4 space-y-1 text-center text-xs text-[#17271E]/70">
+                  <p>
+                    Free shipping over ₹399 • ships in 24 hrs • secure checkout
+                  </p>
                   <p>
                     If something&apos;s wrong with your order,{" "}
-                    <strong className="text-[#0A4A2E]">we&apos;ll make it right.</strong> Questions? Email{" "}
+                    <strong className="text-[#0A4A2E]">
+                      we&apos;ll make it right.
+                    </strong>{" "}
+                    Questions? Email{" "}
                     <a
                       href="mailto:care@potenthygiene.com"
                       className="font-bold text-[#0E5C3A] underline underline-offset-2"
@@ -1082,29 +1171,39 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
                 {/* Dynamic Free Shipping Indicator */}
                 <div className="mt-3 flex items-center justify-center gap-1.5 text-xs font-semibold text-[#17271E]/80">
                   <Truck className="h-4 w-4 text-[#0E5C3A]" />
-                  {totalPrice >= 599 ? (
-                    <span className="text-emerald-700 font-bold">🎉 Free shipping unlocked!</span>
+                  {totalPrice >= 399 ? (
+                    <span className="font-bold text-emerald-700">
+                      🎉 Free shipping unlocked!
+                    </span>
                   ) : (
                     <span>
-                      Add <strong className="text-[#0E5C3A] font-extrabold">₹{599 - totalPrice}</strong> for free shipping
+                      Add{" "}
+                      <strong className="font-extrabold text-[#0E5C3A]">
+                        ₹{399 - totalPrice}
+                      </strong>{" "}
+                      for free shipping
                     </span>
                   )}
                 </div>
 
                 {/* Potent Rewards Club Banner Card */}
-                <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-[#F7CE46]/40 bg-[#FFF9E5] p-3.5 sm:p-4 text-xs">
+                <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-[#F7CE46]/40 bg-[#FFF9E5] p-3.5 text-xs sm:p-4">
                   <div className="flex items-center gap-3">
                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#F4C430] text-[#0A4A2E]">
                       <Star className="h-5 w-5 fill-[#0A4A2E]" />
                     </div>
-                    <div className="text-[#17271E]/80 leading-snug">
-                      In the <strong className="text-[#0A4A2E] font-bold">Potent Rewards Club</strong>? Your credits apply at checkout. Not yet a member?{" "}
-                      <a
-                        href="/login"
+                    <div className="leading-snug text-[#17271E]/80">
+                      In the{" "}
+                      <strong className="font-bold text-[#0A4A2E]">
+                        Potent Rewards Club
+                      </strong>
+                      ? Your credits apply at checkout. Not yet a member?{" "}
+                      <Link
+                        href="/dashboard/security"
                         className="font-bold text-[#0E5C3A] underline underline-offset-2"
                       >
                         Join free
-                      </a>{" "}
+                      </Link>{" "}
                       — earn across Ovy & Looway.
                     </div>
                   </div>
@@ -1113,7 +1212,7 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
 
                 {/* SHOP WITH CONFIDENCE */}
                 <div className="mt-6">
-                  <div className="text-[11px] font-extrabold tracking-wider text-[#17271E]/60 uppercase mb-2">
+                  <div className="mb-2 text-[11px] font-extrabold tracking-wider text-[#17271E]/60 uppercase">
                     SHOP WITH CONFIDENCE
                   </div>
                   <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs font-semibold text-[#17271E]/80">
@@ -1127,7 +1226,7 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
                     </span>
                     <span className="flex items-center gap-1.5">
                       <Check className="h-4 w-4 stroke-[3] text-[#0E5C3A]" />
-                      Free shipping over ₹599
+                      Free shipping over ₹399
                     </span>
                   </div>
                 </div>
@@ -1135,22 +1234,28 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
                 {/* Delivery & Safety Assurances Box */}
                 <div className="mt-4 space-y-2.5 rounded-2xl border border-[#E4DED0] bg-[#F6F1E7] p-4 text-xs text-[#17271E]/80">
                   <div className="flex items-start gap-2.5">
-                    <Truck className="h-4 w-4 shrink-0 text-[#0E5C3A] mt-0.5" />
+                    <Truck className="mt-0.5 h-4 w-4 shrink-0 text-[#0E5C3A]" />
                     <span>
-                      Get it by <strong className="text-[#0A4A2E] font-bold">Mon, 12 Oct</strong> • ships in 24 hrs, tracked
+                      Get it by{" "}
+                      <strong className="font-bold text-[#0A4A2E]">
+                        Mon, 12 Oct
+                      </strong>{" "}
+                      • ships in 24 hrs, tracked
                     </span>
                   </div>
                   <div className="flex items-start gap-2.5">
-                    <Info className="h-4 w-4 shrink-0 text-[#0E5C3A] mt-0.5" />
+                    <Info className="mt-0.5 h-4 w-4 shrink-0 text-[#0E5C3A]" />
                     <span>
-                      For hygiene & safety, this personal-care product can&apos;t be returned or exchanged once shipped • damaged or wrong items are replaced free
+                      For hygiene & safety, this personal-care product
+                      can&apos;t be returned or exchanged once shipped • damaged
+                      or wrong items are replaced free
                     </span>
                   </div>
                 </div>
 
                 {/* Check Delivery Time Pincode Box */}
                 <div className="mt-4 rounded-2xl border border-[#E4DED0] bg-[#F6F1E7] p-4">
-                  <div className="text-xs font-bold text-[#0A4A2E] flex items-center gap-2 mb-2">
+                  <div className="mb-2 flex items-center gap-2 text-xs font-bold text-[#0A4A2E]">
                     <MapPin className="h-4 w-4 text-[#0E5C3A]" />
                     Check delivery time
                   </div>
@@ -1160,7 +1265,9 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
                       maxLength={6}
                       placeholder="Enter 6-digit PIN code"
                       value={pincode}
-                      onChange={(e) => setPincode(e.target.value.replace(/\D/g, ""))}
+                      onChange={(e) =>
+                        setPincode(e.target.value.replace(/\D/g, ""))
+                      }
                       className="flex-1 rounded-xl border border-[#E4DED0] bg-white px-4 py-2.5 text-xs font-semibold text-[#17271E] focus:border-[#0E5C3A] focus:outline-none"
                     />
                     <button
@@ -1183,12 +1290,19 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
 
                 {/* Secure Checkout & Payment Badges */}
                 <div className="mt-4 border-t border-[#E4DED0]/60 pt-4">
-                  <div className="flex items-center gap-2 text-xs font-bold text-[#17271E]/80 mb-2">
+                  <div className="mb-2 flex items-center gap-2 text-xs font-bold text-[#17271E]/80">
                     <ShieldCheck className="h-4 w-4 text-emerald-700" />
                     <span>Secure checkout</span>
                   </div>
                   <div className="flex flex-wrap gap-1.5">
-                    {["UPI", "Razorpay", "Visa", "Mastercard", "RuPay", "Net banking"].map((pay, i) => (
+                    {[
+                      "UPI",
+                      "Razorpay",
+                      "Visa",
+                      "Mastercard",
+                      "RuPay",
+                      "Net banking",
+                    ].map((pay, i) => (
                       <span
                         key={i}
                         className="rounded-md border border-[#E4DED0] bg-[#F6F1E7] px-2.5 py-1 text-[11px] font-bold text-[#17271E]/70"
@@ -1204,45 +1318,41 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
               {/* WHAT'S IN THE BOX (OUTSIDE & BELOW BUY BOX CARD)                        */}
               {/* ======================================================================= */}
               <div className="mt-8">
-                <div className="flex items-center justify-between mb-3">
+                <div className="mb-3 flex items-center justify-between">
                   <h3 className="text-xs font-extrabold tracking-wider text-[#0A4A2E] uppercase">
                     WHAT&apos;S IN THE BOX
                   </h3>
-                  <span className="text-xs text-[#17271E]/60 font-medium">
+                  <span className="text-xs font-medium text-[#17271E]/60">
                     {selectedPack?.bags || 10} bags · one travel supply
                   </span>
                 </div>
 
                 <div className="overflow-hidden rounded-2xl border border-[#E4DED0] bg-white shadow-2xs">
                   {/* Row 1 */}
-                  <div className="flex items-center justify-between p-3.5 sm:p-4 text-xs">
+                  <div className="flex items-center justify-between p-3.5 text-xs sm:p-4">
                     <span className="font-bold text-[#0A4A2E]">
                       {selectedPack?.bags || 10} Urine &amp; Vomit Bags
                     </span>
-                    <span className="font-bold text-[#0E5C3A]">
-                      sealabled
-                    </span>
-                    <span className="text-[#17271E]/60 font-normal hidden sm:inline">
+                    <span className="font-bold text-[#0E5C3A]">sealabled</span>
+                    <span className="hidden font-normal text-[#17271E]/60 sm:inline">
                       One complete travel supply
                     </span>
                   </div>
 
                   {/* Row 2 */}
-                  <div className="flex items-center justify-between border-t border-[#E4DED0]/60 p-3.5 sm:p-4 text-xs">
+                  <div className="flex items-center justify-between border-t border-[#E4DED0]/60 p-3.5 text-xs sm:p-4">
                     <span className="font-bold text-[#0A4A2E]">
                       Super-absorbent strip
                     </span>
-                    <span className="font-bold text-[#0E5C3A]">
-                      700 ml
-                    </span>
-                    <span className="text-[#17271E]/60 font-normal hidden sm:inline">
+                    <span className="font-bold text-[#0E5C3A]">700 ml</span>
+                    <span className="hidden font-normal text-[#17271E]/60 sm:inline">
                       Solidifies liquid in ~60 seconds
                     </span>
                   </div>
 
                   {/* Row 3 (Footer highlight row) */}
-                  <div className="flex items-center justify-between border-t border-[#E4DED0]/60 bg-[#F1F7F3] p-3.5 sm:p-4 text-xs">
-                    <span className="font-extrabold text-[#0E5C3A] uppercase tracking-wide">
+                  <div className="flex items-center justify-between border-t border-[#E4DED0]/60 bg-[#F1F7F3] p-3.5 text-xs sm:p-4">
+                    <span className="font-extrabold tracking-wide text-[#0E5C3A] uppercase">
                       IN THE PACK
                     </span>
                     <span className="font-semibold text-[#17271E]/75">
@@ -1256,7 +1366,7 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
               {/* QUICK SPECS (OUTSIDE & BELOW BUY BOX CARD)                              */}
               {/* ======================================================================= */}
               <div className="mt-8">
-                <div className="flex items-center justify-between mb-3">
+                <div className="mb-3 flex items-center justify-between">
                   <h3 className="text-xs font-extrabold tracking-wider text-[#0A4A2E] uppercase">
                     QUICK SPECS
                   </h3>
@@ -1268,14 +1378,14 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
                   </a>
                 </div>
 
-                <div className="overflow-hidden rounded-2xl border border-[#E4DED0] bg-white shadow-2xs divide-y divide-[#E4DED0]">
+                <div className="divide-y divide-[#E4DED0] overflow-hidden rounded-2xl border border-[#E4DED0] bg-white shadow-2xs">
                   {/* Row 1 */}
                   <div className="grid grid-cols-2 divide-x divide-[#E4DED0]">
                     <div className="p-3.5 sm:p-4">
                       <div className="text-[11px] font-medium text-[#17271E]/50">
                         Capacity
                       </div>
-                      <div className="mt-1 font-serif text-sm sm:text-base font-extrabold text-[#0A4A2E]">
+                      <div className="mt-1 font-serif text-sm font-extrabold text-[#0A4A2E] sm:text-base">
                         700 ml per bag
                       </div>
                     </div>
@@ -1283,7 +1393,7 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
                       <div className="text-[11px] font-medium text-[#17271E]/50">
                         Uses per bag
                       </div>
-                      <div className="mt-1 font-serif text-sm sm:text-base font-extrabold text-[#0A4A2E]">
+                      <div className="mt-1 font-serif text-sm font-extrabold text-[#0A4A2E] sm:text-base">
                         2–3 until full
                       </div>
                     </div>
@@ -1295,7 +1405,7 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
                       <div className="text-[11px] font-medium text-[#17271E]/50">
                         Solidifies
                       </div>
-                      <div className="mt-1 font-serif text-sm sm:text-base font-extrabold text-[#0A4A2E]">
+                      <div className="mt-1 font-serif text-sm font-extrabold text-[#0A4A2E] sm:text-base">
                         ~60 seconds
                       </div>
                     </div>
@@ -1303,7 +1413,7 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
                       <div className="text-[11px] font-medium text-[#17271E]/50">
                         Closure
                       </div>
-                      <div className="mt-1 font-serif text-sm sm:text-base font-extrabold text-[#0A4A2E]">
+                      <div className="mt-1 font-serif text-sm font-extrabold text-[#0A4A2E] sm:text-base">
                         Sealable lock
                       </div>
                     </div>
@@ -1315,7 +1425,7 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
                       <div className="text-[11px] font-medium text-[#17271E]/50">
                         Pack size
                       </div>
-                      <div className="mt-1 font-serif text-sm sm:text-base font-extrabold text-[#0A4A2E]">
+                      <div className="mt-1 font-serif text-sm font-extrabold text-[#0A4A2E] sm:text-base">
                         10 or 20 bags
                       </div>
                     </div>
@@ -1323,7 +1433,7 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
                       <div className="text-[11px] font-medium text-[#17271E]/50">
                         Use type
                       </div>
-                      <div className="mt-1 font-serif text-sm sm:text-base font-extrabold text-[#0A4A2E]">
+                      <div className="mt-1 font-serif text-sm font-extrabold text-[#0A4A2E] sm:text-base">
                         External only
                       </div>
                     </div>
@@ -1342,7 +1452,7 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
         style={{ top: `${headerHeight}px` }}
         className="sticky z-40 w-full border-y border-[#E4DED0] bg-[#FAF6F0] shadow-sm backdrop-blur-md transition-[top] duration-150"
       >
-        <div className="mx-auto flex max-w-7xl items-center justify-start sm:justify-center gap-2 overflow-x-auto px-4 py-2.5 text-xs font-bold no-scrollbar [::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+        <div className="no-scrollbar mx-auto flex max-w-7xl items-center justify-start gap-2 overflow-x-auto px-4 py-2.5 text-xs font-bold [-ms-overflow-style:none] [scrollbar-width:none] sm:justify-center [::-webkit-scrollbar]:hidden">
           {[
             { id: "pdp-hero", label: "Overview" },
             { id: "how-it-works", label: "How It Works" },
@@ -1354,10 +1464,10 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
             <a
               key={nav.id}
               href={`#${nav.id}`}
-              className={`rounded-full px-4 py-1.5 transition-all whitespace-nowrap ${
+              className={`rounded-full px-4 py-1.5 whitespace-nowrap transition-all ${
                 activeNavId === nav.id
                   ? "bg-[#0E5C3A] text-white shadow-2xs"
-                  : "bg-white text-[#17271E]/80 border border-[#E4DED0] hover:border-[#0E5C3A]"
+                  : "border border-[#E4DED0] bg-white text-[#17271E]/80 hover:border-[#0E5C3A]"
               }`}
             >
               {nav.label}
@@ -1369,59 +1479,77 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
       {/* ========================================================================= */}
       {/* 2. SPECIFICATION STRIP                                                     */}
       {/* ========================================================================= */}
-      <section className="w-full bg-[#0E5C3A] text-white py-6">
+      <section className="w-full bg-[#0E5C3A] py-6 text-white">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-12">
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5 sm:gap-6 items-center">
+          <div className="grid grid-cols-2 items-center gap-3.5 sm:grid-cols-3 sm:gap-6 lg:grid-cols-5">
             {/* Point 1: 700 ml */}
             <div className="flex items-center gap-2.5 sm:gap-3">
-              <Droplets className="h-6 w-6 sm:h-7 sm:w-7 text-[#F4C430] shrink-0 stroke-[2]" />
+              <Droplets className="h-6 w-6 shrink-0 stroke-[2] text-[#F4C430] sm:h-7 sm:w-7" />
               <div>
-                <div className="font-sans text-sm sm:text-lg font-bold leading-tight">700 ml</div>
-                <div className="text-[11px] sm:text-xs text-white/80 font-medium">Liquid capacity</div>
+                <div className="font-sans text-sm leading-tight font-bold sm:text-lg">
+                  700 ml
+                </div>
+                <div className="text-[11px] font-medium text-white/80 sm:text-xs">
+                  Liquid capacity
+                </div>
               </div>
             </div>
 
             {/* Point 2: ~60 sec */}
             <div className="flex items-center gap-2.5 sm:gap-3">
-              <Timer className="h-6 w-6 sm:h-7 sm:w-7 text-[#F4C430] shrink-0 stroke-[2]" />
+              <Timer className="h-6 w-6 shrink-0 stroke-[2] text-[#F4C430] sm:h-7 sm:w-7" />
               <div>
-                <div className="font-sans text-sm sm:text-lg font-bold leading-tight">~60 sec</div>
-                <div className="text-[11px] sm:text-xs text-white/80 font-medium">Solidifies liquid</div>
+                <div className="font-sans text-sm leading-tight font-bold sm:text-lg">
+                  ~60 sec
+                </div>
+                <div className="text-[11px] font-medium text-white/80 sm:text-xs">
+                  Solidifies liquid
+                </div>
               </div>
             </div>
 
             {/* Point 3: Leak-proof */}
             <div className="flex items-center gap-2.5 sm:gap-3">
-              <Shield className="h-6 w-6 sm:h-7 sm:w-7 text-[#F4C430] shrink-0 stroke-[2]" />
+              <Shield className="h-6 w-6 shrink-0 stroke-[2] text-[#F4C430] sm:h-7 sm:w-7" />
               <div>
-                <div className="font-sans text-sm sm:text-lg font-bold leading-tight">Leak-proof</div>
-                <div className="text-[11px] sm:text-xs text-white/80 font-medium">Sealable closure</div>
+                <div className="font-sans text-sm leading-tight font-bold sm:text-lg">
+                  Leak-proof
+                </div>
+                <div className="text-[11px] font-medium text-white/80 sm:text-xs">
+                  Sealable closure
+                </div>
               </div>
             </div>
 
             {/* Point 4: Unisex */}
             <div className="flex items-center gap-2.5 sm:gap-3">
-              <Users className="h-6 w-6 sm:h-7 sm:w-7 text-[#F4C430] shrink-0 stroke-[2]" />
+              <Users className="h-6 w-6 shrink-0 stroke-[2] text-[#F4C430] sm:h-7 sm:w-7" />
               <div>
-                <div className="font-sans text-sm sm:text-lg font-bold leading-tight">Unisex</div>
-                <div className="text-[11px] sm:text-xs text-white/80 font-medium">All ages, all genders</div>
+                <div className="font-sans text-sm leading-tight font-bold sm:text-lg">
+                  Unisex
+                </div>
+                <div className="text-[11px] font-medium text-white/80 sm:text-xs">
+                  All ages, all genders
+                </div>
               </div>
             </div>
 
             {/* Point 5: 10 bags / 20 bags */}
-            <div className="col-span-2 sm:col-span-1 flex items-center justify-center sm:justify-start gap-2.5 sm:gap-3">
-              <Package className="h-6 w-6 sm:h-7 sm:w-7 text-[#F4C430] shrink-0 stroke-[2]" />
+            <div className="col-span-2 flex items-center justify-center gap-2.5 sm:col-span-1 sm:justify-start sm:gap-3">
+              <Package className="h-6 w-6 shrink-0 stroke-[2] text-[#F4C430] sm:h-7 sm:w-7" />
               <div>
-                <div className="font-sans text-sm sm:text-lg font-bold leading-tight">
+                <div className="font-sans text-sm leading-tight font-bold sm:text-lg">
                   {selectedPack?.bags || 10} bags
                 </div>
-                <div className="text-[11px] sm:text-xs text-white/80 font-medium">Per pack · portable</div>
+                <div className="text-[11px] font-medium text-white/80 sm:text-xs">
+                  Per pack · portable
+                </div>
               </div>
             </div>
           </div>
         </div>
       </section>
-  
+
       {/* ========================================================================= */}
       {/* 2. NO TOILET THERE'S LOOWAY SECTION (NEW COMPONENT)                       */}
       {/* ========================================================================= */}
@@ -1462,7 +1590,6 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
       {/* ========================================================================= */}
       <MarketComparisonSection />
 
-
       {/* ========================================================================= */}
       {/* 10. LOOWAY REVIEWS SECTION (NEW COMPONENT)                               */}
       {/* ========================================================================= */}
@@ -1473,6 +1600,5 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
       {/* ========================================================================= */}
       <LoowayFaqSection />
     </div>
-
   );
 }

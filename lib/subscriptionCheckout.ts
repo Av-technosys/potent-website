@@ -8,10 +8,7 @@ import {
   type MixBoxRecipe,
   type SubscriptionType,
 } from "@/lib/mixYourBox";
-import {
-  calculateCycleSyncSchedule,
-  clampCycleLength,
-} from "@/lib/cycleSync";
+import { calculateCycleSyncSchedule, clampCycleLength } from "@/lib/cycleSync";
 import {
   PDP_SUBSCRIPTION_PLANS,
   getPdpSubscriptionDiscount,
@@ -21,7 +18,7 @@ import {
 const RECURRING_TYPES = PDP_SUBSCRIPTION_PLANS.map(
   (plan) => plan.subscriptionType,
 );
-const FREE_SHIPPING_THRESHOLD = 599;
+const FREE_SHIPPING_THRESHOLD = 399;
 const SHIPPING_FEE = 60;
 
 const DEFAULT_SUBSCRIPTION_DISCOUNTS = Object.fromEntries(
@@ -61,8 +58,7 @@ export function normalizeSubscriptionCheckoutItem(input: any) {
   return {
     ...nestedItem,
     productId: input?.productId ?? nestedItem.productId,
-    productVariantId:
-      input?.productVariantId ?? nestedItem.productVariantId,
+    productVariantId: input?.productVariantId ?? nestedItem.productVariantId,
     quantity: input?.quantity ?? nestedItem.quantity,
     subscriptionType:
       input?.subscriptionType ??
@@ -143,8 +139,18 @@ export async function getSubscriptionCheckoutQuote(item: any) {
     return { success: false, error: "Product or variant not found" };
   }
 
+  if (row.variant.isInStock === false) {
+    return {
+      success: false,
+      error: "This item is currently out of stock.",
+    };
+  }
+
   if (!isPdpSubscriptionTypeAllowed(row.productInfo, subscriptionType)) {
-    return { success: false, error: "Subscription is not available for this product" };
+    return {
+      success: false,
+      error: "Subscription is not available for this product",
+    };
   }
 
   if (subscriptionType === "cycle_sync") {
@@ -166,7 +172,10 @@ export async function getSubscriptionCheckoutQuote(item: any) {
         ),
       );
   const baseVariantPrice = Number(row.variant.price || 0);
-  const discount = Math.min(Math.max(getProductDiscount(row.productInfo, subscriptionType), 0), 1);
+  const discount = Math.min(
+    Math.max(getProductDiscount(row.productInfo, subscriptionType), 0),
+    1,
+  );
   let subtotal = baseVariantPrice * quantity;
   let mixPricing = null;
 
@@ -213,10 +222,9 @@ export async function getSubscriptionCheckoutQuote(item: any) {
     shipping,
     amountPaise: Math.round(final * 100),
     label: `${row.productInfo.name} - ${billing.label} Subscription`,
-    nextOrderDate:
-      cycleSchedule?.valid
-        ? cycleSchedule.upcomingDeliveries[0].deliveryDate
-        : addDays(now, billing.frequencyInDays),
+    nextOrderDate: cycleSchedule?.valid
+      ? cycleSchedule.upcomingDeliveries[0].deliveryDate
+      : addDays(now, billing.frequencyInDays),
     mixBoxRecipe: mixPricing ? item.mixBoxRecipe : null,
     totalPads: mixPricing?.totalPads ?? null,
     boxCount: mixPricing?.boxCount ?? null,

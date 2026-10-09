@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 
 interface KitCardData {
+  id?: string;
   kicker: string;
   title: string;
   contents: string;
@@ -14,62 +15,74 @@ interface KitCardData {
 
 const KITS_DATA: KitCardData[] = [
   {
+    id: "complete",
     kicker: "EVERY SITUATION",
     title: "Complete",
     contents: "Seat covers · Pee and puke bags · Pee funnel for her",
     isDark: true,
   },
   {
+    id: "solo",
     kicker: "SOLO, SHORT TRIP",
     title: "Weekender",
     contents: "Seat covers · Pee and puke bags",
   },
   {
+    id: "family",
     kicker: "GROUP, LONG TRIP",
     title: "Family",
     contents: "2 seat-cover boxes · 2 packs of bags · Pee funnel for her",
   },
   {
+    id: "girls",
     kicker: "GIRLS ONLY",
     title: "Girls’ Trip",
     contents: "2 seat-cover boxes · Pee funnel · Ovy period care",
   },
   {
+    id: "boys",
     kicker: "MATES’ GETAWAY",
     title: "Boys’ Trip",
     contents: "Seat covers · 2 packs of bags",
   },
   {
+    id: "teerth",
     kicker: "PILGRIMAGES",
     title: "Teerth Yatra",
     contents: "2 seat-cover boxes · Pee funnel for her · Pee and puke bags",
   },
   {
+    id: "preg",
     kicker: "MUMS-TO-BE",
     title: "Pregnancy Travel",
     contents: "Seat covers · Pee funnel · Pee and puke bags · Ovy period care",
   },
   {
+    id: "toddler",
     kicker: "WITH LITTLE ONES",
     title: "Toddler Travel",
     contents: "2 seat-cover boxes · Pee and puke bags",
   },
   {
+    id: "working",
     kicker: "OFFICE AND COMMUTES",
     title: "Working Woman",
     contents: "Seat covers · Ovy period care",
   },
   {
+    id: "sports",
     kicker: "TREKS AND OUTDOORS",
     title: "Sports & Adventure",
     contents: "Seat covers · Pee funnel for her · 2 packs of bags",
   },
   {
+    id: "carekit",
     kicker: "HOSPITAL AND CAREGIVING",
     title: "Care & Recovery",
     contents: "2 seat-cover boxes · 2 packs of bags",
   },
   {
+    id: "builder",
     kicker: "ANY TRIP",
     title: "Make it yours",
     contents:
@@ -117,7 +130,7 @@ export function LoowayYatraKitSection() {
 
             <div>
               <Link
-                href="/quiz"
+                href="/looway-yatra-kit"
                 className="inline-flex items-center gap-2 rounded-full bg-[#004851] px-7 py-3.5 text-xs font-semibold text-white shadow-xs transition-all hover:bg-[#00373e] sm:text-sm"
               >
                 <span>Build your Yatra Kit</span>
@@ -253,7 +266,7 @@ export function LoowayYatraKitSection() {
                       + 10 free intimate wipes
                     </div>
                     <Link
-                      href="/quiz"
+                      href={kit.id ? `/looway-yatra-kit?kit=${kit.id}#choose-kit` : "/looway-yatra-kit#choose-kit"}
                       className="inline-flex items-center gap-1 text-[11px] font-bold text-white group-hover:underline sm:text-xs"
                     >
                       <span>See it in the builder</span>
@@ -284,7 +297,7 @@ export function LoowayYatraKitSection() {
 
                   <div className="mt-3 border-t border-black/10 pt-3 sm:mt-4 sm:pt-4">
                     <Link
-                      href="/quiz"
+                      href={kit.id ? `/looway-yatra-kit?kit=${kit.id}#choose-kit` : "/looway-yatra-kit#choose-kit"}
                       className="inline-flex items-center gap-1 text-[11px] font-bold text-[#004851] group-hover:underline sm:text-xs"
                     >
                       <span>Open the builder</span>
@@ -319,7 +332,7 @@ export function LoowayYatraKitSection() {
                     + 10 free intimate wipes
                   </div>
                   <Link
-                    href="/quiz"
+                    href={kit.id ? `/looway-yatra-kit?kit=${kit.id}#choose-kit` : "/looway-yatra-kit#choose-kit"}
                     className="inline-flex items-center gap-1 text-[11px] font-bold text-[#004851] group-hover:underline sm:text-xs"
                   >
                     <span>See it in the builder</span>

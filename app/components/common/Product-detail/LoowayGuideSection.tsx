@@ -340,6 +340,81 @@ export const LOOWAY_STORIES = [
       },
     ],
   },
+  {
+    id: "leak",
+    rail: "Will it leak?",
+    ch: "PERFORMANCE",
+    cat: "Zero mess",
+    t: "Will it leak or spill?",
+    label: "Will it leak or spill?",
+    sub: "Solid gel in 60 seconds",
+    ic: Shield,
+    slides: [
+      {
+        h: "Never leaks or spills",
+        b: "The internal super-absorbent polymer strip solidifies up to 700 ml of liquid in about 60 seconds — leaving zero free liquid to splash, spill or leak.",
+      },
+      {
+        h: "Double leak protection",
+        b: "Even if the bag tips over on a bumpy road, gets dropped or is squeezed in a moving car, the firm solidified gel stays put and the heavy-duty press-and-seal lock keeps everything completely airtight.",
+      },
+      {
+        h: "Never melts back to fluid",
+        b: "Once turned into gel, it never liquefies back into fluid. It holds its firm shape permanently until you can drop it in a general dustbin.",
+        tip: "Run your thumb and forefinger firmly across the seal from end to end until you feel it click shut.",
+      },
+    ],
+  },
+  {
+    id: "gel",
+    rail: "Is gel safe?",
+    ch: "SAFETY & CARE",
+    cat: "Safe for skin",
+    t: "Is the gel safe?",
+    label: "Is the gel safe?",
+    sub: "Hypoallergenic, diaper-grade polymer",
+    ic: Sparkles,
+    slides: [
+      {
+        h: "100% skin-safe & non-toxic",
+        b: "Yes — completely safe for external use. The super-absorbent polymer strip inside Looway bags uses the exact same medical-grade absorbent material found inside infant diapers and sanitary pads.",
+      },
+      {
+        h: "Locks odour & moisture naturally",
+        b: "It absorbs liquid instantly and traps odour at a molecular level without perfumes, fragrances or harsh chemical fumes.",
+      },
+      {
+        h: "Common-sense handling",
+        b: "The gel is safe to touch externally. Like all personal hygiene products, it is not edible; keep sealed, used bags safely out of reach of young children and pets until binned.",
+        tip: "Completely safe for kids, adults, elderly family members, and during pregnancy.",
+      },
+    ],
+  },
+  {
+    id: "fly",
+    rail: "Fly with it?",
+    ch: "ON EVERY JOURNEY",
+    cat: "Travel rules",
+    t: "Can I fly with it?",
+    label: "Can I fly with it?",
+    sub: "Dry & cabin luggage approved",
+    ic: Plane,
+    slides: [
+      {
+        h: "Allowed through airport security",
+        b: "Yes! Unused Looway bags are 100% dry and contain zero liquids until used. They comply fully with aviation and airport security regulations for hand luggage and personal items.",
+      },
+      {
+        h: "A lifesaver in turbulence",
+        b: "When the seatbelt sign stays on for an hour during unexpected turbulence or the aircraft lavatory has an endless line, having a bag in your seat pocket provides instant, discreet relief.",
+      },
+      {
+        h: "Air sickness & nausea ready",
+        b: "Cabin pressure variations and air pockets often trigger motion sickness. An open bag in hand protects against sudden sickness accidents mid-flight.",
+        tip: "Keep 2 bags in your personal handbag or backpack under the seat in front of you.",
+      },
+    ],
+  },
 ];
 
 export default function LoowayGuideSection() {
@@ -406,10 +481,10 @@ export default function LoowayGuideSection() {
 
           <div className="flex overflow-x-auto pb-1 gap-1.5 mb-2.5 no-scrollbar [::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
             {[
-              { label: "Will it leak?", id: "why" },
+              { label: "Will it leak?", id: "leak" },
               { label: "How does a woman use it?", id: "women" },
-              { label: "Is the gel safe?", id: "use" },
-              { label: "Can I fly with it?", id: "pack" },
+              { label: "Is the gel safe?", id: "gel" },
+              { label: "Can I fly with it?", id: "fly" },
               { label: "How do I dispose it?", id: "dispose" },
             ].map((pill) => (
               <button
@@ -446,7 +521,7 @@ export default function LoowayGuideSection() {
                 Enter the Looway guide
               </h3>
               <p className="text-xs text-white/80">
-                Tap to step in — 11 quick stories, swipe through in a minute
+                Tap to step in — 14 quick stories, swipe through in a minute
               </p>
             </div>
           </div>
@@ -494,7 +569,10 @@ export default function LoowayGuideSection() {
               </div>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5 sm:gap-4">
-              {[LOOWAY_STORIES[0], LOOWAY_STORIES[1], LOOWAY_STORIES[2]].map((card) => (
+              {["use", "motion", "dispose"]
+                .map((id) => LOOWAY_STORIES.find((s) => s.id === id))
+                .filter((card): card is (typeof LOOWAY_STORIES)[0] => Boolean(card))
+                .map((card) => (
                 <div
                   key={card.id}
                   onClick={() => handleOpenStory(card.id)}
@@ -525,7 +603,10 @@ export default function LoowayGuideSection() {
               </div>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5 sm:gap-4">
-              {[LOOWAY_STORIES[3], LOOWAY_STORIES[4], LOOWAY_STORIES[5]].map((card) => (
+              {["pack", "yatra", "toddlers"]
+                .map((id) => LOOWAY_STORIES.find((s) => s.id === id))
+                .filter((card): card is (typeof LOOWAY_STORIES)[0] => Boolean(card))
+                .map((card) => (
                 <div
                   key={card.id}
                   onClick={() => handleOpenStory(card.id)}
@@ -556,7 +637,10 @@ export default function LoowayGuideSection() {
               </div>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5 sm:gap-4">
-              {[LOOWAY_STORIES[6], LOOWAY_STORIES[7], LOOWAY_STORIES[8]].map((card) => (
+              {["pregnancy", "women", "why"]
+                .map((id) => LOOWAY_STORIES.find((s) => s.id === id))
+                .filter((card): card is (typeof LOOWAY_STORIES)[0] => Boolean(card))
+                .map((card) => (
                 <div
                   key={card.id}
                   onClick={() => handleOpenStory(card.id)}
@@ -587,7 +671,10 @@ export default function LoowayGuideSection() {
               </div>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-2 gap-2.5 sm:gap-4">
-              {[LOOWAY_STORIES[9], LOOWAY_STORIES[10]].map((card) => (
+              {["hygiene", "firsttime"]
+                .map((id) => LOOWAY_STORIES.find((s) => s.id === id))
+                .filter((card): card is (typeof LOOWAY_STORIES)[0] => Boolean(card))
+                .map((card) => (
                 <div
                   key={card.id}
                   onClick={() => handleOpenStory(card.id)}

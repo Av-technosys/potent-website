@@ -18,6 +18,7 @@ export type AdminUserRow = {
   emailVerified: boolean | null;
   rewardOrderCoins: number | null;
   referralCoins: number | null;
+  referralCode?: string | null;
   createdAt: Date | null;
 };
 
@@ -46,6 +47,7 @@ const UsersTable = ({ users, page, pageSize }: UsersTableProps) => {
           <TableRow>
             <TableHead>S.No</TableHead>
             <TableHead>Name</TableHead>
+            <TableHead>Referral Code</TableHead>
             <TableHead>Email</TableHead>
             <TableHead>Phone</TableHead>
             <TableHead>Email Verified</TableHead>
@@ -61,6 +63,9 @@ const UsersTable = ({ users, page, pageSize }: UsersTableProps) => {
               <TableRow key={user.id}>
                 <TableCell>{startIndex + index + 1}</TableCell>
                 <TableCell className="font-medium">{user.name}</TableCell>
+                <TableCell className="font-mono text-xs font-semibold text-[#016271]">
+                  {user.referralCode || "-"}
+                </TableCell>
                 <TableCell>{user.email}</TableCell>
                 <TableCell>{user.phone}</TableCell>
                 <TableCell>
@@ -83,7 +88,7 @@ const UsersTable = ({ users, page, pageSize }: UsersTableProps) => {
             ))
           ) : (
             <TableRow>
-              <TableCell colSpan={8} className="h-24 text-center text-gray-600">
+              <TableCell colSpan={9} className="h-24 text-center text-gray-600">
                 No users found.
               </TableCell>
             </TableRow>

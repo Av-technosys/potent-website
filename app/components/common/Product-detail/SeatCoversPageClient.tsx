@@ -162,6 +162,7 @@ export default function SeatCoversPageClient({ product, content }: Props) {
           flag,
           sku: v.sku || "",
           image: v.bannerImage || product?.bannerImage || "",
+          isInStock: v.isInStock !== false && v.is_in_stock !== false,
         };
       });
       return map;
@@ -221,6 +222,14 @@ export default function SeatCoversPageClient({ product, content }: Props) {
   const totalPrice = unitPrice * quantity;
   const totalMrp = mrpPrice * quantity;
   const totalSavings = totalMrp - totalPrice;
+
+  const isOutOfStock = Boolean(
+    selectedPack?.variantId
+      ? selectedPack.isInStock === false
+      : variantsList.length > 0
+        ? variantsList.every((v: any) => v.isInStock === false || v.is_in_stock === false)
+        : product?.isInStock === false || product?.is_in_stock === false,
+  );
 
   // Images list
   const mediaList = useMemo(() => {
@@ -322,6 +331,11 @@ export default function SeatCoversPageClient({ product, content }: Props) {
 
   // Cart action integration with dynamic DB variant resolution
   const handleAddToCart = async () => {
+    if (isOutOfStock) {
+      toast.error("This item is currently out of stock.");
+      return;
+    }
+
     const variantId =
       selectedPack?.variantId ||
       product?.productVariants?.find(
@@ -362,6 +376,11 @@ export default function SeatCoversPageClient({ product, content }: Props) {
   };
 
   const handlePrimaryAction = async () => {
+    if (isOutOfStock) {
+      toast.error("This item is currently out of stock.");
+      return;
+    }
+
     if (selectedModeId === "once") {
       await handleAddToCart();
       return;
@@ -376,7 +395,9 @@ export default function SeatCoversPageClient({ product, content }: Props) {
       selectedPack?.variantId ||
       product?.productVariants?.find(
         (variant: any) =>
-          variant.name?.toLowerCase().includes(selectedPack.name.toLowerCase()) ||
+          variant.name
+            ?.toLowerCase()
+            .includes(selectedPack.name.toLowerCase()) ||
           variant.name?.includes(String(selectedPack.covers)),
       )?.id ||
       product?.productVariants?.[0]?.id;
@@ -410,7 +431,7 @@ export default function SeatCoversPageClient({ product, content }: Props) {
       return;
     }
     setPincodeResult({
-      msg: `Delivery available for ${pincode}! Expected delivery in 3-5 business days with Free Shipping over ₹599.`,
+      msg: `Delivery available for ${pincode}! Expected delivery in 3-5 business days with Free Shipping over ₹399.`,
       err: false,
     });
   };
@@ -559,7 +580,7 @@ export default function SeatCoversPageClient({ product, content }: Props) {
                 <div className="flex items-center justify-between text-xs font-bold tracking-wider text-[#083B5C] uppercase">
                   <span>1. Select Pack Size</span>
                   <span className="font-semibold text-[#0F6DA6] normal-case">
-                    Free shipping over ₹599
+                    Free shipping over ₹399
                   </span>
                 </div>
 
@@ -576,11 +597,15 @@ export default function SeatCoversPageClient({ product, content }: Props) {
                             : "border-[#D3E4EF] bg-white hover:border-[#0F6DA6]/50"
                         }`}
                       >
-                        {pack.flag && (
+                        {pack.flag ? (
                           <span className="absolute -top-3 right-3 rounded-full bg-[#C6E82E] px-2.5 py-0.5 text-[10px] font-extrabold text-[#083B5C] uppercase shadow-xs">
                             {pack.flag}
                           </span>
-                        )}
+                        ) : pack.isInStock === false ? (
+                          <span className="absolute -top-3 right-3 rounded-full bg-stone-200 px-2.5 py-0.5 text-[10px] font-bold text-stone-600 uppercase shadow-xs">
+                            Out of stock
+                          </span>
+                        ) : null}
                         <div>
                           <p className="font-serif text-lg font-bold text-[#083B5C]">
                             {pack.name}
@@ -715,18 +740,28 @@ export default function SeatCoversPageClient({ product, content }: Props) {
                 </div>
 
                 {/* Add to Cart CTA */}
-                <button
-                  onClick={handlePrimaryAction}
-                  disabled={adding}
-                  className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-2xl bg-[#0F6DA6] py-4 text-base font-bold text-white shadow-md transition-all hover:bg-[#0B4E78] disabled:opacity-50"
-                >
-                  <ShoppingBag className="h-5 w-5" />
-                  {adding
-                    ? "Adding to Cart..."
-                    : selectedModeId === "once"
-                      ? "Add to Cart"
-                      : "Subscribe & Checkout"}
-                </button>
+                {isOutOfStock ? (
+                  <button
+                    type="button"
+                    disabled
+                    className="flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-2xl bg-gray-200 py-4 text-base font-bold text-gray-500 shadow-none"
+                  >
+                    Out of stock
+                  </button>
+                ) : (
+                  <button
+                    onClick={handlePrimaryAction}
+                    disabled={adding}
+                    className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-2xl bg-[#0F6DA6] py-4 text-base font-bold text-white shadow-md transition-all hover:bg-[#0B4E78] disabled:opacity-50"
+                  >
+                    <ShoppingBag className="h-5 w-5" />
+                    {adding
+                      ? "Adding to Cart..."
+                      : selectedModeId === "once"
+                        ? "Add to Cart"
+                        : "Subscribe & Checkout"}
+                  </button>
+                )}
               </div>
 
               {/* Trust Badges & Guarantee Content (Attached 3 Images) */}
@@ -782,7 +817,7 @@ export default function SeatCoversPageClient({ product, content }: Props) {
                     </div>
                     <div className="flex items-center gap-2 sm:col-span-2">
                       <Check className="h-4.5 w-4.5 shrink-0 stroke-[2.25] text-[#0F6DA6]" />
-                      <span>Free shipping over ₹599</span>
+                      <span>Free shipping over ₹399</span>
                     </div>
                   </div>
                 </div>
@@ -2332,7 +2367,7 @@ export default function SeatCoversPageClient({ product, content }: Props) {
       )}
 
       {/* Floating Section Quick-Nav Strap */}
-      <div className="no-scrollbar fixed bottom-[72px] md:bottom-6 left-1/2 z-40 flex max-w-[94vw] -translate-x-1/2 items-center gap-2 overflow-x-auto rounded-full border border-[#E5DAC9] bg-[#FAF7F2]/95 px-3 py-2 shadow-xl backdrop-blur-md">
+      <div className="no-scrollbar fixed bottom-[72px] left-1/2 z-40 flex max-w-[94vw] -translate-x-1/2 items-center gap-2 overflow-x-auto rounded-full border border-[#E5DAC9] bg-[#FAF7F2]/95 px-3 py-2 shadow-xl backdrop-blur-md md:bottom-6">
         {[
           { id: "pdp-hero", label: "Packs & Buy" },
           { id: "clean-seat", label: "Clean seat" },

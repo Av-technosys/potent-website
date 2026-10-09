@@ -59,7 +59,7 @@ export default function WhileYoureHereSection({
 
           {/* Card 2: Potent Rewards Club */}
           <Link
-            href="/quiz"
+            href="/dashboard/security"
             className="group flex items-center justify-between gap-4 rounded-3xl border border-[#EAD6DC] bg-white p-5 shadow-2xs transition-all duration-200 hover:-translate-y-0.5 hover:border-[#C21E63] hover:shadow-md"
           >
             <div className="flex items-center gap-4 min-w-0">

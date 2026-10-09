@@ -110,7 +110,10 @@ const DEFAULT_OVY_PRODUCTS = [
 
 function ComingSoonCard() {
   return (
-    <div className="group border-gray-150 relative flex h-full w-full flex-col justify-between overflow-hidden rounded-2xl border bg-white shadow-2xs transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
+    <Link
+      href="/product-detail/ovy-panty"
+      className="group border-gray-150 relative flex h-full w-full flex-col justify-between overflow-hidden rounded-2xl border bg-white shadow-2xs transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
+    >
       {/* Top Media Container (Lavender diagonal stripe background with Coming soon text) */}
       <div
         className="relative flex aspect-[4/5] w-full items-center justify-center overflow-hidden bg-[#F5EEF6]"
@@ -119,7 +122,7 @@ function ComingSoonCard() {
         }}
       >
         <span className="font-caveat -rotate-6 transform text-2xl tracking-wide text-[#905D89] sm:text-4xl">
-          Coming soon
+          Out of stock
         </span>
       </div>
 
@@ -142,15 +145,15 @@ function ComingSoonCard() {
         {/* Footer Action / Status Row */}
         <div className="mt-auto flex items-center justify-between border-t border-gray-100 pt-2">
           <span className="text-[10px] font-normal text-gray-500 sm:text-xs">
-            Launching soon
+            View details
           </span>
 
-          <span className="rounded-full bg-[#EFEAEF] px-2.5 py-1 text-[10px] font-semibold text-gray-700 shadow-2xs sm:px-4 sm:py-1.5 sm:text-xs">
-            Coming soon
+          <span className="rounded-full bg-gray-100 border border-gray-200 px-2.5 py-1 text-[10px] font-semibold text-gray-600 shadow-2xs sm:px-4 sm:py-1.5 sm:text-xs">
+            Out of stock
           </span>
         </div>
       </div>
-    </div>
+    </Link>
   );
 }
 
@@ -181,7 +184,7 @@ export default function BestsellingProducts({
     ? "Organic, certified toxin-free, and sized to a real cycle rather than an average one."
     : description;
   const buttonText = isOvySection ? "All Ovy products" : "Shop all";
-  const buttonHref = isOvySection ? "/ovy" : "/shop";
+  const buttonHref = isOvySection ? "/ovy#products" : "/shop";
 
   // Prepare products array
   let displayProducts: any[] = [];
@@ -278,8 +281,18 @@ export default function BestsellingProducts({
     });
   };
 
+  const modalIsOutOfStock = Boolean(
+    selectedVariant
+      ? selectedVariant.isInStock === false ||
+        selectedVariant.is_in_stock === false
+      : quickViewVariants.length > 0 &&
+        quickViewVariants.every(
+          (v) => v.isInStock === false || v.is_in_stock === false,
+        ),
+  );
+
   const handleModalAdd = async () => {
-    if (!quickViewProduct || modalAdding) return;
+    if (!quickViewProduct || modalAdding || modalIsOutOfStock) return;
     setModalAdding(true);
     await addProductVariantToCart(
       quickViewProduct,
@@ -520,30 +533,40 @@ export default function BestsellingProducts({
 
               {/* Action Buttons */}
               <div className="flex flex-col items-center gap-2 pt-1.5 sm:flex-row sm:gap-3 sm:pt-2">
-                <button
-                  type="button"
-                  onClick={handleModalAdd}
-                  disabled={modalAdding}
-                  className={`flex w-full flex-1 cursor-pointer items-center justify-center gap-2 rounded-full px-5 py-2.5 sm:px-6 sm:py-3 text-xs sm:text-sm font-semibold shadow-md transition-all sm:w-auto ${
-                    modalAdded
-                      ? "bg-emerald-600 text-white"
-                      : "bg-[#016271] text-white hover:scale-[1.02] hover:bg-[#014d59]"
-                  }`}
-                >
-                  {modalAdded ? (
-                    <>
-                      <Check className="h-4 w-4" />
-                      <span>Added to cart</span>
-                    </>
-                  ) : (
-                    <>
-                      <Plus className="h-4 w-4" />
-                      <span>
-                        {loadingProductDetails ? "Loading..." : "Add to cart"}
-                      </span>
-                    </>
-                  )}
-                </button>
+                {modalIsOutOfStock ? (
+                  <button
+                    type="button"
+                    disabled
+                    className="flex w-full flex-1 cursor-not-allowed items-center justify-center gap-2 rounded-full px-5 py-2.5 sm:px-6 sm:py-3 text-xs sm:text-sm font-semibold bg-gray-200 text-gray-500 shadow-none sm:w-auto"
+                  >
+                    <span>Out of stock</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleModalAdd}
+                    disabled={modalAdding}
+                    className={`flex w-full flex-1 cursor-pointer items-center justify-center gap-2 rounded-full px-5 py-2.5 sm:px-6 sm:py-3 text-xs sm:text-sm font-semibold shadow-md transition-all sm:w-auto ${
+                      modalAdded
+                        ? "bg-emerald-600 text-white"
+                        : "bg-[#016271] text-white hover:scale-[1.02] hover:bg-[#014d59]"
+                    }`}
+                  >
+                    {modalAdded ? (
+                      <>
+                        <Check className="h-4 w-4" />
+                        <span>Added to cart</span>
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="h-4 w-4" />
+                        <span>
+                          {loadingProductDetails ? "Loading..." : "Add to cart"}
+                        </span>
+                      </>
+                    )}
+                  </button>
+                )}
 
                 <Link
                   href={`/product-detail/${quickViewProduct.slug}`}

@@ -499,10 +499,31 @@ export async function createPendingCheckoutOrder({
     }
 
     const productMap = new Map(products.map((p) => [p.id, p]));
-    const variants = uniqueVariantIds.length
-      ? await db.select().from(productVariant).where(inArray(productVariant.id, uniqueVariantIds))
-      : [];
-    const variantMap = new Map(variants.map((v) => [v.id, v]));
+    const allProductVariants = await db
+      .select()
+      .from(productVariant)
+      .where(inArray(productVariant.productId, uniqueProductIds));
+    const variantMap = new Map(allProductVariants.map((v) => [v.id, v]));
+
+    for (const item of checkoutItems) {
+      const p = productMap.get(item.productId);
+      let isItemOutOfStock = false;
+      if (item.productVariantId) {
+        const v = variantMap.get(item.productVariantId);
+        if (v && v.isInStock === false) {
+          isItemOutOfStock = true;
+        }
+      } else {
+        const prodVariants = allProductVariants.filter((v) => v.productId === item.productId);
+        if (prodVariants.length > 0 && prodVariants.every((v) => v.isInStock === false)) {
+          isItemOutOfStock = true;
+        }
+      }
+      if (isItemOutOfStock) {
+        throw new Error(`${item.title || p?.name || "An item in your cart"} is currently out of stock.`);
+      }
+    }
+
     const safeAmount = Math.round(pricing.final);
 
     const result = await db.transaction(async (tx) => {

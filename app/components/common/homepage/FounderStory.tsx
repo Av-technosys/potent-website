@@ -2,6 +2,7 @@
 
 import React from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 
 export function FounderStory() {
@@ -83,12 +84,12 @@ export function FounderStory() {
 
             {/* Action Buttons */}
             <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:items-center">
-              <a
-                href="/about-us"
+              <Link
+                href="/about"
                 className="flex cursor-pointer items-center justify-center gap-2 rounded-full bg-[#016271] px-7 py-3 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-[#004851] sm:py-3.5 sm:text-base"
               >
                 Read our full story <ArrowRight className="h-4 w-4" />
-              </a>
+              </Link>
 
               <a
                 href="/shop"

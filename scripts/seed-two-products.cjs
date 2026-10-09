@@ -23,7 +23,7 @@ const products = [
     subscribeBiMontlyDiscount: 12,
     cycleSyncDiscount: 15,
     maxQuantityPurchase: 6,
-    freeShippingOver: 599,
+    freeShippingOver: 399,
     variants: [
       {
         sku: "OVY-PADS-L-25",
@@ -76,7 +76,7 @@ const products = [
     subscribeBiMontlyDiscount: 12,
     cycleSyncDiscount: 0,
     maxQuantityPurchase: 6,
-    freeShippingOver: 599,
+    freeShippingOver: 399,
     variants: [
       {
         sku: "OVY-LINERS-40",

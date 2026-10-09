@@ -149,7 +149,7 @@ export function OvyLinersDetail({ productsBySlug }: OvyLinersDetailProps) {
             {/* Action Buttons Row */}
             <div className="flex flex-wrap items-center gap-3 pt-1">
               <Link
-                href="/shop/ovy-daily-panty-liners"
+                href="/product-detail/ovy-liners"
                 className="inline-flex items-center gap-2 rounded-full bg-[#602E55] px-6 py-2.5 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-[#4A2040] sm:text-sm"
               >
                 Shop liners <ArrowRight className="h-4 w-4" />

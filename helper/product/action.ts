@@ -5,7 +5,18 @@
 import { db } from "@/lib/db";
 
 import { revalidatePath, revalidateTag } from "next/cache";
-import { and, asc, desc, eq, gte, ilike, inArray, lte, ne, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  gte,
+  ilike,
+  inArray,
+  lte,
+  ne,
+  sql,
+} from "drizzle-orm";
 import { generateUniqueSlug } from "../slug/generateUniqueSlug";
 
 import {
@@ -117,8 +128,9 @@ function buildVariantRows(payload: any, productId: string) {
       boxQuantity: variant.boxQuantity ? Number(variant.boxQuantity) : null,
       priority: Number(variant.priority ?? index),
       bannerImage:
-        getImageKey(variant.bannerImage || variant.image || payload.bannerImage) ||
-        null,
+        getImageKey(
+          variant.bannerImage || variant.image || payload.bannerImage,
+        ) || null,
       flowType: variant.flowType || payload.flowType?.[0] || null,
       isInStock:
         variant.isInStock !== undefined
@@ -144,15 +156,18 @@ function buildVariantRows(payload: any, productId: string) {
       priority: 0,
       bannerImage: getImageKey(payload.bannerImage) || null,
       flowType: payload.flowType?.[0] || null,
-      isInStock:
-        payload.isInStock !== undefined ? payload.isInStock : true,
+      isInStock: payload.isInStock !== undefined ? payload.isInStock : true,
       createdAt: new Date(),
       updatedAt: new Date(),
     },
   ];
 }
 
-async function replaceVariantMedia(tx: any, variantIds: string[], payload: any) {
+async function replaceVariantMedia(
+  tx: any,
+  variantIds: string[],
+  payload: any,
+) {
   if (variantIds.length > 0) {
     await tx
       .delete(productMedia)
@@ -389,7 +404,7 @@ export async function createProduct(formData: FormData): Promise<void> {
             Number(variants.subscribeBiMontlyDiscount) || 0,
           cycleSyncDiscount: Number(variants.cycleSyncDiscount) || 0,
           maxQuantityPurchase: Number(variants.maxQuantityPurchase) || 6,
-          freeShippingOver: Number(variants.freeShippingOver) || 599,
+          freeShippingOver: Number(variants.freeShippingOver) || 399,
           highlights: variants.highlights || [],
           createdAt: new Date(),
           updatedAt: new Date(),
@@ -453,7 +468,7 @@ export async function updateProduct(formData: FormData): Promise<void> {
             Number(variants.subscribeBiMontlyDiscount) || 0,
           cycleSyncDiscount: Number(variants.cycleSyncDiscount) || 0,
           maxQuantityPurchase: Number(variants.maxQuantityPurchase) || 6,
-          freeShippingOver: Number(variants.freeShippingOver) || 599,
+          freeShippingOver: Number(variants.freeShippingOver) || 399,
           highlights: variants.highlights || [],
           updatedAt: new Date(),
         })
@@ -545,8 +560,14 @@ export async function getFullProductDetails(identifier: string) {
       .where(eq(productFaq.productId, productDeails.id))
       .orderBy(asc(productFaq.priority));
 
+    const isInStock =
+      productVariantsRes.length > 0
+        ? productVariantsRes.some((v) => v.isInStock !== false)
+        : true;
+
     return {
       ...productDeails,
+      isInStock,
       hasVarientBox: productDeails.isMixBox,
       prodcutVarientBoxRes: productVariantsRes,
       productVariants: productVariantsRes,
@@ -601,8 +622,14 @@ export async function getFullProduct(identifier: string) {
       .where(eq(productFaq.productId, productDeails.id))
       .orderBy(asc(productFaq.priority));
 
+    const isInStock =
+      productVariantsRes.length > 0
+        ? productVariantsRes.some((v) => v.isInStock !== false)
+        : true;
+
     return {
       ...productDeails,
+      isInStock,
       hasVarientBox: productDeails.isMixBox,
       prodcutVarientBoxRes: productVariantsRes,
       productVariants: productVariantsRes,
@@ -739,7 +766,7 @@ export async function getProducts({
   }
 
   if (brand) {
-    filters.push(eq(product.brand, brand))
+    filters.push(eq(product.brand, brand));
   }
 
   const whereClause = filters.length ? and(...filters) : undefined;
@@ -799,7 +826,7 @@ export async function getUserProduct() {
       .orderBy(desc(product.createdAt));
     return deduplicateProducts(rows);
   } catch (error) {
-    console.log(error)
+    console.log(error);
   }
 }
 export async function getProductCategories() {
@@ -877,8 +904,8 @@ export async function getProductsForCart(productIds: string[]) {
     const variantIds = variants.map((variant) => variant.id);
     const media = variantIds.length
       ? await db
-      .select()
-      .from(productMedia)
+          .select()
+          .from(productMedia)
           .where(inArray(productMedia.productVariantId, variantIds))
       : [];
 
@@ -949,16 +976,21 @@ export async function getBestSellingProducts() {
 
 export async function getBrandBestSellingProducts(slug: any) {
   try {
-    const brandProducts = await db.select({
-      id: product.id,
-      name: product.name,
-      price: productVariant.price,
-      startingPrice: product.startingPrice,
-      image: product.bannerImage,
-      slug: product.slug,
-      brand: product.brand,
-      oldPrice: productVariant.strikethroughPrice
-    }).from(product).leftJoin(productVariant, eq(product.id, productVariant.productId)).where(eq(product.brand, slug)).limit(20);
+    const brandProducts = await db
+      .select({
+        id: product.id,
+        name: product.name,
+        price: productVariant.price,
+        startingPrice: product.startingPrice,
+        image: product.bannerImage,
+        slug: product.slug,
+        brand: product.brand,
+        oldPrice: productVariant.strikethroughPrice,
+      })
+      .from(product)
+      .leftJoin(productVariant, eq(product.id, productVariant.productId))
+      .where(eq(product.brand, slug))
+      .limit(20);
     return deduplicateProducts(brandProducts).slice(0, 4);
   } catch (error) {
     console.error(error);
@@ -968,16 +1000,22 @@ export async function getBrandBestSellingProducts(slug: any) {
 
 export async function getBrandNewArrivalProducts(slug: any) {
   try {
-    const brandProducts = await db.select({
-      id: product.id,
-      name: product.name,
-      price: productVariant.price,
-      startingPrice: product.startingPrice,
-      image: product.bannerImage,
-      slug: product.slug,
-      brand: product.brand,
-      oldPrice: productVariant.strikethroughPrice
-    }).from(product).leftJoin(productVariant, eq(product.id, productVariant.productId)).where(eq(product.brand, slug)).orderBy(desc(product.createdAt)).limit(20);
+    const brandProducts = await db
+      .select({
+        id: product.id,
+        name: product.name,
+        price: productVariant.price,
+        startingPrice: product.startingPrice,
+        image: product.bannerImage,
+        slug: product.slug,
+        brand: product.brand,
+        oldPrice: productVariant.strikethroughPrice,
+      })
+      .from(product)
+      .leftJoin(productVariant, eq(product.id, productVariant.productId))
+      .where(eq(product.brand, slug))
+      .orderBy(desc(product.createdAt))
+      .limit(20);
     return deduplicateProducts(brandProducts).slice(0, 4);
   } catch (error) {
     console.error(error);
@@ -1012,8 +1050,6 @@ export async function getProductsByBrand(brand: "ovy" | "loway") {
     return [];
   }
 }
-
-
 
 export async function getQuizSuggestedProducts(userAnswers: any) {
   try {
@@ -1090,8 +1126,6 @@ export async function getQuizSuggestedProducts(userAnswers: any) {
 //     return [];
 //   }
 // }
-
-
 
 // export async function getQuizSuggestedProducts(userAnswers:any){
 //  try {

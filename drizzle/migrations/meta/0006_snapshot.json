@@ -1,6 +1,6 @@
 {
-  "id": "3259b25c-1ce8-4697-9114-2ab0b133f7bc",
-  "prevId": "a3e7bbb8-b79e-486f-950e-795e2054c589",
+  "id": "66666666-6666-4666-8666-666666666666",
+  "prevId": "3259b25c-1ce8-4697-9114-2ab0b133f7bc",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -1457,7 +1457,7 @@
           "type": "integer",
           "primaryKey": false,
           "notNull": false,
-          "default": 599
+          "default": 399
         },
         "created_at": {
           "name": "created_at",

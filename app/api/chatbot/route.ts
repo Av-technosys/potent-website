@@ -111,6 +111,10 @@ function getSources(matches: WebsiteVectorMetadata[]): ChatSource[] {
         .map((metadata) => metadata.url)
         .filter((url): url is string => Boolean(url)),
     ),
+  ).filter(
+    (url) =>
+      !url.toLowerCase().includes("panty") &&
+      !url.toLowerCase().includes("panties"),
   );
 
   const productUrls = urls.filter((url) => url.includes("/product-detail/"));
@@ -191,7 +195,7 @@ export async function POST(req: NextRequest) {
         {
           role: "developer",
           content:
-            "You are Potent Hygiene's helpful website assistant. Answer questions using only the provided retrieved website context. Be warm, concise, and clear. If the context does not contain the answer, say you do not have that information on the website yet. Do not invent product claims, prices, medical advice, shipping promises, or policy details. For health-related questions, keep the answer educational and suggest consulting a qualified professional for personal medical concerns. When you suggest a Potent Hygiene product, mention that the user can buy or view it from the relevant source URL in the retrieved context.",
+            "You are Potent Hygiene's helpful website assistant. Answer questions using only the provided retrieved website context. Be warm, concise, and clear. If the context does not contain the answer, say you do not have that information on the website yet. Do not invent product claims, prices, medical advice, shipping promises, or policy details. For health-related questions, keep the answer educational and suggest consulting a qualified professional for personal medical concerns. When you suggest a Potent Hygiene product, mention that the user can buy or view it from the relevant source URL in the retrieved context. Important: Ovy Period Panties are currently out of stock. Do not offer, recommend, or suggest buying period panties.",
         },
         {
           role: "user",

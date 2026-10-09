@@ -26,7 +26,7 @@ export function BrandAccordion() {
         <div className="grid grid-cols-2 items-stretch gap-3 sm:grid-cols-1 md:grid-cols-3 sm:gap-6 lg:gap-8">
           {/* Card 1: Ovy */}
           <Link
-            href="/ovy"
+            href="/ovy#products"
             className="group relative flex min-h-[200px] flex-col justify-between rounded-2xl border border-purple-100/50 bg-[#f5e7eb] p-4 transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl sm:min-h-[380px] sm:rounded-[28px] sm:p-8 lg:p-10"
           >
             <div className="space-y-3 sm:space-y-6">

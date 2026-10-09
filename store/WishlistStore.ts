@@ -57,11 +57,11 @@ export const normalizeWishlistVariant = (
   const value = asRecord(variant);
   return {
     productVariantId: String(
-      value.productVariantId || value.variantId || value.id || `${productId}-default-${index}`,
+      value.productVariantId || value.variantId || value.id || value._id || `${productId}-default-${index}`,
     ),
     sku: String(value.sku || `${productId}-default-${index}`),
-    name: String(value.name || value.title || value.size || `Option ${index + 1}`),
-    size: value.size ? String(value.size) : undefined,
+    name: String(value.name || value.title || value.size || value.label || `Option ${index + 1}`),
+    size: value.size ? String(value.size) : value.label ? String(value.label) : undefined,
     price: toNumber(value.price, value.discountPrice, value.basePrice),
     image: String(value.bannerImage || value.image || value.mediaURL || fallbackImage || "/product.png"),
     originalPrice:
@@ -91,7 +91,9 @@ export const createWishlistItem = (product: unknown, selectedVariant?: unknown):
   const variants = rawVariants.map((variant, index: number) =>
     normalizeWishlistVariant(variant, productId, fallbackImage, index),
   );
-  const selectedId = selectedValue.productVariantId || selectedValue.variantId || selectedValue.id;
+  const selectedId = typeof selectedVariant === "string"
+    ? selectedVariant
+    : selectedValue.productVariantId || selectedValue.variantId || selectedValue.id || selectedValue._id;
   const selectedIndex = selectedId
     ? variants.findIndex((variant: WishlistVariant) => variant.productVariantId === String(selectedId))
     : 0;
@@ -153,7 +155,9 @@ export const useWishlistStore = create<WishlistState>()(
         })),
       removeItem: (productId) =>
         set((state) => ({
-          items: state.items.filter((item) => item.productId !== productId),
+          items: state.items.filter(
+            (item) => item.productId !== productId && item.slug !== productId,
+          ),
         })),
       totalItems: () => get().items.length,
     }),

@@ -62,6 +62,7 @@ export async function fetchAdminUsers({
       emailVerified: users.isEmailVerified,
       rewardOrderCoins: users.rewardOrderCoins,
       referralCoins: users.referralCoins,
+      referralCode: users.referralCode,
       createdAt: users.createdAt,
     })
     .from(users)

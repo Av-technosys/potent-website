@@ -29,7 +29,7 @@ export const loowayPeeFunnel: Record<string, any> = {
       off: 0,
     },
   },
-  FREE_SHIP: 599,
+  FREE_SHIP: 399,
   STOPS: [
     [
       "car",
@@ -655,7 +655,7 @@ export const loowayPeeFunnel: Record<string, any> = {
         ],
         [
           "Do you deliver across India, and how do I pay?",
-          "Yes, we deliver across India, and most orders arrive in 5 to 7 days — with free shipping over ₹599. Enter your PIN code in the delivery checker above for an estimate for your area. You can pay securely by UPI, credit or debit card, or net banking at checkout.",
+          "Yes, we deliver across India, and most orders arrive in 5 to 7 days — with free shipping over ₹399. Enter your PIN code in the delivery checker above for an estimate for your area. You can pay securely by UPI, credit or debit card, or net banking at checkout.",
         ],
         [
           "What is your returns policy?",
@@ -1172,7 +1172,7 @@ export const loowayPeePuke: Record<string, any> = {
       id: "p10",
       name: "Pack of 10",
       bags: 10,
-      mrp: 599,
+      mrp: 399,
       price: 499,
       sub: "10 bags — one complete travel supply",
     },
@@ -1206,7 +1206,7 @@ export const loowayPeePuke: Record<string, any> = {
       off: 0.12,
     },
   },
-  FREE_SHIP: 599,
+  FREE_SHIP: 399,
   STOPS: [
     [
       "car",
@@ -1827,7 +1827,7 @@ export const loowayPeePuke: Record<string, any> = {
         ],
         [
           "Do you deliver across India, and how do I pay?",
-          "Yes, we deliver across India, and most orders arrive in 5 to 7 days — with free shipping over ₹599. Enter your PIN code in the delivery checker above for an estimate for your area. You can pay securely by UPI, credit or debit card, or net banking at checkout.",
+          "Yes, we deliver across India, and most orders arrive in 5 to 7 days — with free shipping over ₹399. Enter your PIN code in the delivery checker above for an estimate for your area. You can pay securely by UPI, credit or debit card, or net banking at checkout.",
         ],
         [
           "What is your returns policy?",
@@ -2387,7 +2387,7 @@ export const loowayToiletSeatCovers: Record<string, any> = {
       off: 0.12,
     },
   },
-  FREE_SHIP: 599,
+  FREE_SHIP: 399,
   STOPS: [
     [
       "heart",
@@ -3002,7 +3002,7 @@ export const loowayToiletSeatCovers: Record<string, any> = {
         ],
         [
           "Do you deliver across India, and how do I pay?",
-          "Yes, we deliver across India — orders arrive in 5 to 7 days, with free shipping over ₹599. Enter your PIN code in the delivery checker above for an estimated arrival date. Pay securely by UPI, credit or debit card, or net banking at checkout.",
+          "Yes, we deliver across India — orders arrive in 5 to 7 days, with free shipping over ₹399. Enter your PIN code in the delivery checker above for an estimated arrival date. Pay securely by UPI, credit or debit card, or net banking at checkout.",
         ],
         [
           "What is your returns policy?",
@@ -3577,28 +3577,7 @@ export const loowayYatraKit: Record<string, any> = {
         },
       ],
     },
-    {
-      id: "panty",
-      name: "Ovy Super Slim Period Panties",
-      unit: "pack of 8",
-      price: 349,
-      max: 4,
-      art: "panty",
-      women: true,
-      blurb: "Leak-resistant, disposable.",
-      variants: [
-        {
-          id: "lxl",
-          label: "M-XL",
-          price: 349,
-        },
-        {
-          id: "xxl3xl",
-          label: "XXL-XXXL",
-          price: 349,
-        },
-      ],
-    },
+
     {
       id: "liner",
       name: "Ovy Panty Liners",
@@ -3772,7 +3751,7 @@ export const loowayYatraKit: Record<string, any> = {
       s: "Pee & puke bags handle the long stretches with nowhere to stop.",
     },
   ],
-  FREE_SHIP: 599,
+  FREE_SHIP: 399,
   STOPS: [
     [
       "temple",
@@ -4087,7 +4066,7 @@ export const loowayYatraKit: Record<string, any> = {
         ],
         [
           "How much does a kit cost?",
-          "It depends entirely on what's inside, because you only pay for what you pack. The lightest ready-made kits start under ₹700 and the total updates live as you edit. Spend over ₹599 and shipping is free.",
+          "It depends entirely on what's inside, because you only pay for what you pack. The lightest ready-made kits start under ₹700 and the total updates live as you edit. Spend over ₹399 and shipping is free.",
         ],
         [
           "Can I return it?",
@@ -4095,7 +4074,7 @@ export const loowayYatraKit: Record<string, any> = {
         ],
         [
           "Do you deliver across India, and how do I pay?",
-          "Yes, across India — orders ship in about 24 hours and usually arrive in 5 to 7 days. Pay by UPI, card or net banking. Free shipping over ₹599.",
+          "Yes, across India — orders ship in about 24 hours and usually arrive in 5 to 7 days. Pay by UPI, card or net banking. Free shipping over ₹399.",
         ],
         [
           "Do you do bulk or corporate kits?",
@@ -4351,7 +4330,7 @@ export const ovyCup: Record<string, any> = {
         ],
         [
           "What payment and delivery options are there?",
-          "You can pay by UPI, RuPay, Visa, Mastercard and other major methods at our secure checkout. Orders ship within 24 hours and usually arrive in about 5 to 7 days — faster to metro cities, so pop your PIN code into the checker above for an exact window, all tracked end to end. Shipping is free on every order over ₹599; below that a small delivery charge shows at checkout.",
+          "You can pay by UPI, RuPay, Visa, Mastercard and other major methods at our secure checkout. Orders ship within 24 hours and usually arrive in about 5 to 7 days — faster to metro cities, so pop your PIN code into the checker above for an exact window, all tracked end to end. Shipping is free on every order over ₹399; below that a small delivery charge shows at checkout.",
         ],
       ],
     ],
@@ -4535,7 +4514,7 @@ export const ovyCup: Record<string, any> = {
 
 export const ovyLiners: Record<string, any> = {
   PRICING: {
-    FREE_SHIP: 599,
+    FREE_SHIP: 399,
     boxPrice: {
       L: 249,
       XL: 339,
@@ -4929,7 +4908,7 @@ export const ovyLiners: Record<string, any> = {
       [
         [
           "How long does delivery take, and what does shipping cost?",
-          "Orders ship within 24 hours and usually arrive in about 5 to 7 days — faster to metro cities, so pop your PIN code into the checker above for an exact window, all tracked end to end. Shipping is free on every order over ₹599; below that a small delivery charge shows at checkout.",
+          "Orders ship within 24 hours and usually arrive in about 5 to 7 days — faster to metro cities, so pop your PIN code into the checker above for an exact window, all tracked end to end. Shipping is free on every order over ₹399; below that a small delivery charge shows at checkout.",
         ],
         [
           "What payment methods can I use?",
@@ -5177,7 +5156,7 @@ export const ovyPads: Record<string, any> = {
   PRICING: {
     PADS_PER_BOX: 21,
     LINERS_PER_BOX: 4,
-    FREE_SHIP: 599,
+    FREE_SHIP: 399,
     boxPrice: {
       L: 319,
       XL: 349,
@@ -5438,7 +5417,7 @@ export const ovyPads: Record<string, any> = {
         ],
         [
           "What does shipping cost?",
-          "Orders ship within 24 hours and usually arrive in about 5 to 7 days — faster to metro cities, so pop your PIN code into the checker above for an exact window, all tracked end to end. Shipping is free on every order over ₹599; below that a small delivery charge shows at checkout.",
+          "Orders ship within 24 hours and usually arrive in about 5 to 7 days — faster to metro cities, so pop your PIN code into the checker above for an exact window, all tracked end to end. Shipping is free on every order over ₹399; below that a small delivery charge shows at checkout.",
         ],
       ],
     ],
@@ -6281,7 +6260,7 @@ export const ovyPanty: Record<string, any> = {
   PRICING: {
     PADS_PER_BOX: 8,
     LINERS_PER_BOX: 0,
-    FREE_SHIP: 599,
+    FREE_SHIP: 399,
     boxPrice: {
       LXL: 349,
       XXL: 349,
@@ -6572,7 +6551,7 @@ export const ovyPanty: Record<string, any> = {
         ],
         [
           "How long does delivery take, and what does shipping cost?",
-          "Orders ship within 24 hours and usually arrive in about 5 to 7 days — faster to metro cities, so pop your PIN code into the checker above for an exact window, all tracked end to end. Shipping is free on every order over ₹599; below that a small delivery charge shows at checkout.",
+          "Orders ship within 24 hours and usually arrive in about 5 to 7 days — faster to metro cities, so pop your PIN code into the checker above for an exact window, all tracked end to end. Shipping is free on every order over ₹399; below that a small delivery charge shows at checkout.",
         ],
         [
           "What payment methods can I use?",
@@ -7088,7 +7067,7 @@ export const ovyTeen: Record<string, any> = {
   PRICING: {
     PADS_PER_BOX: 21,
     LINERS_PER_BOX: 4,
-    FREE_SHIP: 599,
+    FREE_SHIP: 399,
     boxPrice: {
       STARTER: 299,
       PRO: 349,
@@ -7524,11 +7503,11 @@ export const ovyTeen: Record<string, any> = {
         ],
         [
           "What does shipping cost?",
-          "Free shipping on every order over ₹599. Below that a small delivery charge shows at checkout. Every order is tracked end to end.",
+          "Free shipping on every order over ₹399. Below that a small delivery charge shows at checkout. Every order is tracked end to end.",
         ],
         [
           "How long does delivery take, and where do you ship?",
-          "Orders ship within 24 hours and usually arrive in about 5 to 7 days — faster to metro cities, so pop your PIN code into the checker above for an exact window, all tracked end to end. Shipping is free on every order over ₹599; below that a small delivery charge shows at checkout.",
+          "Orders ship within 24 hours and usually arrive in about 5 to 7 days — faster to metro cities, so pop your PIN code into the checker above for an exact window, all tracked end to end. Shipping is free on every order over ₹399; below that a small delivery charge shows at checkout.",
         ],
         [
           "Is my cycle data private?",

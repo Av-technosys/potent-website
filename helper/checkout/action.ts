@@ -1,14 +1,21 @@
 // @ts-nocheck
 "use server";
 
-import { cart, cartItem, coupon, couponTransaction, product, productVariant } from "@/db/schema";
+import {
+  cart,
+  cartItem,
+  coupon,
+  couponTransaction,
+  product,
+  productVariant,
+} from "@/db/schema";
 import { db } from "@/lib/db";
 import { and, eq, sql } from "drizzle-orm";
 import { requireUserWithRefresh } from "../user/action";
 import { calculateMixBoxPricing, type MixBoxRecipe } from "@/lib/mixYourBox";
 
 const roundMoney = (amount: number) => Number(amount.toFixed(2));
-const FREE_SHIPPING_THRESHOLD = 599;
+const FREE_SHIPPING_THRESHOLD = 399;
 const SHIPPING_FEE = 60;
 
 function calculateShipping(amount: number) {
@@ -40,6 +47,7 @@ async function getUserCartItems(userId: string) {
       originalPrice: productVariant.strikethroughPrice,
       slug: product.slug,
       sku: productVariant.sku,
+      isInStock: productVariant.isInStock,
     })
     .from(cartItem)
     .leftJoin(product, eq(cartItem.productId, product.id))
@@ -140,6 +148,33 @@ export async function calculateCheckoutPricingForUser({
     }
   }
 
+  for (const item of items) {
+    let itemOutOfStock = item.isInStock === false;
+    if (!itemOutOfStock && !item.productVariantId && item.productId) {
+      const pVariants = await db
+        .select({ isInStock: productVariant.isInStock })
+        .from(productVariant)
+        .where(eq(productVariant.productId, item.productId));
+      if (pVariants.length > 0 && pVariants.every((pv) => pv.isInStock === false)) {
+        itemOutOfStock = true;
+      }
+    }
+    if (itemOutOfStock) {
+      return {
+        success: false,
+        message: `${item.title || "An item in your cart"} is currently out of stock. Please remove it from your cart to proceed to checkout.`,
+        items,
+        subtotal: 0,
+        discount: 0,
+        discountedSubtotal: 0,
+        gst: 0,
+        shipping: 0,
+        final: 0,
+        coupon: null,
+      };
+    }
+  }
+
   const subtotal = roundMoney(
     items.reduce((sum, item) => {
       const price = Number(item.price || 0);
@@ -189,7 +224,7 @@ export async function calculateCheckoutPricingForUser({
   if (couponInfo) {
     discount = couponInfo.isDiscountPercentage
       ? subtotal * ((couponInfo.discountPercentage ?? 0) / 100)
-      : couponInfo.discountFixedAmount ?? 0;
+      : (couponInfo.discountFixedAmount ?? 0);
 
     if (couponInfo.maximumDiscountAmount > 0) {
       discount = Math.min(discount, couponInfo.maximumDiscountAmount);

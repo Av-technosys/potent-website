@@ -7,6 +7,9 @@ import ProductReviews from "../../../../components/common/Product-detail/product
 import { getFullProduct, getProductReviews } from "@/helper";
 import { BrandProductColors } from "@/const/globalconst";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function Page({ params }: any) {
   const { productName, slug } = await params;
   const themeColor =

@@ -20,8 +20,18 @@ export default function SizeSelectorBox({
 }: any) {
   const MAX = MIX_BOX_MAX_PADS;
 
+  const safeCartSizes = Array.isArray(cartSizes) && cartSizes.length > 0
+    ? cartSizes
+    : Array.isArray(items) && items.length > 0
+      ? items.map((item: any, index: number) => {
+          const baseQuantity = Math.floor(21 / Math.max(items.length, 1));
+          const qty = index === items.length - 1 ? 21 - baseQuantity * (items.length - 1) : baseQuantity;
+          return { name: item.name, quantity: qty, price: Number(item.price || 0) };
+        })
+      : [];
+
   const updateQty = (name: string, type: string) => {
-    const newSizes = cartSizes.map((item: any) => {
+    const newSizes = safeCartSizes.map((item: any) => {
       if (item.name !== name) return item;
 
       if (type === "inc") return { ...item, quantity: item.quantity + 1 };
@@ -36,14 +46,14 @@ export default function SizeSelectorBox({
 
   const validation = validateMixBoxRecipe(
     normalizeMixBoxRecipe(
-      cartSizes
+      safeCartSizes
         .map((item: any) => {
           const size = normalizePadSize(
             `${item.size ?? ""} ${item.name ?? ""}`,
           );
           return size ? { size, quantity: item.quantity } : null;
         })
-        .filter(Boolean),
+        .filter((item): item is NonNullable<typeof item> => item !== null),
     ),
   );
   const selectedBoxCount = validation.valid ? total / MIX_BOX_PAD_UNIT : 0;
@@ -54,7 +64,7 @@ export default function SizeSelectorBox({
   );
 
   const multiplyCurrentMix = (multiplier: number) => {
-    const newSizes = cartSizes.map((item: any) => ({
+    const newSizes = safeCartSizes.map((item: any) => ({
       ...item,
       quantity: item.quantity * multiplier,
     }));
@@ -77,7 +87,7 @@ export default function SizeSelectorBox({
       </div>
 
       <div className="space-y-3">
-        {cartSizes?.map((item: any, index: number) => (
+        {safeCartSizes.map((item: any, index: number) => (
           <div
             key={item.id || index}
             className="rounded-2xl border border-gray-200 bg-white p-3.5 shadow-xs"

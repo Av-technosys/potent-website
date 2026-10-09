@@ -54,7 +54,7 @@ export function OvySizedToFlow() {
                 Holds up to 100ml · 4 to 6 hours
               </div>
               <Link
-                href="/shop"
+                href="/product-detail/ovy-pads?size=l#l"
                 className="inline-flex items-center gap-1 text-[10.5px] sm:text-xs font-bold text-[#8C4F7C] hover:underline mt-2 sm:mt-3"
               >
                 <span>Shop L</span>
@@ -92,7 +92,7 @@ export function OvySizedToFlow() {
                 Holds up to 120ml · up to 8 hours
               </div>
               <Link
-                href="/shop"
+                href="/product-detail/ovy-pads?size=xl#xl"
                 className="inline-flex items-center gap-1 text-[10.5px] sm:text-xs font-bold text-[#602E55] hover:underline mt-2 sm:mt-3"
               >
                 <span>Shop XL</span>
@@ -130,7 +130,7 @@ export function OvySizedToFlow() {
                 Holds up to 150ml · up to 8 hours
               </div>
               <Link
-                href="/shop"
+                href="/product-detail/ovy-pads?size=xlplus#xlplus"
                 className="inline-flex items-center gap-1 text-[10.5px] sm:text-xs font-bold text-[#C42B5B] hover:underline mt-2 sm:mt-3"
               >
                 <span>Shop XL+</span>
@@ -168,7 +168,7 @@ export function OvySizedToFlow() {
                 Suggested mix: 6 L · 9 XL · 6 XL+
               </div>
               <Link
-                href="/shop"
+                href="/product-detail/ovy-pads?plan=mixYourBox#mix-your-box"
                 className="inline-flex items-center gap-1 text-[10.5px] sm:text-xs font-bold text-white hover:underline mt-2 sm:mt-3"
               >
                 <span>Build your box</span>

@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import { Check, ArrowRight } from "lucide-react";
 
 interface CycleSyncProps {
@@ -83,15 +84,15 @@ export function CycleSync({
 
         {/* BUTTONS ROW */}
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 mt-8 sm:mt-10 md:mt-12">
-          <a
-            href="#subscribe"
+          <Link
+            href="/product-detail/ovy-pads?plan=cycleSync#cycle-sync"
             className="w-full sm:w-auto text-white px-7 py-3 sm:py-3.5 rounded-full font-medium text-sm sm:text-base transition-colors shadow-sm cursor-pointer flex items-center justify-center gap-2"
             style={{ backgroundColor: buttonBgColor }}
           >
             Start my subscription <ArrowRight className="w-4 h-4" />
-          </a>
-          <a
-            href="#how-it-works"
+          </Link>
+          <Link
+            href="/product-detail/ovy-pads?plan=cycleSync#cycle-sync"
             className="hidden sm:flex w-full sm:w-auto border px-7 py-3.5 rounded-full font-medium text-sm sm:text-base transition-colors cursor-pointer items-center justify-center"
             style={{
               borderColor: buttonBgColor,
@@ -99,7 +100,7 @@ export function CycleSync({
             }}
           >
             How Cycle-Sync works
-          </a>
+          </Link>
         </div>
       </div>
     </section>

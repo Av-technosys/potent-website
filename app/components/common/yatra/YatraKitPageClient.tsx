@@ -134,6 +134,62 @@ export default function YatraKitPageClient({ content, mappedProducts }: Props) {
     }
   }, []);
 
+  // Parse kit parameter from URL query or hash on mount/navigation
+  useEffect(() => {
+    if (typeof window === "undefined" || !content?.TIERS) return;
+
+    const parseUrlKit = () => {
+      const searchParams = new URLSearchParams(window.location.search);
+      const kitParam = (
+        searchParams.get("kit") ||
+        searchParams.get("tier") ||
+        ""
+      ).toLowerCase();
+      const hash = window.location.hash.toLowerCase();
+
+      let matchedTierId: string | null = null;
+      for (const tier of content.TIERS) {
+        const tierId = tier.id.toLowerCase();
+        const tierName = tier.name.toLowerCase();
+        if (
+          kitParam === tierId ||
+          (hash.includes(tierId) && tierId !== "solo") ||
+          (kitParam &&
+            (tierName.includes(kitParam) || kitParam.includes(tierId)))
+        ) {
+          matchedTierId = tier.id;
+          break;
+        }
+      }
+
+      if (matchedTierId) {
+        setSelectedKitId(matchedTierId);
+        setTimeout(() => {
+          const el = document.getElementById("choose-kit");
+          if (el) {
+            el.scrollIntoView({ behavior: "smooth", block: "start" });
+          }
+        }, 200);
+      } else if (hash.includes("builder") || hash.includes("choose-kit")) {
+        setTimeout(() => {
+          const el = document.getElementById("choose-kit");
+          if (el) {
+            el.scrollIntoView({ behavior: "smooth", block: "start" });
+          }
+        }, 200);
+      }
+    };
+
+    parseUrlKit();
+
+    window.addEventListener("hashchange", parseUrlKit);
+    window.addEventListener("popstate", parseUrlKit);
+    return () => {
+      window.removeEventListener("hashchange", parseUrlKit);
+      window.removeEventListener("popstate", parseUrlKit);
+    };
+  }, [content?.TIERS]);
+
   // Point 3: Timed nudge toast popup
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -281,15 +337,14 @@ export default function YatraKitPageClient({ content, mappedProducts }: Props) {
   const extras = useMemo(() => {
     return content.CATALOG.filter((item: any) => {
       if (item.free) return false;
+      // Do not offer period panties as an extra in Yatra Kit
+      if (item.id === "panty") return false;
       if (item.id === "pads") {
         return (
           !activeRecipe["pads:l"] &&
           !activeRecipe["pads:xl"] &&
           !activeRecipe["pads:xlp"]
         );
-      }
-      if (item.id === "panty") {
-        return !activeRecipe["panty:lxl"] && !activeRecipe["panty:xxl3xl"];
       }
       return !activeRecipe[item.id as YatraKitItemKey];
     });
@@ -576,7 +631,7 @@ export default function YatraKitPageClient({ content, mappedProducts }: Props) {
                       d="M5 13l4 4L19 7"
                     />
                   </svg>
-                  Free shipping over ₹599
+                  Free shipping over ₹399
                 </span>
               </div>
             </div>
@@ -730,16 +785,16 @@ export default function YatraKitPageClient({ content, mappedProducts }: Props) {
                       <div className="mb-1.5 flex items-center justify-between text-xs font-bold text-[#0A3B39]">
                         <span>Free shipping progress</span>
                         <span>
-                          {activeTotal >= 599
+                          {activeTotal >= 399
                             ? "Unlocked! 🎉"
-                            : `₹${Math.max(0, 599 - activeTotal)} away from free delivery`}
+                            : `₹${Math.max(0, 399 - activeTotal)} away from free delivery`}
                         </span>
                       </div>
                       <div className="h-2.5 w-full overflow-hidden rounded-full bg-[#E5DAC9]">
                         <div
                           className="h-full bg-gradient-to-r from-[#1A8A82] to-[#E8A33D] transition-all duration-300"
                           style={{
-                            width: `${Math.min(100, (activeTotal / 599) * 100)}%`,
+                            width: `${Math.min(100, (activeTotal / 399) * 100)}%`,
                           }}
                         />
                       </div>
@@ -984,7 +1039,7 @@ export default function YatraKitPageClient({ content, mappedProducts }: Props) {
                 <p className="mt-1 text-xs leading-relaxed text-gray-600 sm:text-sm">
                   Open any kit and add{" "}
                   <strong className="font-bold text-[#0A3B39]">
-                    Ovy pads, liners, a period panty or a menstrual cup
+                    Ovy pads, liners or a menstrual cup
                   </strong>{" "}
                   — so a period on the road is never a crisis.
                 </p>

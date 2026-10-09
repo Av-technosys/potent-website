@@ -77,17 +77,30 @@ export async function addToCart(
       };
     }
 
-    const [variantInfo] = await db
+    const variants = await db
       .select({
         price: productVariant.price,
+        isInStock: productVariant.isInStock,
       })
       .from(productVariant)
       .where(
         productVariantId
           ? eq(productVariant.id, productVariantId)
           : eq(productVariant.productId, productId)
-      )
-      .limit(1);
+      );
+
+    const variantInfo = variants[0];
+    const isOutOfStock = productVariantId
+      ? variantInfo && variantInfo.isInStock === false
+      : variants.length > 0 && variants.every((v) => v.isInStock === false);
+
+    if (isOutOfStock) {
+      return {
+        success: false,
+        error: "OUT_OF_STOCK",
+        message: "This item is currently out of stock.",
+      };
+    }
 
     const result = await db.transaction(async (tx) => {
       // Get or create cart

@@ -127,7 +127,14 @@ export default function BestsellingCard({
 
   // Wishlist store integration
   const wishlistItems = useWishlistStore((state) => state.items);
-  const isWishlisted = wishlistItems.some((i) => i.productId === product.id);
+  const prodId = product.id || product._id || product.slug;
+  const isWishlisted = wishlistItems.some(
+    (i) =>
+      i.productId === prodId ||
+      i.productId === product.id ||
+      i.productId === product.slug ||
+      i.slug === product.slug,
+  );
 
   const selectedVariantPrice = Number(selectedVariant?.price || 0);
   const formattedPrice = selectedVariantPrice > 0
@@ -147,10 +154,21 @@ export default function BestsellingCard({
         ? "Reusable"
         : "For first periods");
 
+  const isOutOfStock = Boolean(
+    selectedVariant
+      ? selectedVariant.isInStock === false ||
+        selectedVariant.is_in_stock === false
+      : variants.length > 0
+        ? variants.every(
+            (v) => v.isInStock === false || v.is_in_stock === false,
+          )
+        : product.isInStock === false || product.is_in_stock === false,
+  );
+
   const handleAdd = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (isAdding) return;
+    if (isAdding || isOutOfStock) return;
     setIsAdding(true);
     const addedToCart = onAddToCart
       ? await onAddToCart({ ...product, selectedVariant })
@@ -165,15 +183,45 @@ export default function BestsellingCard({
     e.preventDefault();
     e.stopPropagation();
     if (isWishlisted) {
-      await removeWishlistDB(product.id);
+      await removeWishlistDB(prodId);
     } else {
+      let productWithVariants = { ...product, variants, selectedVariant };
+      if ((!variants || variants.length === 0) && product?.slug) {
+        try {
+          const response = await fetch(
+            `/api/catalog/products/${encodeURIComponent(product.slug)}`,
+          );
+          if (response.ok) {
+            const payload = await response.json();
+            if (payload.product) {
+              const loadedVars =
+                payload.product.productVariants ||
+                payload.product.prodcutVarientBoxRes ||
+                payload.product.variants ||
+                [];
+              productWithVariants = {
+                ...product,
+                ...payload.product,
+                variants: loadedVars,
+                selectedVariant: selectedVariant || loadedVars[0],
+              };
+            }
+          }
+        } catch (err) {
+          console.error("Failed to load catalog variants for wishlist card:", err);
+        }
+      }
+
       await addWishlistDB({
-        productId: product.id,
-        name: product.name,
-        price: priceNum,
-        image: product.image || product.bannerImage || "/product.png",
-        hasVarientBox: product.hasVarientBox,
-        slug: product.slug,
+        ...productWithVariants,
+        productId: prodId,
+        name: productWithVariants.name || product.name,
+        price: selectedVariant?.price || priceNum,
+        image: selectedVariant?.image || selectedVariant?.bannerImage || productWithVariants.image || productWithVariants.bannerImage || "/product.png",
+        hasVarientBox: Boolean(productWithVariants.hasVarientBox),
+        slug: productWithVariants.slug || product.slug,
+        selectedVariant: selectedVariant || productWithVariants.selectedVariant || productWithVariants.variants?.[0],
+        variants: productWithVariants.variants || productWithVariants.productVariants || productWithVariants.prodcutVarientBoxRes,
       });
     }
   };
@@ -329,32 +377,46 @@ export default function BestsellingCard({
             )}
           </div>
 
-          <button
-            type="button"
-            onClick={handleAdd}
-            disabled={isAdding}
-            className={`flex cursor-pointer items-center justify-center gap-1 rounded-full text-[11px] font-semibold shadow-xs transition-all duration-300 sm:text-sm ${
-              isFifthMobileCard
-                ? "w-auto px-3.5 py-1.5 sm:w-full sm:px-2.5"
-                : "w-full py-1.5 px-2.5"
-            } ${
-              added
-                ? "bg-emerald-600 text-white"
-                : "bg-[#016271] text-white hover:scale-105 hover:bg-[#014d59]"
-            }`}
-          >
-            {added ? (
-              <>
-                <Check className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-                <span>Added</span>
-              </>
-            ) : (
-              <>
-                <Plus className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-                <span>Add</span>
-              </>
-            )}
-          </button>
+          {isOutOfStock ? (
+            <button
+              type="button"
+              disabled
+              className={`flex cursor-not-allowed items-center justify-center gap-1 rounded-full text-[11px] font-semibold bg-gray-200 text-gray-500 shadow-none ${
+                isFifthMobileCard
+                  ? "w-auto px-3.5 py-1.5 sm:w-full sm:px-2.5"
+                  : "w-full py-1.5 px-2.5"
+              }`}
+            >
+              <span>Out of stock</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleAdd}
+              disabled={isAdding}
+              className={`flex cursor-pointer items-center justify-center gap-1 rounded-full text-[11px] font-semibold shadow-xs transition-all duration-300 sm:text-sm ${
+                isFifthMobileCard
+                  ? "w-auto px-3.5 py-1.5 sm:w-full sm:px-2.5"
+                  : "w-full py-1.5 px-2.5"
+              } ${
+                added
+                  ? "bg-emerald-600 text-white"
+                  : "bg-[#016271] text-white hover:scale-105 hover:bg-[#014d59]"
+              }`}
+            >
+              {added ? (
+                <>
+                  <Check className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                  <span>Added</span>
+                </>
+              ) : (
+                <>
+                  <Plus className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                  <span>Add</span>
+                </>
+              )}
+            </button>
+          )}
         </div>
       </div>
     </div>

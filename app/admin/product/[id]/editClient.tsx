@@ -111,7 +111,10 @@ export default function EditProduct({ productDetails }: any) {
       description: productDetails.description || "",
       startingPrice: productDetails.startingPrice || "",
       banner: productDetails.bannerImage
-        ? { key: productDetails.bannerImage, preview: productDetails.bannerImage }
+        ? {
+            key: productDetails.bannerImage,
+            preview: productDetails.bannerImage,
+          }
         : null,
       highlights: productDetails.highlights || [],
       allowCycleSync: Boolean(productDetails.allowCycleSync),
@@ -124,7 +127,7 @@ export default function EditProduct({ productDetails }: any) {
       subscribeBiMontlyDiscount: productDetails.subscribeBiMontlyDiscount || 0,
       cycleSyncDiscount: productDetails.cycleSyncDiscount || 0,
       maxQuantityPurchase: productDetails.maxQuantityPurchase || 6,
-      freeShippingOver: productDetails.freeShippingOver || 599,
+      freeShippingOver: productDetails.freeShippingOver || 399,
     });
   const [productVariants, setProductVariants] = useState<ProductVariantForm[]>(
     variantsList.length
@@ -189,7 +192,9 @@ export default function EditProduct({ productDetails }: any) {
           .map((media) => ({
             ...media,
             variantIndex:
-              media.variantIndex > index ? media.variantIndex - 1 : media.variantIndex,
+              media.variantIndex > index
+                ? media.variantIndex - 1
+                : media.variantIndex,
           })),
       );
 
@@ -210,7 +215,9 @@ export default function EditProduct({ productDetails }: any) {
     value: ProductMediaForm[K],
   ) => {
     setProductMedia((prev) =>
-      prev.map((media, i) => (i === index ? { ...media, [key]: value } : media)),
+      prev.map((media, i) =>
+        i === index ? { ...media, [key]: value } : media,
+      ),
     );
   };
 
@@ -225,7 +232,10 @@ export default function EditProduct({ productDetails }: any) {
   };
 
   const addFaq = () => {
-    setFaqs((prev) => [...prev, { question: "", answer: "", priority: prev.length }]);
+    setFaqs((prev) => [
+      ...prev,
+      { question: "", answer: "", priority: prev.length },
+    ]);
   };
 
   const removeFaq = (index: number) => {
@@ -327,9 +337,9 @@ export default function EditProduct({ productDetails }: any) {
   };
 
   return (
-    <div className="max-w-7xl mx-auto p-4 space-y-6">
+    <div className="mx-auto max-w-7xl space-y-6 p-4">
       <form onSubmit={handleUpdateProduct}>
-        <div className="flex justify-between items-center sticky top-0 z-10 py-4 bg-white border-b">
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b bg-white py-4">
           <div>
             <h1 className="text-2xl font-bold">Edit Product</h1>
             <p className="text-sm text-gray-500">{productDetails.slug}</p>
@@ -346,7 +356,7 @@ export default function EditProduct({ productDetails }: any) {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mt-6">
+        <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-4">
           <div className="space-y-6">
             <Card>
               <CardHeader>
@@ -361,7 +371,7 @@ export default function EditProduct({ productDetails }: any) {
             </Card>
           </div>
 
-          <div className="lg:col-span-3 space-y-6">
+          <div className="space-y-6 lg:col-span-3">
             <Card>
               <CardHeader>
                 <CardTitle>Product Details</CardTitle>
@@ -370,13 +380,15 @@ export default function EditProduct({ productDetails }: any) {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="grid md:grid-cols-2 gap-4">
+                <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
                     <Label>Product Name</Label>
                     <Input
                       required
                       value={productDetailsForm.name}
-                      onChange={(e) => updateProductDetails("name", e.target.value)}
+                      onChange={(e) =>
+                        updateProductDetails("name", e.target.value)
+                      }
                     />
                   </div>
                   <div className="space-y-2">
@@ -440,7 +452,7 @@ export default function EditProduct({ productDetails }: any) {
                   />
                 </div>
 
-                <div className="grid md:grid-cols-3 gap-4">
+                <div className="grid gap-4 md:grid-cols-3">
                   <div className="space-y-2">
                     <Label>Monthly Discount</Label>
                     <Input
@@ -508,14 +520,15 @@ export default function EditProduct({ productDetails }: any) {
                   </div>
                 </div>
 
-                <div className="grid md:grid-cols-3 gap-4">
+                <div className="grid gap-4 md:grid-cols-3">
                   <div className="flex items-center justify-between rounded-xl border p-4">
                     <Label>Allow Subscription</Label>
                     <Switch
                       checked={productDetailsForm.allowSubscription}
                       onCheckedChange={(checked) => {
                         updateProductDetails("allowSubscription", checked);
-                        if (!checked) updateProductDetails("allowCycleSync", false);
+                        if (!checked)
+                          updateProductDetails("allowCycleSync", false);
                       }}
                     />
                   </div>
@@ -525,7 +538,8 @@ export default function EditProduct({ productDetails }: any) {
                       checked={productDetailsForm.allowCycleSync}
                       onCheckedChange={(checked) => {
                         updateProductDetails("allowCycleSync", checked);
-                        if (checked) updateProductDetails("allowSubscription", true);
+                        if (checked)
+                          updateProductDetails("allowSubscription", true);
                       }}
                     />
                   </div>
@@ -548,7 +562,9 @@ export default function EditProduct({ productDetails }: any) {
                         <Input
                           value={highlight}
                           onChange={(e) => {
-                            const highlights = [...productDetailsForm.highlights];
+                            const highlights = [
+                              ...productDetailsForm.highlights,
+                            ];
                             highlights[index] = e.target.value;
                             updateProductDetails("highlights", highlights);
                           }}
@@ -590,7 +606,7 @@ export default function EditProduct({ productDetails }: any) {
                   <Label>Product Banner Image</Label>
                   <div
                     onClick={() => productBannerRef.current?.click()}
-                    className="border-2 border-dashed rounded-xl h-48 flex items-center justify-center cursor-pointer relative overflow-hidden"
+                    className="relative flex h-48 cursor-pointer items-center justify-center overflow-hidden rounded-xl border-2 border-dashed"
                   >
                     {!productDetailsForm.banner ? (
                       <p>Click to upload banner</p>
@@ -600,7 +616,7 @@ export default function EditProduct({ productDetails }: any) {
                         alt="Product banner preview"
                         fill
                         sizes="(min-width: 1024px) 50vw, 100vw"
-                        className="w-full h-full object-contain"
+                        className="h-full w-full object-contain"
                         unoptimized
                       />
                     )}
@@ -633,7 +649,7 @@ export default function EditProduct({ productDetails }: any) {
                 {productVariants.map((variant, index) => (
                   <div
                     key={variant.id || index}
-                    className="rounded-xl border p-4 space-y-4"
+                    className="space-y-4 rounded-xl border p-4"
                   >
                     <div className="flex items-center justify-between">
                       <Label>Variant {index + 1}</Label>
@@ -648,7 +664,7 @@ export default function EditProduct({ productDetails }: any) {
                       </Button>
                     </div>
 
-                    <div className="grid md:grid-cols-3 gap-4">
+                    <div className="grid gap-4 md:grid-cols-3">
                       <div className="space-y-2">
                         <Label>Variant Name</Label>
                         <Input
@@ -688,7 +704,9 @@ export default function EditProduct({ productDetails }: any) {
                             updateVariant(
                               index,
                               "price",
-                              e.target.value === "" ? "" : Number(e.target.value),
+                              e.target.value === ""
+                                ? ""
+                                : Number(e.target.value),
                             )
                           }
                         />
@@ -702,7 +720,9 @@ export default function EditProduct({ productDetails }: any) {
                             updateVariant(
                               index,
                               "strikethroughPrice",
-                              e.target.value === "" ? "" : Number(e.target.value),
+                              e.target.value === ""
+                                ? ""
+                                : Number(e.target.value),
                             )
                           }
                         />
@@ -716,7 +736,9 @@ export default function EditProduct({ productDetails }: any) {
                             updateVariant(
                               index,
                               "boxQuantity",
-                              e.target.value === "" ? "" : Number(e.target.value),
+                              e.target.value === ""
+                                ? ""
+                                : Number(e.target.value),
                             )
                           }
                         />
@@ -727,7 +749,11 @@ export default function EditProduct({ productDetails }: any) {
                           type="number"
                           value={variant.priority}
                           onChange={(e) =>
-                            updateVariant(index, "priority", Number(e.target.value))
+                            updateVariant(
+                              index,
+                              "priority",
+                              Number(e.target.value),
+                            )
                           }
                         />
                       </div>
@@ -745,7 +771,9 @@ export default function EditProduct({ productDetails }: any) {
                     <div className="space-y-3">
                       <Label>Variant Banner Image</Label>
                       <div
-                        onClick={() => variantBannerRefs.current[index]?.click()}
+                        onClick={() =>
+                          variantBannerRefs.current[index]?.click()
+                        }
                         className="relative flex h-32 cursor-pointer items-center justify-center overflow-hidden rounded-xl border-2 border-dashed"
                       >
                         {variant.banner ? (
@@ -784,14 +812,18 @@ export default function EditProduct({ productDetails }: any) {
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
                   <span>Product Media</span>
-                  <Button type="button" variant="outline" onClick={addProductMedia}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={addProductMedia}
+                  >
                     <Plus size={16} className="mr-2" />
                     Add Media
                   </Button>
                 </CardTitle>
                 <CardDescription>
-                  Rows stored on the product_media table. Each media item belongs
-                  to a product variant.
+                  Rows stored on the product_media table. Each media item
+                  belongs to a product variant.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -844,8 +876,13 @@ export default function EditProduct({ productDetails }: any) {
                           }
                         >
                           {productVariants.map((variant, variantIndex) => (
-                            <option key={variant.id || variantIndex} value={variantIndex}>
-                              {variant.name || variant.sku || `Variant ${variantIndex + 1}`}
+                            <option
+                              key={variant.id || variantIndex}
+                              value={variantIndex}
+                            >
+                              {variant.name ||
+                                variant.sku ||
+                                `Variant ${variantIndex + 1}`}
                             </option>
                           ))}
                         </select>
@@ -856,7 +893,11 @@ export default function EditProduct({ productDetails }: any) {
                         <Input
                           value={media.mediaType}
                           onChange={(e) =>
-                            updateProductMedia(index, "mediaType", e.target.value)
+                            updateProductMedia(
+                              index,
+                              "mediaType",
+                              e.target.value,
+                            )
                           }
                           placeholder="image"
                         />
@@ -867,7 +908,11 @@ export default function EditProduct({ productDetails }: any) {
                         <Input
                           value={media.mediaURL}
                           onChange={(e) =>
-                            updateProductMedia(index, "mediaURL", e.target.value)
+                            updateProductMedia(
+                              index,
+                              "mediaURL",
+                              e.target.value,
+                            )
                           }
                         />
                       </div>
@@ -901,7 +946,10 @@ export default function EditProduct({ productDetails }: any) {
               </CardHeader>
               <CardContent className="space-y-4">
                 {faqs.map((faq, index) => (
-                  <div key={faq.id || index} className="rounded-xl border p-4 space-y-3">
+                  <div
+                    key={faq.id || index}
+                    className="space-y-3 rounded-xl border p-4"
+                  >
                     <div className="flex items-center justify-between">
                       <Label>FAQ {index + 1}</Label>
                       <Button

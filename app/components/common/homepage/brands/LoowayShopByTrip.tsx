@@ -397,7 +397,7 @@ export function LoowayShopByTrip({
   };
 
   return (
-    <section className="w-full overflow-hidden bg-[#FAF5E8] py-12 md:py-20">
+    <section id="shop-by-trip" className="w-full overflow-hidden bg-[#FAF5E8] py-12 md:py-20">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {/* Header Section */}
         <div className="mx-auto mb-8 max-w-3xl text-center sm:mb-10">
@@ -535,7 +535,19 @@ export function LoowayShopByTrip({
                   </button>
 
                   <Link
-                    href="/quiz"
+                    href={`/looway-yatra-kit?kit=${
+                      currentTrip.tabKey === "teerth"
+                        ? "teerth"
+                        : currentTrip.tabKey === "pregnancy"
+                        ? "preg"
+                        : currentTrip.tabKey === "toddler"
+                        ? "toddler"
+                        : currentTrip.tabKey === "girls"
+                        ? "girls"
+                        : currentTrip.tabKey === "boys"
+                        ? "boys"
+                        : "solo"
+                    }#choose-kit`}
                     className="inline-flex items-center gap-1 text-xs font-semibold text-[#0B6E7D] hover:underline"
                   >
                     <span>{currentTrip.builderLinkText}</span>

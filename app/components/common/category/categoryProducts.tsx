@@ -121,6 +121,11 @@ export default function CategoryProducts({ products, productsCategory }: any) {
                     <div className="flex items-center gap-1">
                       <AddToWishlist product={value} />
                     </div>
+                    {(value.isInStock === false || value.is_in_stock === false || (Array.isArray(value.productVariants) && value.productVariants.length > 0 && value.productVariants.every((v: any) => v.isInStock === false || v.is_in_stock === false))) && (
+                      <span className="rounded-full bg-stone-100 border border-stone-300 px-2 py-0.5 text-[9px] sm:text-[10px] font-bold text-stone-600">
+                        Out of stock
+                      </span>
+                    )}
                   </div>
 
                   {/* Image Container */}
@@ -147,7 +152,7 @@ export default function CategoryProducts({ products, productsCategory }: any) {
                 <div className="mt-3 sm:mt-4 pt-2.5 sm:pt-3 border-t border-[#E4DED0]/60">
                   <Link href={`/product-detail/${value.slug}`} className="block w-full">
                     <Button className="w-full cursor-pointer rounded-xl bg-[#004851] py-2 sm:py-3 text-[11px] sm:text-xs font-bold text-white shadow-xs transition-all hover:bg-[#0A4A2E] hover:shadow-md active:scale-[0.99] px-2 sm:px-4">
-                      <span>View Details</span>
+                      <span>{value.isInStock === false || value.is_in_stock === false || (Array.isArray(value.productVariants) && value.productVariants.length > 0 && value.productVariants.every((v: any) => v.isInStock === false || v.is_in_stock === false)) ? "Out of Stock · View" : "View Details"}</span>
                       <ArrowRight className="h-3 w-3 sm:h-3.5 sm:w-3.5 ml-1 shrink-0" />
                     </Button>
                   </Link>
@@ -156,47 +161,6 @@ export default function CategoryProducts({ products, productsCategory }: any) {
             );
           })
         ) : null}
-
-        {/* ======================================================================= */}
-        {/* 9TH PRODUCT CARD: COMING SOON CARD (Matching Attached Reference Image) */}
-        {/* ======================================================================= */}
-        <div className="group relative flex flex-col justify-between rounded-2xl sm:rounded-3xl border border-pink-200/80 bg-[#FAF0F4] p-2.5 sm:p-4 shadow-2xs transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
-          <div>
-            {/* Top Badge */}
-            <div className="mb-2 flex items-center justify-between">
-              <span className="rounded-full bg-[#7E4D77] px-2 py-0.5 text-[9px] sm:text-[10px] font-extrabold text-white uppercase tracking-wider">
-                OVY CARE
-              </span>
-            </div>
-
-            {/* Pink Diagonal Striped Graphic Box */}
-            <div className="relative aspect-square w-full overflow-hidden rounded-xl sm:rounded-2xl border border-pink-200/60 bg-[repeating-linear-gradient(45deg,#fce8f0_0,#fce8f0_12px,#faf0f4_12px,#faf0f4_24px)] flex flex-col items-center justify-center p-2 sm:p-4 shadow-2xs">
-              <span className="font-serif italic font-extrabold text-[#7E4D77] text-lg sm:text-3xl tracking-wide text-center drop-shadow-2xs select-none">
-                Coming soon
-              </span>
-            </div>
-
-            {/* Bottom Content Label */}
-            <div className="mt-2 sm:mt-3.5 px-0.5">
-              <h3 className="font-serif text-xs sm:text-base font-bold text-gray-900 leading-snug">
-                Period Panties
-              </h3>
-            </div>
-          </div>
-
-          {/* Footer Notify Action */}
-          <div className="mt-3 sm:mt-4 pt-2.5 sm:pt-3 border-t border-pink-200/60">
-            <div className="flex items-center justify-between rounded-xl bg-white/80 p-2 sm:p-2.5 border border-pink-200/50">
-              <span className="text-[10px] sm:text-[11px] font-bold text-[#7E4D77] flex items-center gap-1">
-                <Clock className="h-3 w-3 sm:h-3.5 sm:w-3.5 shrink-0" />
-                Launching Soon
-              </span>
-              <span className="text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wider text-[#7E4D77] bg-pink-100 px-1.5 sm:px-2 py-0.5 rounded-md">
-                Stay Tuned
-              </span>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
 

@@ -79,7 +79,7 @@ const HOW_IT_WORKS_DATA: HowItWorksTabData[] = [
       "Works over a Western seat, an Indian squat pan, outdoors, or into a wide bottle or an open Looway bag in the car.",
     buttonLabel: "Add the funnel",
     linkText: "Shop the funnel",
-    linkHref: "/shop/looway-pee-funnel",
+    linkHref: "/product-detail/looway-pee-funnel",
     productSlug: "looway-pee-funnel",
   },
   {
@@ -114,7 +114,7 @@ const HOW_IT_WORKS_DATA: HowItWorksTabData[] = [
       "Fits any Western seat shape: round, oval, square or elongated. Water-resistant paper protects from wet seats.",
     buttonLabel: "Add seat covers",
     linkText: "Shop seat covers",
-    linkHref: "/shop/looway-toilet-seat-covers",
+    linkHref: "/product-detail/looway-toilet-seat-covers",
     productSlug: "looway-toilet-seat-covers",
   },
   {
@@ -149,7 +149,7 @@ const HOW_IT_WORKS_DATA: HowItWorksTabData[] = [
       "Gels liquid in about 60 seconds. Odor-free, leak-proof, and discreet to dispose of in any dustbin.",
     buttonLabel: "Add bags",
     linkText: "Shop bags",
-    linkHref: "/shop/looway-pee-puke",
+    linkHref: "/product-detail/looway-pee-puke",
     productSlug: "looway-pee-puke",
   },
 ];

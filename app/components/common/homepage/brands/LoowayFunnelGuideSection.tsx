@@ -188,7 +188,7 @@ export function LoowayFunnelGuideSection({
               </button>
 
               <Link
-                href="/quiz"
+                href="/product-detail/looway-pee-funnel?scroll=how-it-works#how-it-works"
                 className="inline-flex items-center gap-1 text-xs font-semibold text-[#006573] hover:underline sm:text-sm"
               >
                 <span>Read the full guide</span>

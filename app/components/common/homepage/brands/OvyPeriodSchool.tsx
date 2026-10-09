@@ -91,7 +91,7 @@ export function OvyPeriodSchool() {
 
           <div className="shrink-0">
             <Link
-              href="/blogs"
+              href="/blog"
               className="border border-[#602E55] text-[#602E55] bg-white/60 hover:bg-white px-5 py-2.5 rounded-full text-xs sm:text-sm font-semibold inline-flex items-center gap-1.5 shadow-2xs transition-all"
             >
               <span>Read the journal</span>

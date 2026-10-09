@@ -3,6 +3,7 @@
 
 import React, { useState, useRef } from "react";
 import { Star, CheckCircle2, ChevronLeft, ChevronRight, Check } from "lucide-react";
+import { WriteReviewModal } from "../dashboard-review/WriteReviewModal";
 
 type Review = {
   id: number;
@@ -193,6 +194,13 @@ export default function LoowayReviewsSection() {
               <div className="mt-2.5 sm:mt-3 inline-flex items-center gap-1.5 text-[11px] sm:text-xs font-bold text-[#0E5C3A]">
                 <CheckCircle2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-[#0E5C3A]" />
                 <span>Every review from a verified purchase</span>
+              </div>
+
+              <div className="mt-3.5">
+                <WriteReviewModal
+                  product={{ name: "Looway Toilet Seat Covers", slug: "looway-toilet-seat-covers" }}
+                  btnClassName="px-4 py-2 text-xs font-bold rounded-full bg-[#0A4A2E] text-white hover:bg-[#06331F] transition cursor-pointer inline-flex items-center gap-1.5"
+                />
               </div>
             </div>
 

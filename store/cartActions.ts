@@ -92,7 +92,7 @@ export const addToCart = async (item: CartItem) => {
     });
     if (!result?.success) {
       useCartStore.getState().setCart(previousCartItems);
-      toast.error("Failed to add item to cart. Please try again.");
+      toast.error((result as any)?.message || "Failed to add item to cart. Please try again.");
       return false;
     }
     toast.success("Item added to cart");
@@ -106,7 +106,7 @@ export const addToCart = async (item: CartItem) => {
     });
     if (!result?.success) {
       useCartStore.getState().setCart(previousCartItems);
-      toast.error("Failed to add item to cart. Please try again.");
+      toast.error((result as any)?.message || "Failed to add item to cart. Please try again.");
       return false;
     }
     toast.success("Item added to cart");

@@ -25,7 +25,7 @@ export function LoowayGiftGroupSection() {
 
             <div>
               <Link
-                href="/quiz"
+                href="/looway-yatra-kit?kit=carekit#choose-kit"
                 className="bg-[#F6D353] hover:bg-[#ebd048] text-[#004851] font-bold text-xs sm:text-sm px-6 py-3 rounded-full inline-flex items-center gap-2 shadow-2xs transition-all"
               >
                 <span>Build a gift kit</span>

@@ -49,14 +49,38 @@ export default function WishlistProducts() {
   const addToCartHandler = async (product: WishlistItem) => {
     if (busyProductId) return;
     const variant = selectedByProduct.get(product.productId) || getVariant(product);
+    let targetVariantId = variant.productVariantId;
+    let targetSku = variant.sku;
+
+    // Fallback: If variant ID is a synthetic fallback ID, fetch catalog product to get real variantId
+    if ((!targetVariantId || targetVariantId.includes("-default-")) && product.slug) {
+      try {
+        const res = await fetch(`/api/catalog/products/${encodeURIComponent(product.slug)}`);
+        if (res.ok) {
+          const payload = await res.json();
+          const catalogVars =
+            payload.product?.productVariants ||
+            payload.product?.prodcutVarientBoxRes ||
+            payload.product?.variants ||
+            [];
+          if (catalogVars.length > 0) {
+            targetVariantId = String(catalogVars[0].id || catalogVars[0]._id || catalogVars[0].variantId || targetVariantId);
+            targetSku = String(catalogVars[0].sku || targetSku);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to resolve real catalog variant for wishlist item:", err);
+      }
+    }
+
     const price = Number(variant.price || product.basePrice || product.price);
     setBusyProductId(product.productId);
 
     try {
       const added = await addToCart({
         productId: product.productId,
-        productVariantId: variant.productVariantId,
-        sku: variant.sku,
+        productVariantId: targetVariantId,
+        sku: targetSku,
         slug: product.slug || "",
         title: product.title || product.name,
         image: variant.image || product.image || "/product.png",

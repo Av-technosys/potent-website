@@ -164,7 +164,7 @@ const FAQ_DATA: { left: FaqGroup[]; right: FaqGroup[] } = {
         },
         {
           q: "Do you deliver across India, and how do I pay?",
-          a: "Yes, we deliver across India, and most orders arrive in 5 to 7 days — with free shipping over ₹599. Enter your PIN code in the delivery checker above for an estimate for your area. You can pay securely by UPI, credit or debit card, or net banking at checkout.",
+          a: "Yes, we deliver across India, and most orders arrive in 5 to 7 days — with free shipping over ₹399. Enter your PIN code in the delivery checker above for an estimate for your area. You can pay securely by UPI, credit or debit card, or net banking at checkout.",
         },
         {
           q: "What is your returns policy?",
@@ -194,9 +194,13 @@ export default function LoowayFaqSection() {
     ...allGroups.map((g) => ({ id: g.title, label: g.title })),
   ];
 
-  const renderGroup = (group: FaqGroup, groupIdx: number, colPrefix: string) => (
-    <div key={groupIdx} className="space-y-2 mb-6">
-      <h4 className="text-[11px] font-extrabold tracking-widest text-[#0E5C3A] uppercase mb-2.5">
+  const renderGroup = (
+    group: FaqGroup,
+    groupIdx: number,
+    colPrefix: string,
+  ) => (
+    <div key={groupIdx} className="mb-6 space-y-2">
+      <h4 className="mb-2.5 text-[11px] font-extrabold tracking-widest text-[#0E5C3A] uppercase">
         {group.title}
       </h4>
       <div className="space-y-2">
@@ -207,15 +211,15 @@ export default function LoowayFaqSection() {
           return (
             <div
               key={itemIdx}
-              className="rounded-2xl border border-[#E4DED0] bg-white shadow-2xs overflow-hidden transition-all duration-200"
+              className="overflow-hidden rounded-2xl border border-[#E4DED0] bg-white shadow-2xs transition-all duration-200"
             >
               <button
                 onClick={() => toggleItem(itemKey)}
-                className="flex w-full items-center justify-between p-3.5 sm:p-4.5 text-left font-sans text-xs sm:text-sm font-bold text-[#0A4A2E] hover:text-[#0E5C3A] transition-colors"
+                className="flex w-full items-center justify-between p-3.5 text-left font-sans text-xs font-bold text-[#0A4A2E] transition-colors hover:text-[#0E5C3A] sm:p-4.5 sm:text-sm"
               >
                 <span className="pr-2.5 leading-snug">{item.q}</span>
                 <div
-                  className={`flex h-6 w-6 sm:h-7 sm:w-7 shrink-0 items-center justify-center rounded-full transition-transform duration-300 ${
+                  className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full transition-transform duration-300 sm:h-7 sm:w-7 ${
                     isOpen
                       ? "rotate-180 bg-[#0E5C3A] text-white"
                       : "bg-[#E4F0E8] text-[#0E5C3A]"
@@ -226,7 +230,7 @@ export default function LoowayFaqSection() {
               </button>
 
               {isOpen && (
-                <div className="px-3.5 pb-4 sm:px-4.5 text-xs sm:text-sm text-[#17271E]/80 leading-relaxed border-t border-[#E4DED0]/60 pt-3 font-normal">
+                <div className="border-t border-[#E4DED0]/60 px-3.5 pt-3 pb-4 text-xs leading-relaxed font-normal text-[#17271E]/80 sm:px-4.5 sm:text-sm">
                   {item.a}
                 </div>
               )}
@@ -238,28 +242,31 @@ export default function LoowayFaqSection() {
   );
 
   return (
-    <section id="faq" className="w-full bg-[#F1F7F3] scroll-mt-32 sm:scroll-mt-36 py-8 sm:py-16 lg:py-20 text-[#17271E]">
+    <section
+      id="faq"
+      className="w-full scroll-mt-32 bg-[#F1F7F3] py-8 text-[#17271E] sm:scroll-mt-36 sm:py-16 lg:py-20"
+    >
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-12">
         {/* Header */}
-        <div className="text-center mx-auto max-w-2xl mb-6 sm:mb-12">
-          <span className="text-[10.5px] sm:text-xs font-extrabold tracking-widest text-[#0E5C3A] uppercase block mb-1.5 sm:mb-2">
+        <div className="mx-auto mb-6 max-w-2xl text-center sm:mb-12">
+          <span className="mb-1.5 block text-[10.5px] font-extrabold tracking-widest text-[#0E5C3A] uppercase sm:mb-2 sm:text-xs">
             GOOD TO KNOW
           </span>
-          <h2 className="font-serif text-2xl sm:text-4xl lg:text-[40px] font-extrabold text-[#0A4A2E] leading-tight">
+          <h2 className="font-serif text-2xl leading-tight font-extrabold text-[#0A4A2E] sm:text-4xl lg:text-[40px]">
             Frequently asked questions
           </h2>
         </div>
 
         {/* Mobile Category Filter Tabs (< lg screens) */}
-        <div className="flex lg:hidden items-center gap-2 overflow-x-auto pb-4 mb-6 no-scrollbar [::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+        <div className="no-scrollbar mb-6 flex items-center gap-2 overflow-x-auto pb-4 [-ms-overflow-style:none] [scrollbar-width:none] lg:hidden [::-webkit-scrollbar]:hidden">
           {categories.map((cat) => (
             <button
               key={cat.id}
               onClick={() => setActiveCategory(cat.id)}
-              className={`rounded-full px-3.5 py-1.5 text-[11px] font-extrabold transition-all whitespace-nowrap ${
+              className={`rounded-full px-3.5 py-1.5 text-[11px] font-extrabold whitespace-nowrap transition-all ${
                 activeCategory === cat.id
                   ? "bg-[#0E5C3A] text-white shadow-2xs"
-                  : "bg-white text-[#17271E]/80 border border-[#E4DED0]"
+                  : "border border-[#E4DED0] bg-white text-[#17271E]/80"
               }`}
             >
               {cat.label}
@@ -270,12 +277,14 @@ export default function LoowayFaqSection() {
         {/* Mobile View: Show selected category group or all */}
         <div className="block lg:hidden">
           {allGroups
-            .filter((g) => activeCategory === "all" || g.title === activeCategory)
+            .filter(
+              (g) => activeCategory === "all" || g.title === activeCategory,
+            )
             .map((group, idx) => renderGroup(group, idx, "mob"))}
         </div>
 
         {/* Desktop View (lg:grid 2 Columns) */}
-        <div className="hidden lg:grid grid-cols-2 gap-x-8 gap-y-4 items-start">
+        <div className="hidden grid-cols-2 items-start gap-x-8 gap-y-4 lg:grid">
           {/* Left Column */}
           <div>
             {FAQ_DATA.left.map((group, idx) => renderGroup(group, idx, "left"))}
@@ -283,7 +292,9 @@ export default function LoowayFaqSection() {
 
           {/* Right Column */}
           <div>
-            {FAQ_DATA.right.map((group, idx) => renderGroup(group, idx, "right"))}
+            {FAQ_DATA.right.map((group, idx) =>
+              renderGroup(group, idx, "right"),
+            )}
           </div>
         </div>
       </div>

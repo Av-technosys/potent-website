@@ -16,7 +16,7 @@ const PLAN_ALIASES: Record<string, string[]> = {
 
 const SIZE_ALIASES: Array<{ key: string; patterns: RegExp[] }> = [
   { key: "MIX", patterns: [/mix/i, /custom/i] },
-  { key: "XLP", patterns: [/xl\+/i, /\bxlp\b/i, /320/i, /overnight/i, /day[-\s]?night/i] },
+  { key: "XLP", patterns: [/xl\+/i, /\bxlp\b/i, /320/i, /overnight/i, /day[-\s]?night/i, /xlplus/i] },
   { key: "XXL", patterns: [/\bxxl\b/i, /xxxl/i, /44/i, /56/i] },
   { key: "LXL", patterns: [/\bm-xl\b/i, /\blxl\b/i, /28/i, /44/i] },
   { key: "XL", patterns: [/\bxl\b/i, /280/i, /extra\s*large/i] },
@@ -49,6 +49,56 @@ export function resolveStaticSizeKey(
   variant: any,
   staticContent: any,
 ) {
+  const availableKeys = Object.keys(staticContent?.SIZES || {});
+
+  // 1. Extract hash if sizeOrHash contains a hash segment like #l, #xl, #xlplus
+  const inputStr = String(sizeOrHash || "").trim();
+  const hashMatch = inputStr.match(/#[a-z0-9_\-]+/i);
+  const hashStr = hashMatch
+    ? hashMatch[0].toLowerCase()
+    : inputStr.startsWith("#")
+      ? inputStr.toLowerCase()
+      : "";
+  if (hashStr) {
+    if (staticContent?.HASH_MAP?.[hashStr]) {
+      const keyFromHash = staticContent.HASH_MAP[hashStr];
+      if (availableKeys.includes(keyFromHash)) return keyFromHash;
+    }
+    if (staticContent?.SIZES) {
+      const cleanHash = hashStr.replace("#", "");
+      for (const key of availableKeys) {
+        const itemHash = staticContent.SIZES[key]?.hash?.toLowerCase()?.replace("#", "");
+        if (
+          itemHash &&
+          (itemHash === cleanHash ||
+            cleanHash === key.toLowerCase() ||
+            (key === "XLP" && (cleanHash === "xlplus" || cleanHash === "xlp")))
+        ) {
+          return key;
+        }
+      }
+    }
+  }
+
+  if (inputStr) {
+    const cleanStr = inputStr.toLowerCase();
+    const exact = availableKeys.find(
+      (key) =>
+        key.toLowerCase() === cleanStr ||
+        staticContent?.SIZES?.[key]?.label?.toLowerCase() === cleanStr ||
+        staticContent?.SIZES?.[key]?.hash?.toLowerCase() === cleanStr,
+    );
+    if (exact) return exact;
+
+    const matchedSizeOrHash = SIZE_ALIASES.find(
+      (alias) =>
+        availableKeys.includes(alias.key) &&
+        alias.patterns.some((pattern) => pattern.test(cleanStr)),
+    );
+    if (matchedSizeOrHash) return matchedSizeOrHash.key;
+  }
+
+  // 3. Fallback: Combine sizeOrHash with variant fields
   const source = [
     sizeOrHash,
     variant?.size,
@@ -58,19 +108,6 @@ export function resolveStaticSizeKey(
   ]
     .filter(Boolean)
     .join(" ");
-
-  const hash = sizeOrHash?.startsWith("#") ? sizeOrHash.toLowerCase() : "";
-  const hashKey = hash ? staticContent?.HASH_MAP?.[hash] : "";
-  if (hashKey) return hashKey;
-
-  const availableKeys = Object.keys(staticContent?.SIZES || {});
-  const exact = availableKeys.find(
-    (key) =>
-      key.toLowerCase() === String(sizeOrHash || "").toLowerCase() ||
-      staticContent?.SIZES?.[key]?.label?.toLowerCase() ===
-        String(sizeOrHash || "").toLowerCase(),
-  );
-  if (exact) return exact;
 
   const matchedAlias = SIZE_ALIASES.find(
     (alias) =>

@@ -7,6 +7,8 @@ import { Heart, Check, Plus } from "lucide-react";
 import { addToCart } from "@/store/cartActions";
 import { getImageUrl } from "@/lib/imageUrl";
 import { toast } from "sonner";
+import { useWishlistStore } from "@/store/WishlistStore";
+import { addToWishlist, removeFromWishlist } from "@/store/WishlistActions";
 import {
   getOvyProductId,
   getOvyVariantId,
@@ -169,12 +171,41 @@ export function LoowayShopSection({
     pukebags: 0,
   });
 
-  const [wishlist, setWishlist] = useState<Record<string, boolean>>({});
+  const wishlistItems = useWishlistStore((state) => state.items);
   const [addingState, setAddingState] = useState<Record<string, boolean>>({});
   const [addedState, setAddedState] = useState<Record<string, boolean>>({});
 
-  const toggleWishlist = (id: string) => {
-    setWishlist((prev) => ({ ...prev, [id]: !prev[id] }));
+  const toggleWishlist = async (productData: ProductCardData) => {
+    const fullProd = productsBySlug[productData.slug];
+    const prodId = getOvyProductId(fullProd) || productData.id;
+    if (!prodId) return;
+    const isLiked = wishlistItems.some(
+      (item) => item.productId === prodId || item.productId === productData.slug || item.slug === productData.slug
+    );
+    if (isLiked) {
+      await removeFromWishlist(prodId);
+    } else {
+      const vIdx = selectedVariants[productData.id] || 0;
+      const variantObj = productData.variants[vIdx] || productData.variants[0];
+      const realVariant = fullProd
+        ? getOvyVariants(fullProd).find(
+            (variant) => getOvyVariantId(variant) === variantObj?.variantId,
+          )
+        : null;
+
+      const currentSelectedVariant = realVariant || variantObj;
+      const availableVariants = fullProd ? getOvyVariants(fullProd) : productData.variants;
+
+      await addToWishlist({
+        ...(fullProd || {}),
+        productId: prodId,
+        name: productData.title,
+        image: productData.image,
+        slug: productData.slug,
+        selectedVariant: currentSelectedVariant,
+        variants: availableVariants,
+      });
+    }
   };
 
   const handleVariantSelect = (productId: string, variantIndex: number) => {
@@ -357,7 +388,14 @@ export function LoowayShopSection({
               Math.max(product.variants.length - 1, 0),
             );
             const activeVariant = product.variants[activeVariantIdx];
-            const isLiked = wishlist[product.id];
+            const fullProd = productsBySlug[product.slug];
+            const realProdId = getOvyProductId(fullProd) || product.id;
+            const isLiked = wishlistItems.some(
+              (item) =>
+                item.productId === realProdId ||
+                item.productId === product.slug ||
+                item.slug === product.slug,
+            );
 
             return (
               <div
@@ -384,6 +422,15 @@ export function LoowayShopSection({
                   <div className="flex items-start gap-3.5">
                     {/* Product Image */}
                     <div className="relative h-28 w-28 shrink-0 overflow-hidden rounded-2xl border border-gray-100 bg-[#F3FAF8] p-2">
+                      <button
+                        onClick={() => toggleWishlist(product)}
+                        className="absolute top-1.5 right-1.5 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-white/90 text-gray-500 shadow-2xs transition-colors hover:text-red-500"
+                        aria-label="Toggle Wishlist"
+                      >
+                        <Heart
+                          className={`h-3.5 w-3.5 ${isLiked ? "fill-red-500 text-red-500" : ""}`}
+                        />
+                      </button>
                       <Image
                         src={product.image}
                         alt={product.title}
@@ -488,7 +535,7 @@ export function LoowayShopSection({
 
                     {/* Wishlist Button */}
                     <button
-                      onClick={() => toggleWishlist(product.id)}
+                      onClick={() => toggleWishlist(product)}
                       className="absolute top-3 right-3 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-gray-500 shadow-2xs transition-colors hover:text-red-500"
                     >
                       <Heart
@@ -678,7 +725,7 @@ export function LoowayShopSection({
                 </button>
 
                 <Link
-                  href="/quiz"
+                  href="/looway-yatra-kit"
                   className="px-2 py-1 text-xs font-semibold whitespace-nowrap text-[#0B6E7D] hover:underline"
                 >
                   Or build a Yatra Kit →

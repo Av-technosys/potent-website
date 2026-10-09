@@ -2,6 +2,7 @@
 import { db } from "@/db";
 import { referralCoinHistory, users } from "@/db/schema";
 import { cognitoAdminGetUser, cognitoSignUp } from "@/helper/cognito";
+import { generateUniqueReferralCode } from "@/lib/referralCode";
 import { NextResponse } from "next/server";
 import { eq, sql } from "drizzle-orm";
 
@@ -16,11 +17,38 @@ export async function POST(req: Request) {
     );
   }
 
+  let refUser: any;
+
   try {
-    var refUser: any;
-    if (ref) {
-      refUser = await db.select().from(users).where(eq(users.id, ref));
-      if (refUser?.length) {
+    if (ref && typeof ref === "string" && ref.trim()) {
+      const cleanRef = ref.trim();
+      // Look up by short referralCode first (case-insensitive)
+      let foundUsers = await db
+        .select()
+        .from(users)
+        .where(sql`lower(${users.referralCode}) = lower(${cleanRef})`);
+
+      // Fallback for legacy UUID referral links
+      if (!foundUsers.length) {
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanRef);
+        if (isUuid) {
+          foundUsers = await db.select().from(users).where(eq(users.id, cleanRef));
+        }
+      }
+
+      if (foundUsers?.length) {
+        // Self-referral check: cannot use own referral code
+        if (
+          foundUsers[0].email?.toLowerCase() === email?.toLowerCase() ||
+          (phone && foundUsers[0].phone === phone)
+        ) {
+          return NextResponse.json(
+            { message: "You cannot use your own referral code." },
+            { status: 400 },
+          );
+        }
+
+        refUser = foundUsers;
         await db
           .update(users)
           .set({ referralCoins: sql`${users.referralCoins} + ${200}` })
@@ -77,6 +105,7 @@ export async function POST(req: Request) {
         let userRes;
 
         if (!existingDbUser) {
+          const generatedCode = await generateUniqueReferralCode(db, safeName);
           [userRes] = await db
             .insert(users)
             .values({
@@ -84,7 +113,8 @@ export async function POST(req: Request) {
               email,
               phone: safePhone,
               cognitoId,
-              referralCoins: ref ? 200 : 0,
+              referralCode: generatedCode,
+              referralCoins: refUser?.length ? 200 : 0,
             })
             .returning();
 

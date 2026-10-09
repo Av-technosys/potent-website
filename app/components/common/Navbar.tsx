@@ -112,7 +112,6 @@ export function Navbar() {
       if (isAuth) {
         await Promise.all([syncWishlistFromDB(), syncCartFromDB()]);
       } else {
-        useWishlistStore.getState().setWishlist([]);
         useCartStore.getState().clearCart();
       }
     };

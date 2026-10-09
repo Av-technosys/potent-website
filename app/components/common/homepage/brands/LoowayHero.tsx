@@ -140,7 +140,14 @@ export function LoowayHero({
               </button>
 
               <Link
-                href="/quiz"
+                href="/looway#shop-by-trip"
+                onClick={(e) => {
+                  const el = document.getElementById("shop-by-trip");
+                  if (el) {
+                    e.preventDefault();
+                    el.scrollIntoView({ behavior: "smooth" });
+                  }
+                }}
                 className="inline-flex items-center rounded-full border border-[#0B6E7D] bg-white/70 px-7 py-3 text-xs font-semibold text-[#0B6E7D] shadow-2xs transition-all hover:bg-white sm:text-sm"
               >
                 Where are you going?

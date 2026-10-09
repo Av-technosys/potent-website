@@ -17,7 +17,7 @@ export function OrderSummary() {
     0,
   );
 
-  const shipping = subtotal > 599 ? 0 : 60;
+  const shipping = subtotal > 399 ? 0 : 60;
   const final = subtotal + shipping;
 
   return (
