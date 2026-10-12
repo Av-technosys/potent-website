@@ -167,11 +167,11 @@ export function OvyShopByMoment({
     currentProduct,
     currentVariant,
   );
-  const freeShippingOver = Number(currentProduct?.freeShippingOver || 0);
+  const freeShippingOver = Number(currentProduct?.freeShippingOver || 399) || 399;
   const freeShippingMessage =
-    freeShippingOver > currentProductPrice
-      ? `₹${freeShippingOver - currentProductPrice} more for free delivery`
-      : "Free delivery eligible";
+    currentProductPrice >= freeShippingOver
+      ? "Free delivery eligible"
+      : `₹${freeShippingOver - currentProductPrice} more for free delivery`;
   const canAddToCart = Boolean(
     currentProduct &&
     currentVariants.length > 0 &&

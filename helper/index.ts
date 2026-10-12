@@ -20,6 +20,7 @@ export {
 
 export {
   getCheckoutPricing,
+  getDirectCheckoutPricing,
   calculateCheckoutPricingForUser,
 } from "./checkout/action";
 

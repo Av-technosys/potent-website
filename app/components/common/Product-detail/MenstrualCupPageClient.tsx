@@ -31,6 +31,9 @@ import {
   Cloud,
   Home,
   AlertTriangle,
+  ChevronLeft,
+  ChevronRight,
+  ZoomIn,
 } from "lucide-react";
 import { toast } from "sonner";
 import { addToCart as addToCartAction } from "@/store/cartActions";
@@ -39,8 +42,11 @@ import {
   addToWishlist as addToWishlistAction,
   removeFromWishlist as removeFromWishlistAction,
 } from "@/store/WishlistActions";
+import { checkPincodeServiceability } from "@/lib/checkPincodeServiceability";
 import { getImageUrl } from "@/lib/imageUrl";
 import ProductReviews from "./productreview";
+import ProductFaqSection from "./ProductFaqSection";
+import ImageZoomModal from "./ImageZoomModal";
 import { ovyProductDetailsPage } from "@/const/globalconst";
 
 type Props = {
@@ -127,6 +133,7 @@ const QUICK_QUESTIONS_DATA: Record<
 export default function MenstrualCupPageClient({
   product,
   reviewWithMedia,
+  content,
 }: Props) {
   const router = useRouter();
   const productInfo = product;
@@ -162,6 +169,7 @@ export default function MenstrualCupPageClient({
         name: "Teen (XS) · Pink",
         size: "Teen (XS)",
         color: "Pink",
+        image: "/ovy/cup-xs.jpg",
         price: Number(productInfo?.price || 459),
         strikethroughPrice: Number(
           productInfo?.strikethroughPrice || productInfo?.mrp || 399,
@@ -174,6 +182,7 @@ export default function MenstrualCupPageClient({
         name: "Medium · Purple",
         size: "Medium",
         color: "Purple",
+        image: "/ovy/cup-m.jpg",
         price: Number(productInfo?.price || 459),
         strikethroughPrice: Number(
           productInfo?.strikethroughPrice || productInfo?.mrp || 399,
@@ -186,6 +195,7 @@ export default function MenstrualCupPageClient({
         name: "Medium · Rainbow",
         size: "Medium",
         color: "Rainbow",
+        image: "/products/cup-rbw.jpg",
         price: Number(productInfo?.price || 459),
         strikethroughPrice: Number(
           productInfo?.strikethroughPrice || productInfo?.mrp || 399,
@@ -198,6 +208,7 @@ export default function MenstrualCupPageClient({
         name: "Large · White",
         size: "Large",
         color: "White",
+        image: "/ovy/cup-l.jpg",
         price: Number(productInfo?.price || 459),
         strikethroughPrice: Number(
           productInfo?.strikethroughPrice || productInfo?.mrp || 399,
@@ -211,28 +222,171 @@ export default function MenstrualCupPageClient({
   const activeVariant = variantsList[selectedVariantIndex] || variantsList[0];
 
   const [quantity, setQuantity] = useState(1);
+  const maxQuantity = Number(productInfo?.maxQuantityPurchase || product?.maxQuantityPurchase) || 4;
   const [isAdding, setIsAdding] = useState(false);
+  const [showStickyBar, setShowStickyBar] = useState(false);
+  const mainButtonsRef = useRef<HTMLDivElement>(null);
 
-  // Extract Real Database Product Images
+  // Restore choice on reload or shared link
+  useEffect(() => {
+    if (typeof window === "undefined" || variantsList.length === 0) return;
+    const params = new URLSearchParams(window.location.search);
+    const sizeParam = params.get("size")?.toLowerCase();
+    const colorParam = params.get("color")?.toLowerCase();
+    const variantParam = params.get("variant")?.toLowerCase();
+    const hash = window.location.hash.toLowerCase().replace("#", "");
+
+    if (sizeParam || colorParam || variantParam || hash) {
+      const matchIdx = variantsList.findIndex((v: any) => {
+        const vSize = (v.size || "").toLowerCase();
+        const vColor = (v.color || "").toLowerCase();
+        const vName = (v.name || "").toLowerCase();
+        const vId = (v.id || v._id || "").toLowerCase();
+        if (variantParam && vId.includes(variantParam)) return true;
+        if (sizeParam && colorParam) {
+          return (vSize.includes(sizeParam) || vName.includes(sizeParam)) &&
+                 (vColor.includes(colorParam) || vName.includes(colorParam));
+        }
+        if (colorParam) return vColor.includes(colorParam) || vName.includes(colorParam);
+        if (sizeParam) return vSize.includes(sizeParam) || vName.includes(sizeParam);
+        if (hash) return vSize.includes(hash) || vColor.includes(hash) || vName.includes(hash);
+        return false;
+      });
+      if (matchIdx !== -1) {
+        setSelectedVariantIndex(matchIdx);
+      }
+    }
+  }, [variantsList]);
+
+  const handleSelectVariant = (idx: number) => {
+    setSelectedVariantIndex(idx);
+    setActiveImage("");
+    const v = variantsList[idx];
+    if (v && typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (v.size) params.set("size", v.size.toLowerCase());
+      if (v.color) params.set("color", v.color.toLowerCase());
+      window.history.replaceState(null, "", `${window.location.pathname}?${params.toString()}`);
+    }
+  };
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    let isMainIntersecting = false;
+
+    const updateStickyBar = () => {
+      if (isMainIntersecting) {
+        setShowStickyBar(false);
+        return;
+      }
+      if (mainButtonsRef.current) {
+        const rect = mainButtonsRef.current.getBoundingClientRect();
+        setShowStickyBar(rect.bottom < 0);
+      }
+    };
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        isMainIntersecting = entry.isIntersecting;
+        updateStickyBar();
+      },
+      { threshold: 0 }
+    );
+
+    if (mainButtonsRef.current) {
+      observer.observe(mainButtonsRef.current);
+    }
+
+    window.addEventListener("scroll", updateStickyBar, { passive: true });
+    window.addEventListener("resize", updateStickyBar, { passive: true });
+    updateStickyBar();
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("scroll", updateStickyBar);
+      window.removeEventListener("resize", updateStickyBar);
+    };
+  }, []);
+
+  // Extract Real Database Product Images with variant match
   const productImages = useMemo(() => {
     const list: string[] = [];
-    if (activeVariant?.bannerImage)
-      list.push(getImageUrl(activeVariant.bannerImage));
-    if (activeVariant?.image) list.push(getImageUrl(activeVariant.image));
-    if (productInfo?.bannerImage)
-      list.push(getImageUrl(productInfo.bannerImage));
+    const getVarImg = (v: any) => {
+      if (v?.bannerImage) return getImageUrl(v.bannerImage);
+      if (v?.image) return getImageUrl(v.image);
+      const name = `${v?.name || ""} ${v?.color || ""} ${v?.size || ""}`.toLowerCase();
+      if (name.includes("rainbow")) return "/products/cup-rbw.jpg";
+      if (name.includes("purple") || name.includes("medium")) return "/ovy/cup-m.jpg";
+      if (name.includes("large") || name.includes("white")) return "/ovy/cup-l.jpg";
+      if (name.includes("teen") || name.includes("xs") || name.includes("pink")) return "/ovy/cup-xs.jpg";
+      return "/products/cup.jpg";
+    };
+
+    const activeImg = getVarImg(activeVariant);
+    if (activeImg) list.push(activeImg);
+
+    variantsList.forEach((v: any) => {
+      const img = getVarImg(v);
+      if (img && !list.includes(img)) list.push(img);
+    });
+
+    if (productInfo?.bannerImage) {
+      const pImg = getImageUrl(productInfo.bannerImage);
+      if (pImg && !list.includes(pImg)) list.push(pImg);
+    }
     if (Array.isArray(productInfo?.productMediaRes)) {
       productInfo.productMediaRes.forEach((item: any) => {
-        if (item?.mediaURL) list.push(getImageUrl(item.mediaURL));
+        if (item?.mediaURL) {
+          const mImg = getImageUrl(item.mediaURL);
+          if (mImg && !list.includes(mImg)) list.push(mImg);
+        }
       });
     }
     const unique = Array.from(new Set(list.filter(Boolean)));
-    return unique.length > 0 ? unique : ["/placeholder.jpg"];
-  }, [productInfo, activeVariant]);
+    return unique.length > 0 ? unique : ["/products/cup.jpg"];
+  }, [productInfo, activeVariant, variantsList]);
 
   const [activeImage, setActiveImage] = useState<string>("");
   const currentDisplayImage =
-    activeImage || productImages[0] || "/placeholder.jpg";
+    activeImage || productImages[0] || "/products/cup.jpg";
+
+  // Phone Swipe & Tap-to-Zoom lightbox state
+  const [isZoomOpen, setIsZoomOpen] = useState(false);
+  const touchStartXRef = useRef<number | null>(null);
+  const touchStartYRef = useRef<number | null>(null);
+
+  const currentImageIndex = Math.max(0, productImages.indexOf(currentDisplayImage));
+  const handlePrevImage = () => {
+    if (productImages.length <= 1) return;
+    const nextIdx = currentImageIndex <= 0 ? productImages.length - 1 : currentImageIndex - 1;
+    setActiveImage(productImages[nextIdx]);
+  };
+  const handleNextImage = () => {
+    if (productImages.length <= 1) return;
+    const nextIdx = (currentImageIndex + 1) % productImages.length;
+    setActiveImage(productImages[nextIdx]);
+  };
+
+  const handleHeroTouchStart = (e: React.TouchEvent) => {
+    touchStartXRef.current = e.touches[0].clientX;
+    touchStartYRef.current = e.touches[0].clientY;
+  };
+
+  const handleHeroTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartXRef.current === null || touchStartYRef.current === null) return;
+    const diffX = e.changedTouches[0].clientX - touchStartXRef.current;
+    const diffY = e.changedTouches[0].clientY - touchStartYRef.current;
+    if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 40) {
+      if (diffX < 0) {
+        handleNextImage();
+      } else {
+        handlePrevImage();
+      }
+    }
+    touchStartXRef.current = null;
+    touchStartYRef.current = null;
+  };
 
   // Real Database Pricing & Rates
   const price = Number(activeVariant?.price ?? productInfo?.price ?? 459);
@@ -381,7 +535,7 @@ export default function MenstrualCupPageClient({
   }, []);
 
   // Handle Add to Cart & Buy Now
-  const handleAddToCart = async (isBuyNow = false) => {
+  const handleAddToCart = async () => {
     if (isOutOfStock) {
       toast.error("This item is currently out of stock.");
       return;
@@ -403,20 +557,13 @@ export default function MenstrualCupPageClient({
         sku: activeVariant?.sku || `OVY-CUP-${activeVariant?.size || "STD"}`,
         slug: productInfo?.slug || "menstrual-cup",
         title: itemTitle,
+        variantName: variantLabel,
         price: price,
         originalPrice: strikethroughPrice,
         image: currentDisplayImage,
         isQuantityChangable: true,
         quantity: quantity,
       });
-
-      if (success !== false) {
-        if (isBuyNow) {
-          router.push("/checkout");
-        } else {
-          toast.success("Added to cart!");
-        }
-      }
     } catch (err) {
       console.error("Cart Add Error:", err);
     } finally {
@@ -424,23 +571,60 @@ export default function MenstrualCupPageClient({
     }
   };
 
-  // Pincode Check
-  const checkPincode = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (pincode.trim().length === 6 && /^\d+$/.test(pincode)) {
-      setPincodeStatus({
-        checked: true,
-        valid: true,
-        message:
-          "Delivery available! Usually delivered in 2–4 business days with discreet packaging.",
-      });
-    } else {
-      setPincodeStatus({
-        checked: true,
-        valid: false,
-        message: "Please enter a valid 6-digit Indian pincode.",
-      });
+  const handleBuyNow = () => {
+    if (isOutOfStock) {
+      toast.error("This item is currently out of stock.");
+      return;
     }
+    const pId = productInfo?._id || productInfo?.id || "ovy-cup";
+    const vId = activeVariant?._id || activeVariant?.id;
+    const variantLabel = activeVariant?.name || activeVariant?.size || "";
+    const itemTitle = productInfo?.name
+      ? variantLabel
+        ? `${productInfo.name} (${variantLabel})`
+        : productInfo.name
+      : variantLabel || "Ovy Reusable Menstrual Cup";
+
+    const directItem = {
+      productId: pId,
+      productVariantId: vId,
+      sku: activeVariant?.sku || `OVY-CUP-${activeVariant?.size || "STD"}`,
+      slug: productInfo?.slug || "menstrual-cup",
+      title: itemTitle,
+      variantName: variantLabel,
+      price: price,
+      originalPrice: strikethroughPrice,
+      image: currentDisplayImage,
+      isQuantityChangable: true,
+      quantity: quantity,
+      purchaseType: "one_time",
+    };
+
+    window.sessionStorage.setItem(
+      "potent-direct-checkout",
+      JSON.stringify(directItem),
+    );
+    router.push("/checkout?mode=direct");
+  };
+
+  // Pincode Check
+  const [isCheckingPincode, setIsCheckingPincode] = useState(false);
+  const checkPincode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isCheckingPincode) return;
+    setIsCheckingPincode(true);
+    setPincodeStatus({ checked: false, valid: false, message: "" });
+    const res = await checkPincodeServiceability({
+      pincode,
+      pickupPincode: activeVariant?.pickupPincode || product?.pickupPincode,
+      weight: activeVariant?.weightKg || product?.weightKg || 0.2,
+    });
+    setPincodeStatus({
+      checked: true,
+      valid: res.serviceable,
+      message: res.message,
+    });
+    setIsCheckingPincode(false);
   };
 
   // Size Quiz Logic
@@ -538,17 +722,38 @@ export default function MenstrualCupPageClient({
         <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-12 lg:gap-12">
           {/* Gallery Column */}
           <div className="static lg:sticky lg:top-24 lg:col-span-6">
-            <div className="relative flex aspect-[4/5] items-center justify-center overflow-hidden rounded-3xl border border-gray-200/80 bg-white p-4 shadow-xs">
+            <div
+              onTouchStart={handleHeroTouchStart}
+              onTouchEnd={handleHeroTouchEnd}
+              className="relative flex aspect-[4/5] items-center justify-center overflow-hidden rounded-3xl border border-gray-200/80 bg-white p-4 shadow-xs group"
+            >
               {/* Badge */}
               <div className="absolute top-4 left-4 z-10 inline-flex items-center gap-2 rounded-full bg-white/90 px-3.5 py-1.5 text-xs font-semibold text-[#7E4D77] shadow-2xs backdrop-blur-xs">
                 <Sparkles className="h-3.5 w-3.5 text-[#7E4D77]" />
                 100% Medical-Grade Silicone
               </div>
 
+              {/* Zoom Button */}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsZoomOpen(true);
+                }}
+                aria-label="Enlarge image"
+                title="Enlarge image"
+                className="absolute top-4 right-16 z-10 flex h-10 w-10 cursor-pointer items-center justify-center rounded-full bg-white/90 text-[#7E4D77] shadow-md backdrop-blur-xs transition-all hover:scale-105 hover:bg-white"
+              >
+                <ZoomIn className="h-5 w-5" />
+              </button>
+
               {/* Wishlist Heart Button */}
               <button
                 type="button"
-                onClick={handleToggleWishlist}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleToggleWishlist();
+                }}
                 disabled={isWishlistUpdating}
                 aria-label="Wishlist"
                 className={`absolute top-4 right-4 z-10 flex h-10 w-10 cursor-pointer items-center justify-center rounded-full bg-white/90 shadow-md backdrop-blur-xs transition-all hover:scale-105 ${
@@ -566,12 +771,38 @@ export default function MenstrualCupPageClient({
               <div className="relative h-full w-full">
                 <Image
                   src={currentDisplayImage}
-                  alt={productInfo?.name || "Ovy Menstrual Cup"}
+                  alt={activeVariant?.name || productInfo?.name || "Ovy Menstrual Cup"}
                   fill
                   className="object-contain p-4 transition-all duration-300"
                   priority
                 />
               </div>
+
+              {/* Navigation Arrows */}
+              {productImages.length > 1 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handlePrevImage();
+                    }}
+                    className="absolute left-2.5 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border border-gray-200 bg-white/90 text-[#7E4D77] shadow-md transition-all hover:bg-white"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleNextImage();
+                    }}
+                    className="absolute right-2.5 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border border-gray-200 bg-white/90 text-[#7E4D77] shadow-md transition-all hover:bg-white"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </>
+              )}
             </div>
 
             {/* Thumbnail Row */}
@@ -706,12 +937,7 @@ export default function MenstrualCupPageClient({
                   return (
                     <button
                       key={v._id || v.id || idx}
-                      onClick={() => {
-                        setSelectedVariantIndex(idx);
-                        if (v?.bannerImage || v?.image) {
-                          setActiveImage(getImageUrl(v.bannerImage || v.image));
-                        }
-                      }}
+                      onClick={() => handleSelectVariant(idx)}
                       className={`relative cursor-pointer rounded-2xl border-2 p-3.5 text-left transition-all ${
                         isSelected
                           ? "border-[#7E4D77] bg-[#F3E6F0]/50 shadow-xs"
@@ -767,19 +993,34 @@ export default function MenstrualCupPageClient({
               </p>
 
               {/* Quantity + Buttons */}
-              <div className="mb-6 grid grid-cols-12 gap-3">
+              <div className="mb-2 flex items-center justify-between text-xs font-semibold text-gray-500">
+                <span>Quantity</span>
+                <span>Maximum {maxQuantity} per order</span>
+              </div>
+              <div ref={mainButtonsRef} className="mb-6 grid grid-cols-12 gap-3">
                 {/* Quantity Stepper */}
                 <div className="col-span-4 flex items-center justify-between rounded-xl border border-gray-300 bg-white px-3 py-2 sm:col-span-3">
                   <button
+                    type="button"
+                    disabled={quantity <= 1}
                     onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                    className="px-1 text-lg font-bold text-gray-600 hover:text-black"
+                    className="px-1 text-lg font-bold text-gray-600 hover:text-black disabled:opacity-30 cursor-pointer"
                   >
                     -
                   </button>
                   <span className="text-sm font-semibold">{quantity}</span>
                   <button
-                    onClick={() => setQuantity(quantity + 1)}
-                    className="px-1 text-lg font-bold text-gray-600 hover:text-black"
+                    type="button"
+                    onClick={() => {
+                      if (quantity >= maxQuantity) {
+                        toast.info(`Maximum ${maxQuantity} per order`);
+                        return;
+                      }
+                      setQuantity(quantity + 1);
+                    }}
+                    className={`px-1 text-lg font-bold text-gray-600 hover:text-black cursor-pointer ${
+                      quantity >= maxQuantity ? "opacity-30" : ""
+                    }`}
                   >
                     +
                   </button>
@@ -797,7 +1038,7 @@ export default function MenstrualCupPageClient({
                 ) : (
                   <>
                     <button
-                      onClick={() => handleAddToCart(false)}
+                      onClick={handleAddToCart}
                       disabled={isAdding}
                       className="col-span-8 flex items-center justify-center gap-2 rounded-xl bg-[#7E4D77] px-6 py-3 font-bold text-white shadow-2xs transition-all hover:bg-[#683c62] active:scale-[0.98] sm:col-span-5"
                     >
@@ -806,7 +1047,7 @@ export default function MenstrualCupPageClient({
                     </button>
 
                     <button
-                      onClick={() => handleAddToCart(true)}
+                      onClick={handleBuyNow}
                       disabled={isAdding}
                       className="col-span-12 flex items-center justify-center gap-2 rounded-xl bg-[#141413] px-6 py-3 font-bold text-white transition-all hover:bg-black active:scale-[0.98] sm:col-span-4"
                     >
@@ -986,9 +1227,10 @@ export default function MenstrualCupPageClient({
                   </div>
                   <button
                     type="submit"
-                    className="rounded-xl bg-gray-900 px-4 py-2 text-xs font-semibold text-white transition-all hover:bg-black"
+                    disabled={isCheckingPincode}
+                    className="rounded-xl bg-gray-900 px-4 py-2 text-xs font-semibold text-white transition-all hover:bg-black disabled:opacity-60 cursor-pointer"
                   >
-                    Check
+                    {isCheckingPincode ? "Checking..." : "Check"}
                   </button>
                 </form>
                 {pincodeStatus.checked && (
@@ -2312,6 +2554,13 @@ export default function MenstrualCupPageClient({
         </div>
       </div>
 
+      {/* FAQS SECTION (DYNAMIC FROM DB/ADMIN) */}
+      <ProductFaqSection
+        theme="ovy"
+        faqs={product?.productFaqRes}
+        content={content}
+      />
+
       {/* SIZE FINDER QUIZ MODAL */}
       {isQuizOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
@@ -2520,7 +2769,11 @@ export default function MenstrualCupPageClient({
       )}
 
       {/* Mobile Sticky Add Bar */}
-      <div className="fixed right-0 bottom-[56px] left-0 z-40 flex items-center justify-between gap-3 border-t border-[#1A150F]/10 bg-white/95 p-3 shadow-lg backdrop-blur-md lg:hidden">
+      <div
+        className={`fixed right-0 bottom-[56px] md:bottom-0 left-0 z-40 flex items-center justify-between gap-3 border-t border-[#1A150F]/10 bg-white/95 p-3 shadow-lg backdrop-blur-md transition-transform duration-300 lg:hidden ${
+          showStickyBar ? "translate-y-0 pointer-events-auto" : "translate-y-[115%] pointer-events-none"
+        }`}
+      >
         <div>
           <span className="block text-[10px] font-bold text-[#7E4D77] uppercase">
             {activeVariant?.size || activeVariant?.name || "Ovy Cup"}
@@ -2540,14 +2793,14 @@ export default function MenstrualCupPageClient({
           ) : (
             <>
               <button
-                onClick={() => handleAddToCart(false)}
+                onClick={handleAddToCart}
                 disabled={isAdding}
                 className="cursor-pointer rounded-full bg-[#7E4D77] px-3.5 py-2 text-xs font-bold text-white shadow-md transition-all hover:bg-[#683c62] disabled:opacity-50"
               >
                 {isAdding ? "Adding..." : "Add to Cart"}
               </button>
               <button
-                onClick={() => handleAddToCart(true)}
+                onClick={handleBuyNow}
                 disabled={isAdding}
                 className="cursor-pointer rounded-full bg-[#141413] px-3.5 py-2 text-xs font-bold text-white shadow-md transition-all hover:bg-black disabled:opacity-50"
               >
@@ -2557,6 +2810,16 @@ export default function MenstrualCupPageClient({
           )}
         </div>
       </div>
+
+      {/* Tap-to-Zoom Lightbox Modal */}
+      <ImageZoomModal
+        isOpen={isZoomOpen}
+        onClose={() => setIsZoomOpen(false)}
+        images={productImages}
+        currentIndex={currentImageIndex}
+        onNavigate={(idx) => setActiveImage(productImages[idx])}
+        alt={activeVariant?.name || productInfo?.name}
+      />
     </div>
   );
 }

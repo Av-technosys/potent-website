@@ -90,6 +90,8 @@ export const address = pgTable("address", {
   userId: uuid("user_id")
     .references(() => users.id, { onDelete: "cascade" })
     .notNull(),
+  fullName: varchar("full_name"),
+  phone: varchar("phone"),
   streetAddress1: text("street_address_1"),
   streetAddress2: text("street_address_2"),
   city: varchar("city"),

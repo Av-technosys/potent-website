@@ -110,7 +110,9 @@ const Page = () => {
         id: toastId,
       });
 
-      router.push(`/email-verification?email=${formData.email}`);
+      const redirectParam = params.get("redirect");
+      const redirectQuery = redirectParam ? `&redirect=${encodeURIComponent(redirectParam)}` : "";
+      router.push(`/email-verification?email=${formData.email}${redirectQuery}`);
     } catch (error: any) {
       toast.error(error.message || "Signup failed ❌", {
         id: toastId,
@@ -322,7 +324,10 @@ const Page = () => {
 
           <p className="mt-2 text-center text-xs">
             Already have an account?{" "}
-            <Link href="/login" className="cursor-pointer underline">
+            <Link
+              href={params.get("redirect") ? `/login?redirect=${encodeURIComponent(params.get("redirect")!)}` : "/login"}
+              className="cursor-pointer underline"
+            >
               Login
             </Link>
           </p>

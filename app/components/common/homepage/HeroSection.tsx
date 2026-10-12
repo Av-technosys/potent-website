@@ -114,7 +114,7 @@ const TICKER_ITEMS = [
   "Pee standing up",
   "Made in Jaipur",
   "A pad bought is a pad shared",
-  "Free delivery over ₹499",
+  "Free delivery over ₹399",
   "Ships within 24 hours",
 ];
 

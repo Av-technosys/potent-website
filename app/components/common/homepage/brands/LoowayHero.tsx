@@ -162,7 +162,7 @@ export function LoowayHero({
               </div>
               <div className="flex items-center gap-1.5">
                 <Check className="h-4 w-4 stroke-[2.5] text-[#0B6E7D]" />
-                <span>Free delivery over ₹499</span>
+                <span>Free delivery over ₹399</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <Check className="h-4 w-4 stroke-[2.5] text-[#0B6E7D]" />

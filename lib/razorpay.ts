@@ -127,6 +127,8 @@ export const initiateRazorpaySubscription = async ({
   couponCode,
   // userId,
   address,
+  directItem,
+  paymentMethod,
 }: {
   amount: number;
   name: string;
@@ -135,6 +137,8 @@ export const initiateRazorpaySubscription = async ({
   couponCode?: string;
   // userId: string;
   address: any;
+  directItem?: any;
+  paymentMethod?: "upi" | "card" | "netbanking";
 }) => {
   const scriptLoaded = await loadRazorpayScript();
 
@@ -202,7 +206,7 @@ export const initiateRazorpaySubscription = async ({
   const res = await fetch("/api/razorpay/order", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ couponCode, addressId: address?.id }),
+    body: JSON.stringify({ couponCode, addressId: address?.id, directItem }),
   });
 
   const order = await res.json();
@@ -212,13 +216,33 @@ export const initiateRazorpaySubscription = async ({
 
   // 2️⃣ Open Razorpay Checkout
   return new Promise((resolve, reject) => {
-    const options = {
+    const options: any = {
       key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
       amount: order.amount,
       currency: "INR",
       name,
       description,
       order_id: order.id,
+      ...(paymentMethod
+        ? {
+            prefill: {
+              method: paymentMethod,
+            },
+            config: {
+              display: {
+                sequence:
+                  paymentMethod === "upi"
+                    ? ["block.upi", "block.card", "block.netbanking"]
+                    : paymentMethod === "card"
+                      ? ["block.card", "block.upi", "block.netbanking"]
+                      : ["block.netbanking", "block.upi", "block.card"],
+                preferences: {
+                  show_default_blocks: true,
+                },
+              },
+            },
+          }
+        : {}),
 
       handler: async function (response: any) {
         try {

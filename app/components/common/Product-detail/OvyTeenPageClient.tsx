@@ -43,9 +43,11 @@ import {
   Calendar,
   Layers,
   CheckCircle,
+  ZoomIn,
 } from "lucide-react";
 import { toast } from "sonner";
 import { addToCart as addToCartAction } from "@/store/cartActions";
+import { getProductMaxQuantity, getMaxQuantityMessage } from "@/lib/productQuantityLimits";
 import { useWishlistStore } from "@/store/WishlistStore";
 import {
   addToWishlist as addToWishlistAction,
@@ -64,7 +66,10 @@ import WhatsInside from "./WhatsInside";
 import OvyComparison from "./OvyComparison";
 import OvyPromos from "./OvyPromos";
 import ProductReviews from "./productreview";
+import ProductFaqSection from "./ProductFaqSection";
+import ImageZoomModal from "./ImageZoomModal";
 import { ovyProductDetailsPage } from "@/const/globalconst";
+import { checkPincodeServiceability } from "@/lib/checkPincodeServiceability";
 
 type Props = {
   product: any;
@@ -237,14 +242,26 @@ export default function OvyTeenPageClient({
   const [selectedKitKey, setSelectedKitKey] = useState<string>("STARTER");
   const [selectedModeId, setSelectedModeId] = useState<string>("once");
   const [quantity, setQuantity] = useState<number>(1);
+  const maxQuantity = getProductMaxQuantity({
+    ...product,
+    slug: product?.slug || "ovy-teen",
+  });
   const [adding, setAdding] = useState<boolean>(false);
+  const [showStickyBar, setShowStickyBar] = useState(false);
+  const mainButtonsRef = useRef<HTMLDivElement>(null);
   const [selectedImageIndex, setSelectedImageIndex] = useState<number>(0);
+
+  // Tap-to-Zoom & Swipe gesture states
+  const [isZoomOpen, setIsZoomOpen] = useState(false);
+  const touchStartXRef = useRef<number | null>(null);
+  const touchStartYRef = useRef<number | null>(null);
 
   // Reset gallery to the main photo when changing kits
   useEffect(() => {
     setSelectedImageIndex(0);
   }, [selectedKitKey]);
 
+  // Restore kit from URL query or hash on mount/reload
   useEffect(() => {
     if (typeof window === "undefined") return;
     const searchParams = new URLSearchParams(window.location.search);
@@ -258,6 +275,78 @@ export default function OvyTeenPageClient({
     } else if (kitParam === "STARTER" || hash.includes("starter")) {
       setSelectedKitKey("STARTER");
     }
+  }, []);
+
+  // Update kit and keep selection in URL query param for reload/sharing
+  const handleSelectKit = (key: string) => {
+    setSelectedKitKey(key);
+    setSelectedImageIndex(0);
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      params.set("kit", key.toLowerCase());
+      window.history.replaceState(null, "", `${window.location.pathname}?${params.toString()}`);
+    }
+  };
+
+  const handleHeroTouchStart = (e: React.TouchEvent) => {
+    touchStartXRef.current = e.touches[0].clientX;
+    touchStartYRef.current = e.touches[0].clientY;
+  };
+
+  const handleHeroTouchEnd = (e: React.TouchEvent, totalImages: number) => {
+    if (touchStartXRef.current === null || touchStartYRef.current === null) return;
+    const diffX = e.changedTouches[0].clientX - touchStartXRef.current;
+    const diffY = e.changedTouches[0].clientY - touchStartYRef.current;
+    if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 40) {
+      if (diffX < 0) {
+        setSelectedImageIndex((prev) => (prev < totalImages - 1 ? prev + 1 : 0));
+      } else {
+        setSelectedImageIndex((prev) => (prev > 0 ? prev - 1 : totalImages - 1));
+      }
+    }
+    touchStartXRef.current = null;
+    touchStartYRef.current = null;
+  };
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    let isMainIntersecting = false;
+
+    const updateStickyBar = () => {
+      // If the main buttons are visible anywhere on screen, HIDE sticky bar
+      if (isMainIntersecting) {
+        setShowStickyBar(false);
+        return;
+      }
+      if (mainButtonsRef.current) {
+        const rect = mainButtonsRef.current.getBoundingClientRect();
+        // Only show if user has scrolled down past the main buttons (bottom < 0)
+        setShowStickyBar(rect.bottom < 0);
+      }
+    };
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        isMainIntersecting = entry.isIntersecting;
+        updateStickyBar();
+      },
+      { threshold: 0 }
+    );
+
+    if (mainButtonsRef.current) {
+      observer.observe(mainButtonsRef.current);
+    }
+
+    window.addEventListener("scroll", updateStickyBar, { passive: true });
+    window.addEventListener("resize", updateStickyBar, { passive: true });
+    updateStickyBar();
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("scroll", updateStickyBar);
+      window.removeEventListener("resize", updateStickyBar);
+    };
   }, []);
 
   // Selected Variant Map for Routine Products Cards
@@ -724,19 +813,22 @@ export default function OvyTeenPageClient({
   }, []);
 
   // Handle Pincode Check
-  const handleCheckPincode = (e: React.FormEvent) => {
+  const [isCheckingPincode, setIsCheckingPincode] = useState(false);
+  const handleCheckPincode = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!pincode || pincode.trim().length < 6) {
-      setPincodeResult({
-        msg: "Please enter a valid 6-digit PIN code",
-        err: true,
-      });
-      return;
-    }
-    setPincodeResult({
-      msg: `Express Delivery Available to ${pincode}! Delivered in 3-5 business days. Free shipping on orders over ₹399.`,
-      err: false,
+    if (isCheckingPincode) return;
+    setIsCheckingPincode(true);
+    setPincodeResult(null);
+    const res = await checkPincodeServiceability({
+      pincode,
+      pickupPincode: product?.pickupPincode,
+      weight: product?.weightKg || 0.3,
     });
+    setPincodeResult({
+      msg: res.message,
+      err: !res.serviceable,
+    });
+    setIsCheckingPincode(false);
   };
 
   // Add To Cart logic preserving exact backend signature
@@ -745,17 +837,31 @@ export default function OvyTeenPageClient({
       toast.error("This item is currently out of stock.");
       return false;
     }
-    const variantId = currentVariant?.id || product?.productVariants?.[0]?.id;
-    const variantSku = currentVariant?.sku || `OVY-TEEN-${selectedKitKey}`;
+    const pId = product?.id || "dc95ed77-addc-4eae-a7a4-39a9b5275648";
+    const variantId =
+      currentVariant?.id ||
+      (selectedKitKey === "PRO"
+        ? "ef7f948f-5e06-4376-ae28-9df4f1d7cb66"
+        : selectedKitKey === "FIRST"
+          ? "423d6467-902b-4a48-b87e-6408b5545dbc"
+          : "1f11c053-1dc4-4b3e-bab9-9af7a2cd6e15");
+    const variantSku =
+      currentVariant?.sku ||
+      (selectedKitKey === "PRO"
+        ? "OVY-TEEN-PRO"
+        : selectedKitKey === "FIRST"
+          ? "OVY-TEEN-FPB"
+          : "OVY-TEEN-START");
 
     setAdding(true);
     try {
       const success = await addToCartAction({
-        productId: product?.id || "ovy-teen",
+        productId: pId,
         productVariantId: variantId,
         sku: variantSku,
         slug: product?.slug || "ovy-teen",
         title: `${product?.name || "Ovy Organic Soft Sanitary Pads — Teen"} (${activeKit.label})`,
+        variantName: activeKit.label,
         image: mediaList[0] || "/products/teen.jpg",
         price: unitPrice,
         quantity: quantity,
@@ -795,10 +901,40 @@ export default function OvyTeenPageClient({
       return;
     }
     if (selectedModeId === "once") {
-      const added = await handleAddToCart();
-      if (added) {
-        router.push("/checkout");
-      }
+      const pId = product?.id || "dc95ed77-addc-4eae-a7a4-39a9b5275648";
+      const variantId =
+        currentVariant?.id ||
+        (selectedKitKey === "PRO"
+          ? "ef7f948f-5e06-4376-ae28-9df4f1d7cb66"
+          : selectedKitKey === "FIRST"
+            ? "423d6467-902b-4a48-b87e-6408b5545dbc"
+            : "1f11c053-1dc4-4b3e-bab9-9af7a2cd6e15");
+      const variantSku =
+        currentVariant?.sku ||
+        (selectedKitKey === "PRO"
+          ? "OVY-TEEN-PRO"
+          : selectedKitKey === "FIRST"
+            ? "OVY-TEEN-FPB"
+            : "OVY-TEEN-START");
+      const directItem = {
+        productId: pId,
+        productVariantId: variantId,
+        sku: variantSku,
+        slug: product?.slug || "ovy-teen",
+        title: `${product?.name || "Ovy Organic Soft Sanitary Pads — Teen"} (${activeKit.label})`,
+        variantName: activeKit.label,
+        image: mediaList[0] || "/products/teen.jpg",
+        price: unitPrice,
+        quantity: quantity,
+        isQuantityChangable: true,
+        purchaseType: "one_time",
+        subscriptionType: null,
+      };
+      window.sessionStorage.setItem(
+        "potent-direct-checkout",
+        JSON.stringify(directItem),
+      );
+      router.push("/checkout?mode=direct");
       return;
     }
 
@@ -865,7 +1001,7 @@ export default function OvyTeenPageClient({
 
   const handleSelectQuizResult = () => {
     if (quizResultKit) {
-      setSelectedKitKey(quizResultKit);
+      handleSelectKit(quizResultKit);
       setQuizOpen(false);
       toast.success(`Selected ${KITS_DATA[quizResultKit].label}!`);
     }
@@ -981,7 +1117,7 @@ export default function OvyTeenPageClient({
             </div>
 
             <button
-              onClick={() => setSelectedKitKey("FIRST")}
+              onClick={() => handleSelectKit("FIRST")}
               className="hidden cursor-pointer items-center gap-1 rounded-full bg-[#9A5B90] px-3.5 py-1.5 text-xs font-bold text-white transition-all hover:bg-[#7E4D77] sm:inline-flex"
             >
               <Gift className="h-3.5 w-3.5" />
@@ -1001,7 +1137,7 @@ export default function OvyTeenPageClient({
               return (
                 <button
                   key={key}
-                  onClick={() => setSelectedKitKey(key)}
+                  onClick={() => handleSelectKit(key)}
                   className={`inline-flex cursor-pointer items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold transition-all sm:text-sm ${
                     isSelected
                       ? "bg-[#9A5B90] text-white shadow-sm"
@@ -1029,12 +1165,30 @@ export default function OvyTeenPageClient({
         <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-12 lg:gap-12">
           {/* Gallery Column */}
           <div className="lg:sticky lg:top-20 lg:col-span-6">
-            <div className="relative flex aspect-4/5 items-center justify-center overflow-hidden rounded-3xl border border-[#1A150F]/10 bg-[#FBF1FB] shadow-sm">
+            <div
+              onTouchStart={handleHeroTouchStart}
+              onTouchEnd={(e) => handleHeroTouchEnd(e, mediaList.length)}
+              className="relative flex aspect-4/5 items-center justify-center overflow-hidden rounded-3xl border border-[#1A150F]/10 bg-[#FBF1FB] shadow-sm group"
+            >
               {/* Badge */}
               <div className="absolute top-4 left-4 z-10 inline-flex items-center gap-1.5 rounded-full bg-white/90 px-3 py-1.5 text-xs font-semibold text-[#7E4D77] shadow-xs backdrop-blur-md">
                 <Sparkles className="h-3.5 w-3.5 text-[#9A5B90]" />
                 <span>{activeKit.badge}</span>
               </div>
+
+              {/* Top-Right Zoom Button */}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsZoomOpen(true);
+                }}
+                aria-label="Enlarge image"
+                title="Enlarge image"
+                className="absolute top-4 right-4 z-20 flex h-10 w-10 cursor-pointer items-center justify-center rounded-full bg-white/90 text-[#7E4D77] shadow-md backdrop-blur-xs transition-all hover:scale-105 hover:bg-white"
+              >
+                <ZoomIn className="h-5 w-5" />
+              </button>
 
               {/* Main Image Display */}
               {mediaList[selectedImageIndex] ? (
@@ -1193,7 +1347,7 @@ export default function OvyTeenPageClient({
                       <button
                         key={key}
                         type="button"
-                        onClick={() => setSelectedKitKey(key)}
+                        onClick={() => handleSelectKit(key)}
                         className={`border-1.5 relative cursor-pointer rounded-2xl p-2.5 text-left transition-all sm:p-3.5 ${
                           key === "FIRST"
                             ? "col-span-2 sm:col-span-1"
@@ -1575,15 +1729,21 @@ export default function OvyTeenPageClient({
 
                   {/* Quantity Selector & Pricing Total */}
                   <div className="mt-6 flex items-center justify-between gap-4 border-t border-[#1A150F]/10 pt-4">
-                    <span className="text-xs font-bold tracking-wider text-[#1A150F]/60 uppercase">
-                      Quantity
-                    </span>
+                    <div className="flex flex-col">
+                      <span className="text-xs font-bold tracking-wider text-[#1A150F]/60 uppercase">
+                        Quantity
+                      </span>
+                      <span className="text-[11px] font-medium text-[#9A5B90]">
+                        Maximum {maxQuantity} per order
+                      </span>
+                    </div>
                     <div className="flex items-center gap-3 rounded-full border border-[#1A150F]/10 bg-[#FAF9F5] px-3 py-1">
                       <button
                         onClick={() =>
                           setQuantity((prev) => Math.max(1, prev - 1))
                         }
-                        className="grid h-6 w-6 place-items-center rounded-full text-base font-bold text-[#1A150F]/70 hover:text-[#9A5B90]"
+                        disabled={quantity <= 1}
+                        className="grid h-6 w-6 place-items-center rounded-full text-base font-bold text-[#1A150F]/70 hover:text-[#9A5B90] disabled:opacity-30 cursor-pointer"
                       >
                         -
                       </button>
@@ -1591,10 +1751,15 @@ export default function OvyTeenPageClient({
                         {quantity}
                       </span>
                       <button
-                        onClick={() =>
-                          setQuantity((prev) => Math.min(6, prev + 1))
-                        }
-                        className="grid h-6 w-6 place-items-center rounded-full text-base font-bold text-[#1A150F]/70 hover:text-[#9A5B90]"
+                        onClick={() => {
+                          if (quantity >= maxQuantity) {
+                            toast.info(getMaxQuantityMessage(maxQuantity));
+                            return;
+                          }
+                          setQuantity((prev) => prev + 1);
+                        }}
+                        disabled={quantity >= maxQuantity}
+                        className="grid h-6 w-6 place-items-center rounded-full text-base font-bold text-[#1A150F]/70 hover:text-[#9A5B90] disabled:opacity-30 cursor-pointer"
                       >
                         +
                       </button>
@@ -1602,7 +1767,7 @@ export default function OvyTeenPageClient({
                   </div>
 
                   {/* Action Buttons */}
-                  <div className="mt-6">
+                  <div ref={mainButtonsRef} className="mt-6">
                     {isOutOfStock ? (
                       <button
                         type="button"
@@ -1611,7 +1776,7 @@ export default function OvyTeenPageClient({
                       >
                         Out of stock
                       </button>
-                    ) : (
+                    ) : selectedModeId === "once" ? (
                       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                         <button
                           onClick={handleAddToCart}
@@ -1631,6 +1796,15 @@ export default function OvyTeenPageClient({
                           <ArrowRight className="h-4 w-4" />
                         </button>
                       </div>
+                    ) : (
+                      <button
+                        onClick={handleBuyNow}
+                        disabled={adding}
+                        className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-[#141413] px-6 py-3.5 text-sm font-bold text-white shadow-md transition-all hover:bg-black active:scale-[0.98] disabled:opacity-50"
+                      >
+                        <span>Checkout Subscription</span>
+                        <ArrowRight className="h-4 w-4" />
+                      </button>
                     )}
                   </div>
                 </>
@@ -1668,9 +1842,10 @@ export default function OvyTeenPageClient({
                 />
                 <button
                   type="submit"
-                  className="rounded-xl bg-[#9A5B90] px-4 py-2 text-xs font-bold text-white transition-all hover:bg-[#7E4D77]"
+                  disabled={isCheckingPincode}
+                  className="rounded-xl bg-[#9A5B90] px-4 py-2 text-xs font-bold text-white transition-all hover:bg-[#7E4D77] disabled:opacity-60 cursor-pointer"
                 >
-                  Check
+                  {isCheckingPincode ? "Checking..." : "Check"}
                 </button>
               </form>
 
@@ -2120,7 +2295,7 @@ export default function OvyTeenPageClient({
             {/* Bottom CTA Button */}
             <button
               onClick={() => {
-                setSelectedKitKey("STARTER");
+                handleSelectKit("STARTER");
                 window.scrollTo({ top: 100, behavior: "smooth" });
               }}
               className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-[#9A5B90] px-6 py-3 text-xs font-bold text-white shadow-md transition-all hover:bg-[#7E4D77] sm:text-sm"
@@ -2307,6 +2482,7 @@ export default function OvyTeenPageClient({
                             title: activeVariant?.name
                               ? `${title} (${activeVariant.name})`
                               : title,
+                            variantName: activeVariant?.name,
                             image: image,
                             price: price,
                             quantity: 1,
@@ -2381,6 +2557,13 @@ export default function OvyTeenPageClient({
             />
           </section>
         )}
+
+        {/* FAQS SECTION (DYNAMIC FROM DB/ADMIN) */}
+        <ProductFaqSection
+          theme="ovy"
+          faqs={product?.productFaqRes}
+          content={content}
+        />
       </main>
 
       {/* Quiz Modal */}
@@ -2532,7 +2715,11 @@ export default function OvyTeenPageClient({
       )}
 
       {/* Mobile Sticky Buy Bar */}
-      <div className="fixed right-0 bottom-[56px] left-0 z-40 flex items-center justify-between gap-3 border-t border-[#1A150F]/10 bg-white/95 p-3 shadow-lg backdrop-blur-md lg:hidden">
+      <div
+        className={`fixed right-0 bottom-[56px] md:bottom-0 left-0 z-40 flex items-center justify-between gap-3 border-t border-[#1A150F]/10 bg-white/95 p-3 shadow-lg backdrop-blur-md transition-transform duration-300 lg:hidden ${
+          showStickyBar ? "translate-y-0 pointer-events-auto" : "translate-y-[115%] pointer-events-none"
+        }`}
+      >
         {activeKit.isComingSoon ? (
           <div className="flex w-full items-center justify-between">
             <div>
@@ -2559,6 +2746,11 @@ export default function OvyTeenPageClient({
               <b className="font-serif text-lg font-bold text-[#1A150F]">
                 ₹{totalPrice}
               </b>
+              {selectedModeId !== "once" && (
+                <span className="block text-[10px] font-semibold text-[#9A5B90]">
+                  {selectedModeId === "cyclesync" ? "Cycle Sync Delivery" : "Subscription Plan"}
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-2">
               {isOutOfStock ? (
@@ -2567,6 +2759,14 @@ export default function OvyTeenPageClient({
                   className="cursor-not-allowed rounded-full bg-gray-200 px-4 py-2 text-xs font-bold text-gray-500 shadow-none"
                 >
                   Out of stock
+                </button>
+              ) : selectedModeId !== "once" ? (
+                <button
+                  onClick={handleBuyNow}
+                  disabled={adding}
+                  className="cursor-pointer rounded-full bg-[#141413] px-4 py-2 text-xs font-bold text-white shadow-md transition-all hover:bg-black disabled:opacity-50"
+                >
+                  Checkout Subscription →
                 </button>
               ) : (
                 <>
@@ -2590,6 +2790,16 @@ export default function OvyTeenPageClient({
           </>
         )}
       </div>
+
+      {/* Tap-to-Zoom Lightbox Modal */}
+      <ImageZoomModal
+        isOpen={isZoomOpen}
+        onClose={() => setIsZoomOpen(false)}
+        images={mediaList}
+        currentIndex={selectedImageIndex}
+        onNavigate={(idx) => setSelectedImageIndex(idx)}
+        alt={activeKit.name}
+      />
     </div>
   );
 }

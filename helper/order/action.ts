@@ -463,14 +463,20 @@ export async function createPendingCheckoutOrder({
   address,
   userId,
   razorpayOrderId,
+  customItems,
 }: {
   userId: any;
   couponCode?: string;
   address: any;
   razorpayOrderId: string;
+  customItems?: any[];
 }) {
   try {
-    const pricing = await calculateCheckoutPricingForUser({ userId, couponCode });
+    const pricing = await calculateCheckoutPricingForUser({
+      userId,
+      couponCode,
+      customItems,
+    });
 
     if (!pricing.success || pricing.items.length === 0) {
       throw new Error(pricing.message ?? "Invalid checkout total");

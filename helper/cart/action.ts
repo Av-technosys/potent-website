@@ -13,6 +13,8 @@ import {
   normalizePadSize,
   type MixBoxSelection,
 } from "@/lib/mixYourBox";
+import { getProductMaxQuantity } from "@/lib/productQuantityLimits";
+import { isUUID } from "@/const/globalconst";
 
 export async function getCart() {
   try {
@@ -33,6 +35,7 @@ export async function getCart() {
         productVariantId: cartItem.productVariantId,
         quantity: cartItem.quantity,
         title: product.name,
+        variantName: productVariant.name,
         image: sql<string>`COALESCE(${productVariant.bannerImage}, ${product.bannerImage})`,
         price: sql<number>`COALESCE(${productVariant.price}, 0)`,
         originalPrice: productVariant.strikethroughPrice,
@@ -77,20 +80,52 @@ export async function addToCart(
       };
     }
 
+    let productRecord: any = null;
+    let actualProductId = productId;
+
+    if (isUUID(productId)) {
+      [productRecord] = await db
+        .select({
+          id: product.id,
+          slug: product.slug,
+          maxQuantityPurchase: product.maxQuantityPurchase,
+        })
+        .from(product)
+        .where(eq(product.id, productId))
+        .limit(1);
+    } else {
+      [productRecord] = await db
+        .select({
+          id: product.id,
+          slug: product.slug,
+          maxQuantityPurchase: product.maxQuantityPurchase,
+        })
+        .from(product)
+        .where(eq(product.slug, productId))
+        .limit(1);
+      if (productRecord) {
+        actualProductId = productRecord.id;
+      }
+    }
+
+    const validVariantId = productVariantId && isUUID(productVariantId) ? productVariantId : null;
     const variants = await db
       .select({
+        id: productVariant.id,
         price: productVariant.price,
         isInStock: productVariant.isInStock,
       })
       .from(productVariant)
       .where(
-        productVariantId
-          ? eq(productVariant.id, productVariantId)
-          : eq(productVariant.productId, productId)
+        validVariantId
+          ? eq(productVariant.id, validVariantId)
+          : isUUID(actualProductId)
+            ? eq(productVariant.productId, actualProductId)
+            : sql`TRUE`
       );
 
     const variantInfo = variants[0];
-    const isOutOfStock = productVariantId
+    const isOutOfStock = validVariantId
       ? variantInfo && variantInfo.isInStock === false
       : variants.length > 0 && variants.every((v) => v.isInStock === false);
 
@@ -101,6 +136,14 @@ export async function addToCart(
         message: "This item is currently out of stock.",
       };
     }
+
+    if (!isUUID(actualProductId)) {
+      // Non-UUID mock product; return success so optimistic cart works without database syntax error
+      return { success: true };
+    }
+
+    const resolvedVariantId = validVariantId || (variants[0]?.id && isUUID(variants[0].id) ? variants[0].id : null);
+    const maxLimit = getProductMaxQuantity(productRecord);
 
     const result = await db.transaction(async (tx) => {
       // Get or create cart
@@ -142,7 +185,14 @@ export async function addToCart(
 
         if (existingItem) {
           const currentQuantity = existingItem.quantity ?? 0;
-          const newQuantity = currentQuantity + quantity;
+          if (currentQuantity >= maxLimit) {
+            return {
+              success: false,
+              error: "MAX_QUANTITY_REACHED",
+              message: `Maximum ${maxLimit} per order allowed for this product.`,
+            };
+          }
+          const newQuantity = Math.min(maxLimit, currentQuantity + quantity);
           await tx
             .update(cartItem)
             .set({ quantity: newQuantity })
@@ -155,18 +205,19 @@ export async function addToCart(
           };
         } else {
           // Insert new item
+          const clampedQuantity = Math.min(maxLimit, quantity);
           await tx.insert(cartItem).values({
             id: uuidv4(),
             cartId: existingCart.id,
-            productId,
-            productVariantId: productVariantId || null,
-            quantity,
+            productId: actualProductId,
+            productVariantId: resolvedVariantId,
+            quantity: clampedQuantity,
           });
 
           return {
             success: true,
             action: "added",
-            quantity,
+            quantity: clampedQuantity,
           };
         }
       } else {
@@ -319,9 +370,22 @@ export async function updateCartItemQuantity(
             ),
           );
       } else {
+        const [productRecord] = await tx
+          .select({
+            id: product.id,
+            slug: product.slug,
+            maxQuantityPurchase: product.maxQuantityPurchase,
+          })
+          .from(product)
+          .where(eq(product.id, productId))
+          .limit(1);
+
+        const maxLimit = getProductMaxQuantity(productRecord);
+        const clampedQuantity = Math.min(maxLimit, quantity);
+
         await tx
           .update(cartItem)
-          .set({ quantity })
+          .set({ quantity: clampedQuantity })
           .where(
             and(
               eq(cartItem.cartId, userCart.id),

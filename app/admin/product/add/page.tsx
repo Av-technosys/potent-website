@@ -455,9 +455,10 @@ export default function AddProductForm() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Free Shipping Over</Label>
+                    <Label>Free Shipping Over (₹)</Label>
                     <Input
                       type="number"
+                      placeholder="399"
                       value={productDetails.freeShippingOver}
                       onChange={(e) =>
                         updateProductDetails(
@@ -466,6 +467,7 @@ export default function AddProductForm() {
                         )
                       }
                     />
+                    <p className="text-[11px] text-muted-foreground">Store standard: ₹399</p>
                   </div>
                 </div>
 

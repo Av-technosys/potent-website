@@ -15,16 +15,27 @@ export function CartInitializer({ initialItems }: CartInitializerProps) {
 
   useEffect(() => {
     if (initialized.current) return;
+    if (!initialItems || initialItems.length === 0) {
+      initialized.current = true;
+      return;
+    }
 
     const formattedItems = initialItems.map((item: any) => ({
       productId: item.productId,
+      productVariantId: item.productVariantId,
       sku: item.sku || '',
       slug: item.slug || '',
       title: item.title || 'Product',
+      variantName: item.variantName || '',
       image: item.image || '/product.png',
       price: item.price || 0,
       originalPrice: item.originalPrice,
       quantity: item.quantity ?? 0,
+      mixBoxRecipe: item.mixBoxRecipe,
+      totalPads: item.totalPads,
+      boxCount: item.boxCount,
+      freeLiners: item.freeLiners,
+      isQuantityChangable: !item.mixBoxRecipe,
       addedAt: Date.now(),
     }));
 

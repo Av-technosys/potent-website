@@ -39,6 +39,7 @@ import {
   Info,
   BookOpen,
   Layers,
+  ZoomIn,
 } from "lucide-react";
 import { toast } from "sonner";
 import { addToCart as addToCartAction } from "@/store/cartActions";
@@ -48,6 +49,9 @@ import {
   getPdpSubscriptionPlans,
 } from "@/lib/pdpSubscriptionRules";
 import { useRouter } from "next/navigation";
+import ProductFaqSection from "./ProductFaqSection";
+import ImageZoomModal from "./ImageZoomModal";
+import { checkPincodeServiceability } from "@/lib/checkPincodeServiceability";
 
 type Props = {
   product: any;
@@ -86,6 +90,7 @@ export default function SeatCoversPageClient({ product, content }: Props) {
   const router = useRouter();
   const [selectedModeId, setSelectedModeId] = useState<string>("once");
   const [quantity, setQuantity] = useState<number>(1);
+  const maxQuantity = Number(product?.maxQuantityPurchase) || 6;
   const [activeStopIndex, setActiveStopIndex] = useState<number>(0);
   const [activeReviewFilter, setActiveReviewFilter] = useState<string>("all");
   const [activeNavId, setActiveNavId] = useState<string>("pdp-hero");
@@ -199,6 +204,41 @@ export default function SeatCoversPageClient({ product, content }: Props) {
     () => packKeys[1] || packKeys[0] || "p4",
   );
 
+  // Restore pack choice from URL query parameter or hash on mount/reload
+  useEffect(() => {
+    if (typeof window === "undefined" || packKeys.length === 0) return;
+    const params = new URLSearchParams(window.location.search);
+    const packParam = params.get("pack")?.toLowerCase();
+    const hash = window.location.hash.toLowerCase().replace("#", "");
+    const target = packParam || hash;
+
+    if (target) {
+      if (packs[target]) {
+        setSelectedPackId(target);
+      } else {
+        const foundKey = Object.keys(packs).find((k) => {
+          const p = packs[k];
+          const name = (p.name || "").toLowerCase();
+          return (
+            (target.includes("2") || target.includes("50")) && (name.includes("2") || name.includes("50")) ||
+            (target.includes("4") || target.includes("100")) && (name.includes("4") || name.includes("100"))
+          );
+        });
+        if (foundKey) setSelectedPackId(foundKey);
+      }
+    }
+  }, [packs, packKeys]);
+
+  const handleSelectPack = (packId: string) => {
+    setSelectedPackId(packId);
+    setSelectedImageIndex(0);
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      params.set("pack", packId);
+      window.history.replaceState(null, "", `${window.location.pathname}?${params.toString()}`);
+    }
+  };
+
   useEffect(() => {
     if (!packs[selectedPackId] && packKeys.length > 0) {
       setSelectedPackId(packKeys[0]);
@@ -231,18 +271,46 @@ export default function SeatCoversPageClient({ product, content }: Props) {
         : product?.isInStock === false || product?.is_in_stock === false,
   );
 
-  // Images list
+  // Images list with pack matching
   const mediaList = useMemo(() => {
     const images: string[] = [];
+    if (selectedPack?.image) images.push(getImageUrl(selectedPack.image));
     if (product?.bannerImage) images.push(getImageUrl(product.bannerImage));
     if (product?.productVariants) {
       product.productVariants.forEach((v: any) => {
         if (v.bannerImage) images.push(getImageUrl(v.bannerImage));
       });
     }
-    if (images.length === 0) images.push("/product.png");
-    return Array.from(new Set(images));
-  }, [product]);
+    images.push("/products/seatcovers.jpg");
+    images.push("/looway/lw-howto-seat.jpg");
+    images.push("/looway/scen-seat.jpg");
+    return Array.from(new Set(images.filter(Boolean)));
+  }, [product, selectedPack]);
+
+  // Tap-to-Zoom & Swipe gesture states
+  const [isZoomOpen, setIsZoomOpen] = useState(false);
+  const touchStartXRef = useRef<number | null>(null);
+  const touchStartYRef = useRef<number | null>(null);
+
+  const handleHeroTouchStart = (e: React.TouchEvent) => {
+    touchStartXRef.current = e.touches[0].clientX;
+    touchStartYRef.current = e.touches[0].clientY;
+  };
+
+  const handleHeroTouchEnd = (e: React.TouchEvent, totalImages: number) => {
+    if (touchStartXRef.current === null || touchStartYRef.current === null) return;
+    const diffX = e.changedTouches[0].clientX - touchStartXRef.current;
+    const diffY = e.changedTouches[0].clientY - touchStartYRef.current;
+    if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 40) {
+      if (diffX < 0) {
+        setSelectedImageIndex((prev) => (prev < totalImages - 1 ? prev + 1 : 0));
+      } else {
+        setSelectedImageIndex((prev) => (prev > 0 ? prev - 1 : totalImages - 1));
+      }
+    }
+    touchStartXRef.current = null;
+    touchStartYRef.current = null;
+  };
 
   // Scroll to top on mount
   useEffect(() => {
@@ -290,14 +358,28 @@ export default function SeatCoversPageClient({ product, content }: Props) {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  // Close modals on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (activeStory) setActiveStory(null);
+        if (howToUseModalOpen) setHowToUseModalOpen(false);
+        if (specsModalOpen) setSpecsModalOpen(false);
+        if (safetyModalOpen) setSafetyModalOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [activeStory, howToUseModalOpen, specsModalOpen, safetyModalOpen]);
+
   // Filtered reviews logic
   const filteredReviews = useMemo(() => {
     const reviews = content?.REVIEWS || [];
     if (activeReviewFilter === "all") return reviews;
-    if (activeReviewFilter === "5star")
-      return reviews.filter((r: any) => r.stars === 5);
-    if (activeReviewFilter === "4star")
-      return reviews.filter((r: any) => r.stars === 4);
+    if (activeReviewFilter.endsWith("star")) {
+      const star = parseInt(activeReviewFilter, 10);
+      return reviews.filter((r: any) => Number(r.stars) === star);
+    }
     if (activeReviewFilter === "travel")
       return reviews.filter(
         (r: any) =>
@@ -356,6 +438,7 @@ export default function SeatCoversPageClient({ product, content }: Props) {
           "LOOWAY-SEAT-01",
         slug: product?.slug || "looway-toilet-seat-covers",
         title: `${product?.name || "Looway Disposable Toilet Seat Covers"} (${selectedPack.name})`,
+        variantName: selectedPack.name,
         image: mediaList[0] || "/product.png",
         price: unitPrice,
         quantity: quantity,
@@ -421,19 +504,68 @@ export default function SeatCoversPageClient({ product, content }: Props) {
     router.push("/checkout?mode=subscription");
   };
 
-  // Pincode validation
-  const checkPincode = () => {
-    if (!pincode || pincode.trim().length !== 6 || isNaN(Number(pincode))) {
-      setPincodeResult({
-        msg: "Please enter a valid 6-digit Indian PIN code",
-        err: true,
-      });
+  const handleBuyNow = async () => {
+    if (isOutOfStock) {
+      toast.error("This item is currently out of stock.");
       return;
     }
-    setPincodeResult({
-      msg: `Delivery available for ${pincode}! Expected delivery in 3-5 business days with Free Shipping over ₹399.`,
-      err: false,
+
+    if (selectedModeId !== "once") {
+      await handlePrimaryAction();
+      return;
+    }
+
+    const variantId =
+      selectedPack?.variantId ||
+      product?.productVariants?.find(
+        (v: any) =>
+          v.name?.toLowerCase().includes(selectedPack.name.toLowerCase()) ||
+          v.name?.includes(String(selectedPack.covers)),
+      )?.id ||
+      product?.productVariants?.[0]?.id;
+
+    const directItem = {
+      productId: product?.id,
+      productVariantId: variantId,
+      sku:
+        selectedPack.sku ||
+        product?.productVariants?.[0]?.sku ||
+        "LOOWAY-SEAT-01",
+      slug: product?.slug || "looway-toilet-seat-covers",
+      title: `${product?.name || "Looway Disposable Toilet Seat Covers"} (${selectedPack.name})`,
+      variantName: selectedPack.name,
+      image: mediaList[0] || "/product.png",
+      price: unitPrice,
+      quantity: quantity,
+      isQuantityChangable: true,
+      purchaseType: "one_time",
+      subscriptionType: null,
+      isSubscribed: false,
+    };
+
+    window.sessionStorage.setItem(
+      "potent-direct-checkout",
+      JSON.stringify(directItem),
+    );
+    router.push("/checkout?mode=direct");
+  };
+
+  // Pincode validation
+  const [isCheckingPincode, setIsCheckingPincode] = useState(false);
+  const checkPincode = async () => {
+    if (isCheckingPincode) return;
+    setIsCheckingPincode(true);
+    setPincodeResult(null);
+    const res = await checkPincodeServiceability({
+      pincode,
+      pickupPincode: product?.pickupPincode,
+      weight: product?.weightKg || 0.3,
     });
+    setPincodeResult({
+      msg: res.message,
+      err: !res.serviceable,
+    });
+    setIsCheckingPincode(false);
   };
 
   return (
@@ -450,7 +582,11 @@ export default function SeatCoversPageClient({ product, content }: Props) {
           <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-12 lg:gap-12">
             {/* Left Column: Image Gallery */}
             <div className="static lg:sticky lg:top-24 lg:col-span-6">
-              <div className="group relative aspect-square w-full overflow-hidden rounded-3xl border border-[#D3E4EF] bg-white shadow-md">
+              <div
+                onTouchStart={handleHeroTouchStart}
+                onTouchEnd={(e) => handleHeroTouchEnd(e, mediaList.length)}
+                className="group relative aspect-square w-full overflow-hidden rounded-3xl border border-[#D3E4EF] bg-white shadow-md"
+              >
                 <Image
                   src={mediaList[selectedImageIndex] || mediaList[0]}
                   alt="Looway Toilet Seat Covers"
@@ -469,6 +605,20 @@ export default function SeatCoversPageClient({ product, content }: Props) {
                     <Sparkles className="h-3.5 w-3.5" /> Best Seller
                   </span>
                 </div>
+
+                {/* Top-Right Zoom Button */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsZoomOpen(true);
+                  }}
+                  aria-label="Enlarge image"
+                  title="Enlarge image"
+                  className="absolute top-4 right-4 z-20 flex h-10 w-10 cursor-pointer items-center justify-center rounded-full bg-white/90 text-[#0F6DA6] shadow-md backdrop-blur-xs transition-all hover:scale-105 hover:bg-white"
+                >
+                  <ZoomIn className="h-5 w-5" />
+                </button>
 
                 {/* Gallery Nav Arrows */}
                 {mediaList.length > 1 && (
@@ -590,7 +740,7 @@ export default function SeatCoversPageClient({ product, content }: Props) {
                     return (
                       <button
                         key={pack.id}
-                        onClick={() => setSelectedPackId(pack.id)}
+                        onClick={() => handleSelectPack(pack.id)}
                         className={`relative flex cursor-pointer flex-col justify-between rounded-2xl border-2 p-4 text-left transition-all ${
                           isSelected
                             ? "border-[#0F6DA6] bg-[#EAF6FD] shadow-md"
@@ -717,13 +867,20 @@ export default function SeatCoversPageClient({ product, content }: Props) {
 
                 {/* Quantity Stepper */}
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold tracking-wider text-[#083B5C] uppercase">
-                    Quantity
-                  </span>
+                  <div className="flex flex-col">
+                    <span className="text-xs font-bold tracking-wider text-[#083B5C] uppercase">
+                      Quantity
+                    </span>
+                    <span className="text-[11px] font-medium text-gray-500">
+                      Maximum {maxQuantity} per order
+                    </span>
+                  </div>
                   <div className="flex items-center overflow-hidden rounded-xl border border-[#0F6DA6]/30 bg-[#F5FAFD]">
                     <button
+                      type="button"
                       onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                      className="cursor-pointer px-3.5 py-1.5 text-sm font-bold text-[#0F6DA6] transition-colors hover:bg-[#0F6DA6] hover:text-white"
+                      disabled={quantity <= 1}
+                      className="cursor-pointer px-3.5 py-1.5 text-sm font-bold text-[#0F6DA6] transition-colors hover:bg-[#0F6DA6] hover:text-white disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-[#0F6DA6]"
                     >
                       -
                     </button>
@@ -731,15 +888,24 @@ export default function SeatCoversPageClient({ product, content }: Props) {
                       {quantity}
                     </span>
                     <button
-                      onClick={() => setQuantity((q) => q + 1)}
-                      className="cursor-pointer px-3.5 py-1.5 text-sm font-bold text-[#0F6DA6] transition-colors hover:bg-[#0F6DA6] hover:text-white"
+                      type="button"
+                      onClick={() => {
+                        if (quantity >= maxQuantity) {
+                          toast.info(`Maximum ${maxQuantity} per order`);
+                          return;
+                        }
+                        setQuantity((q) => q + 1);
+                      }}
+                      className={`cursor-pointer px-3.5 py-1.5 text-sm font-bold text-[#0F6DA6] transition-colors hover:bg-[#0F6DA6] hover:text-white ${
+                        quantity >= maxQuantity ? "opacity-30" : ""
+                      }`}
                     >
                       +
                     </button>
                   </div>
                 </div>
 
-                {/* Add to Cart CTA */}
+                {/* Add to Cart / Buy Now CTA */}
                 {isOutOfStock ? (
                   <button
                     type="button"
@@ -748,18 +914,36 @@ export default function SeatCoversPageClient({ product, content }: Props) {
                   >
                     Out of stock
                   </button>
+                ) : selectedModeId === "once" ? (
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <button
+                      type="button"
+                      onClick={handleAddToCart}
+                      disabled={adding}
+                      className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-2xl bg-[#0F6DA6] py-4 text-base font-bold text-white shadow-md transition-all hover:bg-[#0B4E78] disabled:opacity-50"
+                    >
+                      <ShoppingBag className="h-5 w-5" />
+                      {adding ? "Adding..." : "Add to Cart"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleBuyNow}
+                      disabled={adding}
+                      className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-2xl bg-[#083B5C] py-4 text-base font-bold text-white shadow-md transition-all hover:bg-[#062c45] active:scale-[0.98] disabled:opacity-50"
+                    >
+                      <span>Buy Now</span>
+                      <ArrowRight className="h-5 w-5" />
+                    </button>
+                  </div>
                 ) : (
                   <button
+                    type="button"
                     onClick={handlePrimaryAction}
                     disabled={adding}
                     className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-2xl bg-[#0F6DA6] py-4 text-base font-bold text-white shadow-md transition-all hover:bg-[#0B4E78] disabled:opacity-50"
                   >
                     <ShoppingBag className="h-5 w-5" />
-                    {adding
-                      ? "Adding to Cart..."
-                      : selectedModeId === "once"
-                        ? "Add to Cart"
-                        : "Subscribe & Checkout"}
+                    {adding ? "Processing..." : "Subscribe & Checkout"}
                   </button>
                 )}
               </div>
@@ -840,9 +1024,10 @@ export default function SeatCoversPageClient({ product, content }: Props) {
                   />
                   <button
                     onClick={checkPincode}
-                    className="cursor-pointer rounded-xl bg-[#083B5C] px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-[#0F6DA6]"
+                    disabled={isCheckingPincode}
+                    className="cursor-pointer rounded-xl bg-[#083B5C] px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-[#0F6DA6] disabled:opacity-60"
                   >
-                    Check
+                    {isCheckingPincode ? "Checking..." : "Check"}
                   </button>
                 </div>
                 {pincodeResult && (
@@ -1127,7 +1312,7 @@ export default function SeatCoversPageClient({ product, content }: Props) {
                 { label: "How do I use it?", storyId: "use" },
                 { label: "Do I flush or bin it?", storyId: "practice" },
                 { label: "Which seats does it fit?", storyId: "toilets" },
-                { label: "Do these really stop germs?", storyId: "yatra" },
+                { label: "Do these really stop germs?", storyId: "clean" },
               ].map((pill) => (
                 <button
                   key={pill.label}
@@ -1186,16 +1371,17 @@ export default function SeatCoversPageClient({ product, content }: Props) {
           {/* Circular Story Bubbles Row */}
           <div className="no-scrollbar mb-8 flex gap-4 overflow-x-auto pb-4">
             {[
+              { id: "use", name: "How to use" },
               { id: "seal", name: "Will it fall in?" },
               { id: "practice", name: "Flush or bin?" },
               { id: "toilets", name: "Which seats?" },
               { id: "yatra", name: "Who needs it" },
               { id: "outdoors", name: "Events & trips" },
               { id: "pregnancy", name: "Pregnancy" },
-              { id: "yatra", name: "Sore knees" },
-              { id: "use", name: "Why Looway" },
-              { id: "yatra", name: "Germs, honestly" },
-              { id: "use", name: "Quick & easy" },
+              { id: "mobility", name: "Sore knees" },
+              { id: "why", name: "Why Looway" },
+              { id: "clean", name: "Germs, honestly" },
+              { id: "discreet", name: "Quick & easy" },
             ].map((bubble, idx) => (
               <button
                 key={bubble.name + idx}
@@ -1359,12 +1545,12 @@ export default function SeatCoversPageClient({ product, content }: Props) {
                   {
                     title: "Seniors & sore knees",
                     sub: "Independence, restored",
-                    id: "yatra",
+                    id: "mobility",
                   },
                   {
                     title: "Why a seat cover?",
                     sub: "What makes it worth it",
-                    id: "use",
+                    id: "why",
                   },
                 ].map((item) => (
                   <button
@@ -1409,12 +1595,12 @@ export default function SeatCoversPageClient({ product, content }: Props) {
                   {
                     title: "Germs & seats, honestly",
                     sub: "What a cover really does",
-                    id: "yatra",
+                    id: "clean",
                   },
                   {
                     title: "Quick, one-handed & easy",
                     sub: "Easier than you think",
-                    id: "use",
+                    id: "discreet",
                   },
                 ].map((item) => (
                   <button
@@ -1473,7 +1659,7 @@ export default function SeatCoversPageClient({ product, content }: Props) {
                   </div>
                   <div>
                     <h4 className="text-base font-bold text-white">
-                      100 disposable covers
+                      {selectedPack?.covers || 100} disposable covers
                     </h4>
                     <p className="mt-0.5 text-xs text-white/80">
                       Biodegradable, water-resistant paper
@@ -1487,7 +1673,11 @@ export default function SeatCoversPageClient({ product, content }: Props) {
                   </div>
                   <div>
                     <h4 className="text-base font-bold text-white">
-                      2 resealable boxes
+                      {selectedPack?.boxes || (selectedPack?.covers === 50 ? 2 : 4)}{" "}
+                      resealable{" "}
+                      {(selectedPack?.boxes || (selectedPack?.covers === 50 ? 2 : 4)) === 1
+                        ? "box"
+                        : "boxes"}
                     </h4>
                     <p className="mt-0.5 text-xs text-white/80">
                       Slim boxes keep covers flat, dry & pocket-ready
@@ -2094,9 +2284,21 @@ export default function SeatCoversPageClient({ product, content }: Props) {
         </div>
       </section>
 
+      {/* FAQS SECTION (DYNAMIC FROM DB/ADMIN) */}
+      <ProductFaqSection
+        theme="looway-blue"
+        faqs={product?.productFaqRes}
+        content={content}
+      />
+
       {/* Story Viewer Modal Popup */}
       {activeStory && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 backdrop-blur-md">
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setActiveStory(null);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 backdrop-blur-md"
+        >
           <div className="relative flex min-h-[480px] w-full max-w-md flex-col justify-between overflow-hidden rounded-3xl bg-[#083B5C] p-6 text-white shadow-2xl">
             <div>
               <div className="mb-4 flex gap-1.5">
@@ -2376,6 +2578,7 @@ export default function SeatCoversPageClient({ product, content }: Props) {
           { id: "pack-specs", label: "Specs" },
           { id: "use-it-safely", label: "Safety" },
           { id: "reviews", label: "Reviews" },
+          { id: "faq", label: "FAQs" },
         ].map((item) => {
           const isActive = activeNavId === item.id;
           return (
@@ -2398,6 +2601,16 @@ export default function SeatCoversPageClient({ product, content }: Props) {
           );
         })}
       </div>
+
+      {/* Tap-to-Zoom Lightbox Modal */}
+      <ImageZoomModal
+        isOpen={isZoomOpen}
+        onClose={() => setIsZoomOpen(false)}
+        images={mediaList}
+        currentIndex={selectedImageIndex}
+        onNavigate={(idx) => setSelectedImageIndex(idx)}
+        alt="Looway Toilet Seat Covers"
+      />
     </main>
   );
 }

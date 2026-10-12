@@ -4,13 +4,24 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import type { CartItem } from "./cartTypes";
 import { getMixBoxCartKey } from "@/lib/mixYourBox";
+import { getProductMaxQuantity } from "@/lib/productQuantityLimits";
 
 type CartState = {
   items: CartItem[];
 
   addItem: (item: Omit<CartItem, "addedAt">) => void;
-  removeItem: (productId: string, sku?: string, uuid?: any) => void;
-  updateQuantity: (productId: string, quantity: number, sku?: string) => void;
+  removeItem: (
+    productId: string,
+    sku?: string,
+    uuid?: any,
+    productVariantId?: string,
+  ) => void;
+  updateQuantity: (
+    productId: string,
+    quantity: number,
+    sku?: string,
+    productVariantId?: string,
+  ) => void;
   clearCart: () => void;
   setCart: (items: CartItem[]) => void;
 
@@ -23,6 +34,7 @@ type CartState = {
 
 const getItemKey = (item: {
   productId: string;
+  productVariantId?: string;
   sku?: string;
   uuid?: string;
   mixBoxRecipe?: CartItem["mixBoxRecipe"];
@@ -38,7 +50,7 @@ const getItemKey = (item: {
     });
   }
 
-  return `${item.productId}-${item.sku || "default"}-${item.uuid || "no-uuid"}`;
+  return `${item.productId}-${item.productVariantId || item.sku || "default"}-${item.uuid || "no-uuid"}`;
 };
 
 export const useCartStore = create<CartState>()(
@@ -55,29 +67,38 @@ export const useCartStore = create<CartState>()(
           );
 
           if (existing && item.isQuantityChangable == true) {
+            const maxQty = getProductMaxQuantity(existing);
+            const targetQty = Math.min(maxQty, existing.quantity + (item.quantity || 1));
             return {
               items: state.items.map((i:any) =>
                 getItemKey(i) === getItemKey(item)
-                  ? { ...i, quantity: i.quantity + (item.quantity || 1) }
+                  ? { ...i, quantity: targetQty }
                   : i
               ),
             };
           }
 
           if (existing && item.mixBoxRecipe) {
+            const maxQty = getProductMaxQuantity(existing);
+            const targetQty = Math.min(maxQty, existing.quantity + 1);
             return {
               items: state.items.map((i:any) =>
                 getItemKey(i) === getItemKey(item)
-                  ? { ...i, quantity: i.quantity + 1 }
+                  ? { ...i, quantity: targetQty }
                   : i
               ),
             };
           }
 
+          const maxQty = getProductMaxQuantity(item);
           return {
             items: [
               ...state.items,
-              { ...item, quantity: item.quantity || 1, addedAt: Date.now() },
+              {
+                ...item,
+                quantity: Math.min(maxQty, item.quantity || 1),
+                addedAt: Date.now(),
+              },
             ],
           };
         }),
@@ -91,31 +112,47 @@ export const useCartStore = create<CartState>()(
       //     ),
       //   })),
 
-      removeItem: (productId, sku, uuid) =>
-  set((state) => ({
-    items: state.items.filter((i) => {
-      // ✅ Case 1: uuid exists → strict match
-      if (uuid) {
-        return !(i.uuid === uuid);
-      }
+      removeItem: (productId, sku, uuid, productVariantId) =>
+        set((state) => ({
+          items: state.items.filter((i) => {
+            // ✅ Case 1: uuid exists → strict match
+            if (uuid) {
+              return !(i.uuid === uuid);
+            }
 
-      // ✅ Case 2: fallback → productId + sku match
-      return !(
-        i.productId === productId &&
-        (sku ? i.sku === sku : true)
-      );
-    }),
-  })),
+            // ✅ Case 2: productVariantId exists → match by product + variant
+            if (productVariantId || i.productVariantId) {
+              return !(
+                i.productId === productId &&
+                i.productVariantId === productVariantId
+              );
+            }
 
-      updateQuantity: (productId, quantity, sku) =>
+            // ✅ Case 3: fallback → productId + sku match
+            return !(
+              i.productId === productId &&
+              (sku ? i.sku === sku : true)
+            );
+          }),
+        })),
+
+      updateQuantity: (productId, quantity, sku, productVariantId) =>
         set((state) => ({
           items: state.items
-            .map((i) =>
-              getItemKey(i) ===
-              getItemKey({ productId, sku })
-                ? { ...i, quantity }
-                : i
-            )
+            .map((i) => {
+              const isMatch =
+                i.productId === productId &&
+                (productVariantId
+                  ? i.productVariantId === productVariantId
+                  : sku
+                    ? i.sku === sku
+                    : true);
+              if (isMatch) {
+                const maxQty = getProductMaxQuantity(i);
+                return { ...i, quantity: Math.min(maxQty, quantity) };
+              }
+              return i;
+            })
             .filter((i) => i.quantity > 0),
         })),
 

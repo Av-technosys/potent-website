@@ -6,6 +6,8 @@ import React, { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "@/helper";
 import { toast } from "sonner";
+import { syncCartFromDB } from "@/store/cartActions";
+import { syncWishlistFromDB } from "@/store/WishlistActions";
 
 const Page = () => {
   const router = useRouter();
@@ -67,6 +69,12 @@ const Page = () => {
         email: formData.email,
         password: formData.password,
       });
+
+      try {
+        await Promise.all([syncWishlistFromDB(), syncCartFromDB()]);
+      } catch (syncErr) {
+        console.error("Post-login sync error:", syncErr);
+      }
 
       toast.success("Login successful 🎉");
       router.push(searchParams.get("redirect") || "/dashboard");
@@ -213,7 +221,10 @@ const Page = () => {
 
           <p className="mt-4 mb-6 text-center text-xs">
             Don’t have an account?{" "}
-            <Link href="/signup" className="cursor-pointer underline">
+            <Link
+              href={searchParams.get("redirect") ? `/signup?redirect=${encodeURIComponent(searchParams.get("redirect")!)}` : "/signup"}
+              className="cursor-pointer underline"
+            >
               Register
             </Link>
           </p>

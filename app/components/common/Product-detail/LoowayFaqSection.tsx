@@ -179,15 +179,125 @@ const FAQ_DATA: { left: FaqGroup[]; right: FaqGroup[] } = {
   ],
 };
 
-export default function LoowayFaqSection() {
+function buildFaqGroups(
+  dbFaqs?: Array<{ question?: string; answer?: string; q?: string; a?: string; priority?: number }>,
+  contentGroups?: Array<[string, Array<[string, string]>]>,
+): { left: FaqGroup[]; right: FaqGroup[] } {
+  if (!dbFaqs || dbFaqs.length === 0) {
+    if (contentGroups && contentGroups.length > 0) {
+      const all: FaqGroup[] = contentGroups.map(([title, items]) => ({
+        title: title.toUpperCase(),
+        items: items.map(([q, a]) => ({ q, a })),
+      }));
+      const left: FaqGroup[] = [];
+      const right: FaqGroup[] = [];
+      all.forEach((g, idx) => {
+        if (idx % 2 === 0) left.push(g);
+        else right.push(g);
+      });
+      return { left, right };
+    }
+    return FAQ_DATA;
+  }
+
+  const templateGroups: Array<{ title: string; originalQuestions: string[] }> =
+    contentGroups && contentGroups.length > 0
+      ? contentGroups.map(([title, items]) => ({
+          title: title.toUpperCase(),
+          originalQuestions: items.map(([q]) => q.trim().toLowerCase()),
+        }))
+      : [...FAQ_DATA.left, ...FAQ_DATA.right].map((g) => ({
+          title: g.title,
+          originalQuestions: g.items.map((item) => item.q.trim().toLowerCase()),
+        }));
+
+  const populatedGroups: FaqGroup[] = templateGroups.map((tg) => ({
+    title: tg.title,
+    items: [],
+  }));
+
+  const qToGroup = new Map<string, number>();
+  templateGroups.forEach((tg, gIdx) => {
+    tg.originalQuestions.forEach((q) => {
+      qToGroup.set(q, gIdx);
+    });
+  });
+
+  const unassigned: FaqItem[] = [];
+
+  let cumulativeCount = 0;
+  const groupRanges = templateGroups.map((tg) => {
+    const start = cumulativeCount;
+    cumulativeCount += tg.originalQuestions.length;
+    return { start, end: cumulativeCount };
+  });
+
+  dbFaqs.forEach((item, idx) => {
+    const qText = (item.question || item.q || "").trim();
+    const aText = item.answer || item.a || "";
+    if (!qText) return;
+
+    const matchedIdx = qToGroup.get(qText.toLowerCase());
+    if (matchedIdx !== undefined) {
+      populatedGroups[matchedIdx].items.push({ q: qText, a: aText });
+    } else {
+      const priority = item.priority ?? idx;
+      const rangeIdx = groupRanges.findIndex(
+        (r) => priority >= r.start && priority < r.end,
+      );
+      if (rangeIdx !== -1) {
+        populatedGroups[rangeIdx].items.push({ q: qText, a: aText });
+      } else {
+        unassigned.push({ q: qText, a: aText });
+      }
+    }
+  });
+
+  const activeGroups = populatedGroups.filter((g) => g.items.length > 0);
+  if (unassigned.length > 0) {
+    activeGroups.push({
+      title: "MORE QUESTIONS",
+      items: unassigned,
+    });
+  }
+
+  if (activeGroups.length === 0) {
+    return FAQ_DATA;
+  }
+
+  const left: FaqGroup[] = [];
+  const right: FaqGroup[] = [];
+
+  activeGroups.forEach((group, idx) => {
+    if (idx % 2 === 0) {
+      left.push(group);
+    } else {
+      right.push(group);
+    }
+  });
+
+  return { left, right };
+}
+
+export default function LoowayFaqSection({
+  faqs,
+  content,
+}: {
+  faqs?: Array<{ question?: string; answer?: string; q?: string; a?: string; priority?: number }>;
+  content?: any;
+} = {}) {
   const [openKey, setOpenKey] = useState<string | null>(null);
   const [activeCategory, setActiveCategory] = useState<string>("all");
+
+  const faqData = React.useMemo(() => {
+    return buildFaqGroups(faqs, content?.FAQ_GROUPS);
+  }, [faqs, content]);
 
   const toggleItem = (key: string) => {
     setOpenKey((prev) => (prev === key ? null : key));
   };
 
-  const allGroups = [...FAQ_DATA.left, ...FAQ_DATA.right];
+  const allGroups = [...faqData.left, ...faqData.right];
 
   const categories = [
     { id: "all", label: "All questions" },
@@ -287,12 +397,12 @@ export default function LoowayFaqSection() {
         <div className="hidden grid-cols-2 items-start gap-x-8 gap-y-4 lg:grid">
           {/* Left Column */}
           <div>
-            {FAQ_DATA.left.map((group, idx) => renderGroup(group, idx, "left"))}
+            {faqData.left.map((group, idx) => renderGroup(group, idx, "left"))}
           </div>
 
           {/* Right Column */}
           <div>
-            {FAQ_DATA.right.map((group, idx) =>
+            {faqData.right.map((group, idx) =>
               renderGroup(group, idx, "right"),
             )}
           </div>

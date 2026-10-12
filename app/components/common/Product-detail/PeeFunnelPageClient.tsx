@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -36,15 +36,19 @@ import {
   Package,
   Droplets,
   Baby,
+  ZoomIn,
 } from "lucide-react";
 import { toast } from "sonner";
 import { addToCart as addToCartAction } from "@/store/cartActions";
+import { getProductMaxQuantity, getMaxQuantityMessage } from "@/lib/productQuantityLimits";
 import { getImageUrl } from "@/lib/imageUrl";
 import { useWishlistStore } from "@/store/WishlistStore";
 import {
   addToWishlist as addToWishlistAction,
   removeFromWishlist as removeFromWishlistAction,
 } from "@/store/WishlistActions";
+import { useCartStore } from "@/store/cartStore";
+import { FREE_SHIPPING_THRESHOLD } from "@/lib/shippingConfig";
 
 // Import 10 Funnel section components
 import FunnelNoToiletSection from "./FunnelNoToiletSection";
@@ -52,12 +56,14 @@ import FunnelHowItWorksSection from "./FunnelHowItWorksSection";
 import FunnelGuideSection from "./FunnelGuideSection";
 import FunnelWhereToUseSection from "./FunnelWhereToUseSection";
 import FunnelWhoItsForSection from "./FunnelWhoItsForSection";
+import ImageZoomModal from "./ImageZoomModal";
 import FunnelPackAndSpecsSection from "./FunnelPackAndSpecsSection";
 import FunnelUseItSafelySection from "./FunnelUseItSafelySection";
 import FunnelMarketComparisonSection from "./FunnelMarketComparisonSection";
 import FunnelReviewsSection from "./FunnelReviewsSection";
 import FunnelFaqSection from "./FunnelFaqSection";
 import WhileYoureHereSection from "./WhileYoureHereSection";
+import { checkPincodeServiceability } from "@/lib/checkPincodeServiceability";
 
 type Props = {
   product: any;
@@ -69,6 +75,10 @@ export default function PeeFunnelPageClient({ product, content }: Props) {
   const router = useRouter();
   const [selectedModeId, setSelectedModeId] = useState<string>("once");
   const [quantity, setQuantity] = useState<number>(1);
+  const maxQuantity = getProductMaxQuantity({
+    ...product,
+    slug: product?.slug || "looway-pee-funnel",
+  });
   const [pincode, setPincode] = useState<string>("");
   const [pincodeResult, setPincodeResult] = useState<{
     msg: string;
@@ -284,6 +294,62 @@ export default function PeeFunnelPageClient({ product, content }: Props) {
     () => packKeys[1] || packKeys[0] || "p2",
   );
 
+  // Restore pack from URL on mount/reload
+  useEffect(() => {
+    if (typeof window === "undefined" || packKeys.length === 0) return;
+    const params = new URLSearchParams(window.location.search);
+    const packParam = params.get("pack")?.toLowerCase();
+    const hash = window.location.hash.toLowerCase().replace("#", "");
+    const target = packParam || hash;
+
+    if (target) {
+      if (packs[target]) {
+        setSelectedPackId(target);
+      } else {
+        const found = Object.keys(packs).find((k) => {
+          const p = packs[k];
+          const name = (p.name || "").toLowerCase();
+          return target.includes(String(p.funnels)) || name.includes(target);
+        });
+        if (found) setSelectedPackId(found);
+      }
+    }
+  }, [packs, packKeys]);
+
+  const handleSelectPack = (packId: string) => {
+    setSelectedPackId(packId);
+    setSelectedImageIndex(0);
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      params.set("pack", packId);
+      window.history.replaceState(null, "", `${window.location.pathname}?${params.toString()}`);
+    }
+  };
+
+  const [isZoomOpen, setIsZoomOpen] = useState(false);
+  const touchStartXRef = useRef<number | null>(null);
+  const touchStartYRef = useRef<number | null>(null);
+
+  const handleHeroTouchStart = (e: React.TouchEvent) => {
+    touchStartXRef.current = e.touches[0].clientX;
+    touchStartYRef.current = e.touches[0].clientY;
+  };
+
+  const handleHeroTouchEnd = (e: React.TouchEvent, totalImages: number) => {
+    if (touchStartXRef.current === null || touchStartYRef.current === null) return;
+    const diffX = e.changedTouches[0].clientX - touchStartXRef.current;
+    const diffY = e.changedTouches[0].clientY - touchStartYRef.current;
+    if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 40) {
+      if (diffX < 0) {
+        setSelectedImageIndex((prev) => (prev < totalImages - 1 ? prev + 1 : 0));
+      } else {
+        setSelectedImageIndex((prev) => (prev > 0 ? prev - 1 : totalImages - 1));
+      }
+    }
+    touchStartXRef.current = null;
+    touchStartYRef.current = null;
+  };
+
   useEffect(() => {
     if (!packs[selectedPackId] && packKeys.length > 0) {
       setSelectedPackId(packKeys[0]);
@@ -309,6 +375,11 @@ export default function PeeFunnelPageClient({ product, content }: Props) {
   const totalMrp = mrpPrice * quantity;
   const totalSavings = totalMrp - totalPrice;
 
+  const cartSubtotal = useCartStore((state) => state.subtotal());
+  const effectiveShippingTotal = Math.max(totalPrice, cartSubtotal);
+  const isFreeShipping = effectiveShippingTotal >= FREE_SHIPPING_THRESHOLD;
+  const amountNeededForFreeShipping = Math.max(0, FREE_SHIPPING_THRESHOLD - effectiveShippingTotal);
+
   const isOutOfStock = Boolean(
     selectedPack?.variantId
       ? selectedPack.isInStock === false
@@ -322,11 +393,14 @@ export default function PeeFunnelPageClient({ product, content }: Props) {
     const defaultLabels = ["Funnel", "Standing", "Soft", "In"];
     const rawList: { url: string; label: string }[] = [];
 
+    if (selectedPack?.image) {
+      rawList.push({ url: getImageUrl(selectedPack.image), label: selectedPack.name || "Funnel" });
+    }
     if (product?.bannerImage) {
       rawList.push({ url: getImageUrl(product.bannerImage), label: "Funnel" });
     }
     if (Array.isArray(product?.productMediaRes)) {
-      product.productMediaRes.forEach((item: any, idx: number) => {
+      product.productMediaRes.forEach((item: any) => {
         const url = item?.mediaURL || item?.image || item?.url || item?.bannerImage;
         if (url) {
           rawList.push({
@@ -380,22 +454,28 @@ export default function PeeFunnelPageClient({ product, content }: Props) {
       }
     }
     return result;
-  }, [product]);
+  }, [product, selectedPack]);
 
   const mediaList = useMemo(() => mediaItems.map((item) => item.url), [mediaItems]);
 
-  const handlePincodeCheck = () => {
-    if (!pincode || pincode.trim().length !== 6) {
-      setPincodeResult({ msg: "Please enter a valid 6-digit PIN code", err: true });
-      return;
-    }
-    setPincodeResult({
-      msg: `Delivery available for ${pincode}! Ships within 24 hours.`,
-      err: false,
+  const [isCheckingPincode, setIsCheckingPincode] = useState(false);
+  const handlePincodeCheck = async () => {
+    if (isCheckingPincode) return;
+    setIsCheckingPincode(true);
+    setPincodeResult(null);
+    const res = await checkPincodeServiceability({
+      pincode,
+      pickupPincode: product?.pickupPincode,
+      weight: product?.weightKg || 0.2,
     });
+    setPincodeResult({
+      msg: res.message,
+      err: !res.serviceable,
+    });
+    setIsCheckingPincode(false);
   };
 
-  const handleAddToCart = async (isBuyNow = false) => {
+  const handleAddToCart = async () => {
     if (isOutOfStock) {
       toast.error("This item is currently out of stock.");
       return;
@@ -409,6 +489,7 @@ export default function PeeFunnelPageClient({ product, content }: Props) {
         sku: selectedPack?.sku || product?.productVariants?.[0]?.sku || "LOOWAY-FUNNEL-01",
         slug: product?.slug || "looway-pee-funnel",
         title: `${product?.title || product?.name || "Looway Reusable Stand-to-Pee Funnel"} (${selectedPack?.name || "Pack"})`,
+        variantName: selectedPack?.name,
         image: mediaList[0] || "/looway-funnel-demo.jpg",
         price: unitPrice,
         quantity: quantity,
@@ -425,15 +506,40 @@ export default function PeeFunnelPageClient({ product, content }: Props) {
             onClick: () => router.push("/cart"),
           },
         });
-        if (isBuyNow) {
-          router.push("/cart");
-        }
       }
     } catch (err: any) {
       toast.error(err.message || "Failed to add to cart.");
     } finally {
       setAdding(false);
     }
+  };
+
+  const handleBuyNow = () => {
+    if (isOutOfStock) {
+      toast.error("This item is currently out of stock.");
+      return;
+    }
+    const targetVariantId = selectedPack.variantId || product?.productVariants?.[0]?.id;
+    const directItem = {
+      productId: product?.id || product?._id || "looway-pee-funnel",
+      productVariantId: targetVariantId,
+      sku: selectedPack?.sku || product?.productVariants?.[0]?.sku || "LOOWAY-FUNNEL-01",
+      slug: product?.slug || "looway-pee-funnel",
+      title: `${product?.title || product?.name || "Looway Reusable Stand-to-Pee Funnel"} (${selectedPack?.name || "Pack"})`,
+      variantName: selectedPack?.name,
+      image: mediaList[0] || "/looway-funnel-demo.jpg",
+      price: unitPrice,
+      quantity: quantity,
+      isQuantityChangable: true,
+      purchaseType: "one_time",
+      subscriptionType: null,
+      isSubscribed: false,
+    };
+    window.sessionStorage.setItem(
+      "potent-direct-checkout",
+      JSON.stringify(directItem),
+    );
+    router.push("/checkout?mode=direct");
   };
 
   return (
@@ -467,7 +573,11 @@ export default function PeeFunnelPageClient({ product, content }: Props) {
             {/* LEFT COLUMN: STICKY GALLERY */}
             <div className="lg:col-span-6 lg:sticky lg:top-24">
               {/* Main Image Container */}
-              <div className="relative aspect-square w-full overflow-hidden rounded-[24px] border-2 border-dashed border-[#C21E63]/20 bg-[#FDEEF4]/40 shadow-xs transition-all">
+              <div
+                onTouchStart={handleHeroTouchStart}
+                onTouchEnd={(e) => handleHeroTouchEnd(e, mediaList.length)}
+                className="group relative aspect-square w-full overflow-hidden rounded-[24px] border-2 border-dashed border-[#C21E63]/20 bg-[#FDEEF4]/40 shadow-xs transition-all"
+              >
                 {/* Floating Badges */}
                 <div className="absolute top-4 left-4 z-10 flex flex-col gap-1.5">
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-[#F4C430] px-3 py-1 text-[11px] font-extrabold text-[#5A0E30] shadow-2xs">
@@ -480,9 +590,26 @@ export default function PeeFunnelPageClient({ product, content }: Props) {
                   </span>
                 </div>
 
+                {/* Top-Right Zoom Button */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsZoomOpen(true);
+                  }}
+                  aria-label="Enlarge image"
+                  title="Enlarge image"
+                  className="absolute top-4 right-16 z-20 flex h-10 w-10 cursor-pointer items-center justify-center rounded-full bg-white/90 text-[#C21E63] shadow-md backdrop-blur-xs transition-all hover:scale-105 hover:bg-white"
+                >
+                  <ZoomIn className="h-5 w-5" />
+                </button>
+
                 {/* Wishlist Heart Button */}
                 <button
-                  onClick={handleToggleWishlist}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleToggleWishlist();
+                  }}
                   disabled={isWishlistUpdating}
                   aria-pressed={isWishlisted}
                   className={`absolute top-4 right-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/90 shadow-md backdrop-blur-xs transition-all hover:scale-105 ${
@@ -501,7 +628,7 @@ export default function PeeFunnelPageClient({ product, content }: Props) {
                     src={mediaList[selectedImageIndex] || "/looway-funnel-demo.jpg"}
                     alt={product?.title || "Looway Pee Funnel"}
                     fill
-                    className="object-contain p-6 transition-transform duration-500 hover:scale-105"
+                    className="object-contain p-6 transition-transform duration-500 group-hover:scale-105"
                     priority
                     sizes="(max-width: 768px) 100vw, 550px"
                   />
@@ -511,22 +638,24 @@ export default function PeeFunnelPageClient({ product, content }: Props) {
                 {mediaList.length > 1 && (
                   <>
                     <button
-                      onClick={() =>
+                      onClick={(e) => {
+                        e.stopPropagation();
                         setSelectedImageIndex((prev) =>
                           prev === 0 ? mediaList.length - 1 : prev - 1,
-                        )
-                      }
+                        );
+                      }}
                       className="absolute top-1/2 left-3 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white text-[#C21E63] shadow-md hover:bg-[#FDEEF4] transition-all"
                       aria-label="Previous image"
                     >
                       <ChevronLeft className="h-5 w-5 stroke-[2.5]" />
                     </button>
                     <button
-                      onClick={() =>
+                      onClick={(e) => {
+                        e.stopPropagation();
                         setSelectedImageIndex((prev) =>
                           prev === mediaList.length - 1 ? 0 : prev + 1,
-                        )
-                      }
+                        );
+                      }}
                       className="absolute top-1/2 right-3 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white text-[#C21E63] shadow-md hover:bg-[#FDEEF4] transition-all"
                       aria-label="Next image"
                     >
@@ -672,7 +801,7 @@ export default function PeeFunnelPageClient({ product, content }: Props) {
                     return (
                       <button
                         key={pk.id}
-                        onClick={() => setSelectedPackId(pk.id)}
+                        onClick={() => handleSelectPack(pk.id)}
                         className={`relative flex flex-col justify-between rounded-2xl border-2 p-3.5 sm:p-4 text-left transition-all cursor-pointer ${
                           isSelected
                             ? "border-[#C21E63] bg-[#FDEEF4] shadow-sm"
@@ -748,13 +877,18 @@ export default function PeeFunnelPageClient({ product, content }: Props) {
 
                 {/* Quantity Stepper & Chips */}
                 <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-3">
-                  <span className="text-xs font-bold text-[#5A0E30] uppercase">
-                    HOW MANY?
-                  </span>
+                  <div className="flex flex-col">
+                    <span className="text-xs font-bold text-[#5A0E30] uppercase">
+                      HOW MANY?
+                    </span>
+                    <span className="text-[11px] font-semibold text-[#5A0E30]/70">
+                      Maximum {maxQuantity} per order
+                    </span>
+                  </div>
 
                   <div className="flex items-center gap-3">
                     <div className="hidden sm:flex gap-1">
-                      {[1, 2, 3].map((num) => (
+                      {Array.from({ length: Math.min(maxQuantity, 3) }, (_, i) => i + 1).map((num) => (
                         <button
                           key={num}
                           onClick={() => setQuantity(num)}
@@ -781,8 +915,15 @@ export default function PeeFunnelPageClient({ product, content }: Props) {
                         {quantity}
                       </span>
                       <button
-                        onClick={() => setQuantity((q) => q + 1)}
-                        className="flex h-8 w-8 items-center justify-center rounded-lg text-lg font-bold text-[#C21E63] hover:bg-white cursor-pointer"
+                        onClick={() => {
+                          if (quantity >= maxQuantity) {
+                            toast.info(getMaxQuantityMessage(maxQuantity));
+                            return;
+                          }
+                          setQuantity((q) => q + 1);
+                        }}
+                        disabled={quantity >= maxQuantity}
+                        className="flex h-8 w-8 items-center justify-center rounded-lg text-lg font-bold text-[#C21E63] hover:bg-white disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer"
                       >
                         +
                       </button>
@@ -824,7 +965,7 @@ export default function PeeFunnelPageClient({ product, content }: Props) {
                   ) : (
                     <>
                       <button
-                        onClick={() => handleAddToCart(false)}
+                        onClick={handleAddToCart}
                         disabled={adding}
                         className="w-full flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#C21E63] py-3.5 px-4 text-sm font-bold text-white shadow-md transition-all hover:bg-[#a81a57] active:scale-[0.98] disabled:opacity-60"
                       >
@@ -833,7 +974,7 @@ export default function PeeFunnelPageClient({ product, content }: Props) {
                       </button>
 
                       <button
-                        onClick={() => handleAddToCart(true)}
+                        onClick={handleBuyNow}
                         disabled={adding}
                         className="w-full flex cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-[#450A25] py-3.5 px-4 text-sm font-bold text-white transition-all hover:bg-[#32061A] active:scale-[0.98]"
                       >
@@ -860,8 +1001,14 @@ export default function PeeFunnelPageClient({ product, content }: Props) {
 
                 {/* Shipping Micro-copy */}
                 <p className="mt-3 text-center text-[11px] leading-relaxed text-[#5A0E30]/60">
-                  Free shipping over ₹599 · ships in 24 hrs · secure checkout. If it&apos;s not right, <strong>we&apos;ll make it right</strong>. Questions? Email <a href="mailto:care@potenthygiene.com" className="text-[#C21E63] underline">care@potenthygiene.com</a>
-                  <span className="block mt-1 font-bold text-[#C21E63]">📈 Add ₹300 for free shipping</span>
+                  Free shipping over ₹{FREE_SHIPPING_THRESHOLD} · ships in 24 hrs · secure checkout. If it&apos;s not right, <strong>we&apos;ll make it right</strong>. Questions? Email <a href="mailto:care@potenthygiene.com" className="text-[#C21E63] underline">care@potenthygiene.com</a>
+                  <span className="block mt-1 font-bold">
+                    {isFreeShipping ? (
+                      <span className="text-emerald-700 font-extrabold">🎉 Free shipping unlocked!</span>
+                    ) : (
+                      <span className="text-[#C21E63]">📈 Add ₹{amountNeededForFreeShipping} for free shipping</span>
+                    )}
+                  </span>
                 </p>
 
                 {/* Potent Rewards Banner */}
@@ -892,7 +1039,7 @@ export default function PeeFunnelPageClient({ product, content }: Props) {
                       <MapPin className="h-4 w-4 text-[#C21E63]" /> Woman-founded · Made for India
                     </div>
                     <div className="flex items-center gap-2">
-                      <Check className="h-4 w-4 text-[#C21E63]" /> Free shipping over ₹599
+                      <Check className="h-4 w-4 text-[#C21E63]" /> Free shipping over ₹399
                     </div>
                   </div>
 
@@ -925,9 +1072,10 @@ export default function PeeFunnelPageClient({ product, content }: Props) {
                     <button
                       type="button"
                       onClick={handlePincodeCheck}
-                      className="rounded-lg bg-[#C21E63] px-4 py-2 text-xs font-bold text-white hover:bg-[#a81a57] transition-all cursor-pointer"
+                      disabled={isCheckingPincode}
+                      className="rounded-lg bg-[#C21E63] px-4 py-2 text-xs font-bold text-white hover:bg-[#a81a57] transition-all cursor-pointer disabled:opacity-60"
                     >
-                      Check
+                      {isCheckingPincode ? "Checking..." : "Check"}
                     </button>
                   </div>
                   {pincodeResult && (
@@ -1098,8 +1246,17 @@ export default function PeeFunnelPageClient({ product, content }: Props) {
       <FunnelUseItSafelySection />
       <FunnelMarketComparisonSection />
       <FunnelReviewsSection />
-      <FunnelFaqSection />
       <WhileYoureHereSection brandTheme="looway" />
+      <FunnelFaqSection faqs={product?.productFaqRes} content={content} />
+
+      <ImageZoomModal
+        isOpen={isZoomOpen}
+        onClose={() => setIsZoomOpen(false)}
+        images={mediaList}
+        currentIndex={selectedImageIndex}
+        onNavigate={setSelectedImageIndex}
+        alt={product?.title || "Looway Pee Funnel"}
+      />
     </div>
   );
 }

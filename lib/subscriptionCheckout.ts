@@ -14,12 +14,15 @@ import {
   getPdpSubscriptionDiscount,
   isPdpSubscriptionTypeAllowed,
 } from "@/lib/pdpSubscriptionRules";
+import {
+  FREE_SHIPPING_THRESHOLD,
+  STANDARD_SHIPPING_FEE as SHIPPING_FEE,
+  calculateShippingFee,
+} from "@/lib/shippingConfig";
 
 const RECURRING_TYPES = PDP_SUBSCRIPTION_PLANS.map(
   (plan) => plan.subscriptionType,
 );
-const FREE_SHIPPING_THRESHOLD = 399;
-const SHIPPING_FEE = 60;
 
 const DEFAULT_SUBSCRIPTION_DISCOUNTS = Object.fromEntries(
   PDP_SUBSCRIPTION_PLANS.map((plan) => [
@@ -195,10 +198,7 @@ export async function getSubscriptionCheckoutQuote(item: any) {
   }
 
   const discountedSubtotal = Math.round(subtotal * (1 - discount));
-  const shipping =
-    discountedSubtotal <= 0 || discountedSubtotal > FREE_SHIPPING_THRESHOLD
-      ? 0
-      : SHIPPING_FEE;
+  const shipping = calculateShippingFee(discountedSubtotal);
   const final = discountedSubtotal + shipping;
   const billing = getBilling(subscriptionType, item?.cycleSync);
   const now = new Date();

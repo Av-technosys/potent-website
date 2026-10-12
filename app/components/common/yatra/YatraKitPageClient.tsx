@@ -118,6 +118,16 @@ function useColumnsCount() {
 
 export default function YatraKitPageClient({ content, mappedProducts }: Props) {
   const [selectedKitId, setSelectedKitId] = useState<string>("complete");
+
+  const handleSelectKit = (kitId: string) => {
+    setSelectedKitId(kitId);
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      params.set("kit", kitId);
+      window.history.replaceState(null, "", `${window.location.pathname}?${params.toString()}`);
+    }
+  };
+
   const [activeStopIndex, setActiveStopIndex] = useState(0);
   const [activeReviewFilter, setActiveReviewFilter] = useState("all");
   const [activeNavId, setActiveNavId] = useState("choose-kit");
@@ -409,6 +419,7 @@ export default function YatraKitPageClient({ content, mappedProducts }: Props) {
           sku: product.sku,
           slug: product.slug,
           title: product.title,
+          variantName: product.variantName,
           image: product.image,
           price: product.price,
           quantity: Number(qty),
@@ -708,7 +719,7 @@ export default function YatraKitPageClient({ content, mappedProducts }: Props) {
             return (
               <Fragment key={tier.id}>
                 <button
-                  onClick={() => setSelectedKitId(tier.id)}
+                  onClick={() => handleSelectKit(tier.id)}
                   className={`group relative flex cursor-pointer flex-col justify-between rounded-2xl border p-3.5 text-left transition-all duration-200 sm:p-4 ${
                     selected
                       ? "border-[#116B66] bg-white shadow-md ring-2 ring-[#116B66]/20"

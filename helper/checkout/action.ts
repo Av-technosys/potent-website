@@ -13,15 +13,14 @@ import { db } from "@/lib/db";
 import { and, eq, sql } from "drizzle-orm";
 import { requireUserWithRefresh } from "../user/action";
 import { calculateMixBoxPricing, type MixBoxRecipe } from "@/lib/mixYourBox";
+import { getProductMaxQuantity } from "@/lib/productQuantityLimits";
+import {
+  FREE_SHIPPING_THRESHOLD,
+  STANDARD_SHIPPING_FEE as SHIPPING_FEE,
+  calculateShippingFee as calculateShipping,
+} from "@/lib/shippingConfig";
 
 const roundMoney = (amount: number) => Number(amount.toFixed(2));
-const FREE_SHIPPING_THRESHOLD = 399;
-const SHIPPING_FEE = 60;
-
-function calculateShipping(amount: number) {
-  if (amount <= 0) return 0;
-  return amount > FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_FEE;
-}
 
 async function getUserCartItems(userId: string) {
   const userCart = await db
@@ -42,12 +41,14 @@ async function getUserCartItems(userId: string) {
       freeLiners: sql<number>`COALESCE(${cartItem.boxCount}, 0) * 4`,
       quantity: cartItem.quantity,
       title: product.name,
+      variantName: productVariant.name,
       image: sql<string>`COALESCE(${productVariant.bannerImage}, ${product.bannerImage})`,
       price: sql<number>`COALESCE(${productVariant.price}, 0)`,
       originalPrice: productVariant.strikethroughPrice,
       slug: product.slug,
       sku: productVariant.sku,
       isInStock: productVariant.isInStock,
+      maxQuantityPurchase: product.maxQuantityPurchase,
     })
     .from(cartItem)
     .leftJoin(product, eq(cartItem.productId, product.id))
@@ -116,11 +117,16 @@ async function getValidCoupon({
 export async function calculateCheckoutPricingForUser({
   userId,
   couponCode,
+  customItems,
 }: {
   userId: string;
   couponCode?: string | null;
+  customItems?: any[];
 }) {
-  const items = await getUserCartItems(userId);
+  const items =
+    customItems && customItems.length > 0
+      ? customItems
+      : await getUserCartItems(userId);
 
   for (const item of items) {
     if (!item.mixBoxRecipe) continue;
@@ -163,6 +169,22 @@ export async function calculateCheckoutPricingForUser({
       return {
         success: false,
         message: `${item.title || "An item in your cart"} is currently out of stock. Please remove it from your cart to proceed to checkout.`,
+        items,
+        subtotal: 0,
+        discount: 0,
+        discountedSubtotal: 0,
+        gst: 0,
+        shipping: 0,
+        final: 0,
+        coupon: null,
+      };
+    }
+
+    const maxQty = getProductMaxQuantity(item);
+    if (Number(item.quantity || 1) > maxQty) {
+      return {
+        success: false,
+        message: `Maximum ${maxQty} per order allowed for ${item.title || "an item"}. Please adjust your bag quantity.`,
         items,
         subtotal: 0,
         discount: 0,
@@ -277,6 +299,34 @@ export async function getCheckoutPricing(couponCode?: string | null) {
       success: false,
       message: "Failed to calculate checkout total",
       items: [],
+      subtotal: 0,
+      discount: 0,
+      discountedSubtotal: 0,
+      gst: 0,
+      shipping: 0,
+      final: 0,
+      coupon: null,
+    };
+  }
+}
+
+export async function getDirectCheckoutPricing(
+  item: any,
+  couponCode?: string | null,
+) {
+  try {
+    const { userId } = await requireUserWithRefresh();
+    return calculateCheckoutPricingForUser({
+      userId,
+      couponCode,
+      customItems: item ? [item] : [],
+    });
+  } catch (error) {
+    console.error("Direct checkout pricing failed:", error);
+    return {
+      success: false,
+      message: "Failed to calculate direct checkout total",
+      items: item ? [item] : [],
       subtotal: 0,
       discount: 0,
       discountedSubtotal: 0,

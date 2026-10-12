@@ -243,7 +243,7 @@ export const EmailVerificationClient = () => {
                   Your email verification is successfully completed.
                 </p>
 
-                <Link href="/login">
+                <Link href={searchParams.get("redirect") ? `/login?redirect=${encodeURIComponent(searchParams.get("redirect")!)}` : "/login"}>
                   <button className="mt-6 w-full rounded-full bg-[#016271] py-2 font-medium text-white">
                     Login
                   </button>
@@ -254,7 +254,7 @@ export const EmailVerificationClient = () => {
 
           <p className="mt-4 text-center text-xs">
             Already have an account?{" "}
-            <Link href="/login">
+            <Link href={searchParams.get("redirect") ? `/login?redirect=${encodeURIComponent(searchParams.get("redirect")!)}` : "/login"}>
               <span className="cursor-pointer underline">Login</span>
             </Link>
           </p>

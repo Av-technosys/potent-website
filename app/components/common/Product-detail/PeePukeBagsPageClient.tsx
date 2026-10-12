@@ -38,6 +38,7 @@ import {
   Users,
   Package,
   Droplets,
+  ZoomIn,
 } from "lucide-react";
 import { toast } from "sonner";
 import { addToCart as addToCartAction } from "@/store/cartActions";
@@ -58,9 +59,11 @@ import WhereToUseSection from "./WhereToUseSection";
 import WhoItsForSection from "./WhoItsForSection";
 import PackAndSpecsSection from "./PackAndSpecsSection";
 import UseItSafelySection from "./UseItSafelySection";
+import ImageZoomModal from "./ImageZoomModal";
 import MarketComparisonSection from "./MarketComparisonSection";
 import LoowayReviewsSection from "./LoowayReviewsSection";
 import LoowayFaqSection from "./LoowayFaqSection";
+import { checkPincodeServiceability } from "@/lib/checkPincodeServiceability";
 
 type Props = {
   product: any;
@@ -139,6 +142,7 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
   const router = useRouter();
   const [selectedModeId, setSelectedModeId] = useState<string>("once");
   const [quantity, setQuantity] = useState<number>(1);
+  const maxQuantity = Number(product?.maxQuantityPurchase) || 6;
   const [selectedSubscriptionPlan, setSelectedSubscriptionPlan] = useState<any>(
     getPdpSubscriptionPlans(product)[0],
   );
@@ -488,6 +492,10 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
     [mediaItems],
   );
 
+  const [isZoomOpen, setIsZoomOpen] = useState(false);
+  const touchStartXRef = useRef<number | null>(null);
+  const touchStartYRef = useRef<number | null>(null);
+
   const handleSelectPack = (packId: string) => {
     setSelectedPackId(packId);
     const targetPack = packs[packId];
@@ -497,7 +505,56 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
       if (imgIdx !== -1) {
         setSelectedImageIndex(imgIdx);
       }
+    } else {
+      setSelectedImageIndex(0);
     }
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      params.set("pack", packId);
+      window.history.replaceState(null, "", `${window.location.pathname}?${params.toString()}`);
+    }
+  };
+
+  // Restore pack from URL on mount/reload
+  useEffect(() => {
+    if (typeof window === "undefined" || packKeys.length === 0) return;
+    const params = new URLSearchParams(window.location.search);
+    const packParam = params.get("pack")?.toLowerCase();
+    const hash = window.location.hash.toLowerCase().replace("#", "");
+    const target = packParam || hash;
+
+    if (target) {
+      if (packs[target]) {
+        setSelectedPackId(target);
+      } else {
+        const found = Object.keys(packs).find((k) => {
+          const p = packs[k];
+          const name = (p.name || "").toLowerCase();
+          return target.includes(String(p.bags)) || name.includes(target);
+        });
+        if (found) setSelectedPackId(found);
+      }
+    }
+  }, [packs, packKeys]);
+
+  const handleHeroTouchStart = (e: React.TouchEvent) => {
+    touchStartXRef.current = e.touches[0].clientX;
+    touchStartYRef.current = e.touches[0].clientY;
+  };
+
+  const handleHeroTouchEnd = (e: React.TouchEvent, totalImages: number) => {
+    if (touchStartXRef.current === null || touchStartYRef.current === null) return;
+    const diffX = e.changedTouches[0].clientX - touchStartXRef.current;
+    const diffY = e.changedTouches[0].clientY - touchStartYRef.current;
+    if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 40) {
+      if (diffX < 0) {
+        setSelectedImageIndex((prev) => (prev < totalImages - 1 ? prev + 1 : 0));
+      } else {
+        setSelectedImageIndex((prev) => (prev > 0 ? prev - 1 : totalImages - 1));
+      }
+    }
+    touchStartXRef.current = null;
+    touchStartYRef.current = null;
   };
 
   // Scroll to top on mount
@@ -555,7 +612,7 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
   }, [headerHeight]);
 
   // Cart action integration
-  const handleAddToCart = async (isBuyNow = false) => {
+  const handleAddToCart = async () => {
     if (isOutOfStock) {
       toast.error("This item is currently out of stock.");
       return;
@@ -582,6 +639,7 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
           "LOOWAY-PUKE-01",
         slug: product?.slug || "looway-pee-puke-bags",
         title: `${product?.name || "Looway Pee & Puke Bags"} (${selectedPack?.name || "Pack"})`,
+        variantName: selectedPack?.name,
         image: mediaList[0] || "/products/pukebags.jpg",
         price: unitPrice,
         quantity: quantity,
@@ -601,9 +659,6 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
             },
           },
         );
-        if (isBuyNow) {
-          router.push("/cart");
-        }
       }
     } catch (err: any) {
       toast.error(err?.message || "Could not add to cart. Please try again.");
@@ -612,18 +667,63 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
     }
   };
 
-  const handleCheckPincode = () => {
-    if (!pincode || pincode.trim().length !== 6) {
-      setPincodeResult({
-        msg: "Please enter a valid 6-digit Pincode",
-        err: true,
-      });
+  const handleBuyNow = () => {
+    if (isOutOfStock) {
+      toast.error("This item is currently out of stock.");
       return;
     }
-    setPincodeResult({
-      msg: `Delivery available for ${pincode}! Ships within 24 hours.`,
-      err: false,
+    const variantId =
+      selectedPack?.variantId ||
+      product?.productVariants?.find(
+        (v: any) =>
+          v.name
+            ?.toLowerCase()
+            .includes(selectedPack?.name?.toLowerCase() || "") ||
+          v.name?.includes(String(selectedPack?.bags || "")),
+      )?.id ||
+      product?.productVariants?.[0]?.id;
+
+    const directItem = {
+      productId: product?.id || product?._id || "looway-pee-puke",
+      productVariantId: variantId,
+      sku:
+        selectedPack?.sku ||
+        product?.productVariants?.[0]?.sku ||
+        "LOOWAY-PUKE-01",
+      slug: product?.slug || "looway-pee-puke-bags",
+      title: `${product?.name || "Looway Pee & Puke Bags"} (${selectedPack?.name || "Pack"})`,
+      variantName: selectedPack?.name,
+      image: mediaList[0] || "/products/pukebags.jpg",
+      price: unitPrice,
+      quantity: quantity,
+      isQuantityChangable: true,
+      purchaseType: "one_time",
+      subscriptionType: null,
+      isSubscribed: false,
+    };
+
+    window.sessionStorage.setItem(
+      "potent-direct-checkout",
+      JSON.stringify(directItem),
+    );
+    router.push("/checkout?mode=direct");
+  };
+
+  const [isCheckingPincode, setIsCheckingPincode] = useState(false);
+  const handleCheckPincode = async () => {
+    if (isCheckingPincode) return;
+    setIsCheckingPincode(true);
+    setPincodeResult(null);
+    const res = await checkPincodeServiceability({
+      pincode,
+      pickupPincode: product?.pickupPincode,
+      weight: product?.weightKg || 0.3,
     });
+    setPincodeResult({
+      msg: res.message,
+      err: !res.serviceable,
+    });
+    setIsCheckingPincode(false);
   };
 
   const stops = content?.STOPS || [];
@@ -674,7 +774,11 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
             {/* ===================================================================== */}
             <div className="lg:sticky lg:top-24 lg:col-span-6">
               {/* Main Image Box */}
-              <div className="relative aspect-square w-full overflow-hidden rounded-[24px] border-2 border-dashed border-[#0E5C3A]/20 bg-[#F1F7F3] shadow-sm transition-all">
+              <div
+                onTouchStart={handleHeroTouchStart}
+                onTouchEnd={(e) => handleHeroTouchEnd(e, mediaList.length)}
+                className="group relative aspect-square w-full overflow-hidden rounded-[24px] border-2 border-dashed border-[#0E5C3A]/20 bg-[#F1F7F3] shadow-sm transition-all"
+              >
                 {/* Floating Badges (Top-Left) */}
                 <div className="absolute top-4 left-4 z-10 flex flex-col gap-1.5">
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-[#F4C430] px-3 py-1 text-[11px] font-extrabold text-[#0A4A2E] shadow-2xs">
@@ -686,6 +790,20 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
                     <span>Solidifies in ~60 sec</span>
                   </span>
                 </div>
+
+                {/* Top-Right Zoom Button */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsZoomOpen(true);
+                  }}
+                  aria-label="Enlarge image"
+                  title="Enlarge image"
+                  className="absolute top-4 right-16 z-20 flex h-10 w-10 cursor-pointer items-center justify-center rounded-full bg-white/90 text-[#0E5C3A] shadow-md backdrop-blur-xs transition-all hover:scale-105 hover:bg-white"
+                >
+                  <ZoomIn className="h-5 w-5" />
+                </button>
 
                 {/* Wishlist Heart Button (Top-Right) */}
                 <button
@@ -963,16 +1081,22 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
 
                 {/* Quantity Stepper & Quick Chips */}
                 <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-3">
-                  <span className="text-xs font-bold text-[#0A4A2E] uppercase">
-                    Quantity
-                  </span>
+                  <div className="flex flex-col">
+                    <span className="text-xs font-bold text-[#0A4A2E] uppercase">
+                      Quantity
+                    </span>
+                    <span className="text-[11px] font-medium text-gray-500">
+                      Maximum {maxQuantity} per order
+                    </span>
+                  </div>
 
                   <div className="flex items-center gap-3">
                     <div className="flex items-center rounded-xl border border-[#E4DED0] bg-[#FBF8F1] p-1">
                       <button
+                        type="button"
                         onClick={() => setQuantity((q) => Math.max(1, q - 1))}
                         disabled={quantity <= 1}
-                        className="flex h-8 w-8 items-center justify-center rounded-lg text-lg font-bold text-[#0E5C3A] hover:bg-white disabled:opacity-30 disabled:hover:bg-transparent"
+                        className="flex h-8 w-8 items-center justify-center rounded-lg text-lg font-bold text-[#0E5C3A] hover:bg-white disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer"
                       >
                         -
                       </button>
@@ -980,19 +1104,29 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
                         {quantity}
                       </span>
                       <button
-                        onClick={() => setQuantity((q) => q + 1)}
-                        className="flex h-8 w-8 items-center justify-center rounded-lg text-lg font-bold text-[#0E5C3A] hover:bg-white"
+                        type="button"
+                        onClick={() => {
+                          if (quantity >= maxQuantity) {
+                            toast.info(`Maximum ${maxQuantity} per order`);
+                            return;
+                          }
+                          setQuantity((q) => q + 1);
+                        }}
+                        className={`flex h-8 w-8 items-center justify-center rounded-lg text-lg font-bold text-[#0E5C3A] hover:bg-white cursor-pointer ${
+                          quantity >= maxQuantity ? "opacity-30" : ""
+                        }`}
                       >
                         +
                       </button>
                     </div>
 
                     <div className="hidden gap-1 sm:flex">
-                      {[1, 2, 3, 4].map((num) => (
+                      {[1, 2, 3, 4].filter((n) => n <= maxQuantity).map((num) => (
                         <button
                           key={num}
+                          type="button"
                           onClick={() => setQuantity(num)}
-                          className={`h-8 w-8 rounded-lg text-xs font-bold transition-all ${
+                          className={`h-8 w-8 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                             quantity === num
                               ? "bg-[#0E5C3A] text-white"
                               : "border border-[#E4DED0] bg-white text-[#17271E] hover:border-[#0E5C3A]"
@@ -1018,7 +1152,7 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
                   ) : (
                     <div className="grid grid-cols-12 gap-2.5">
                       <button
-                        onClick={() => handleAddToCart(false)}
+                        onClick={handleAddToCart}
                         disabled={adding}
                         className="col-span-7 flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#0E5C3A] px-4 py-3.5 text-sm font-bold text-white shadow-md transition-all hover:bg-[#0B4D31] active:scale-[0.98] disabled:opacity-60"
                       >
@@ -1029,7 +1163,7 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
                       </button>
 
                       <button
-                        onClick={() => handleAddToCart(true)}
+                        onClick={handleBuyNow}
                         disabled={adding}
                         className="col-span-5 flex cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-[#114E36] px-4 py-3.5 text-sm font-bold text-white transition-all hover:bg-[#0C3B29] active:scale-[0.98]"
                       >
@@ -1272,9 +1406,10 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
                     />
                     <button
                       onClick={handleCheckPincode}
-                      className="rounded-xl bg-[#0E5C3A] px-5 py-2.5 text-xs font-bold text-white transition-all hover:bg-[#0B4D31]"
+                      disabled={isCheckingPincode}
+                      className="rounded-xl bg-[#0E5C3A] px-5 py-2.5 text-xs font-bold text-white transition-all hover:bg-[#0B4D31] disabled:opacity-60 cursor-pointer"
                     >
-                      Check
+                      {isCheckingPincode ? "Checking..." : "Check"}
                     </button>
                   </div>
                   {pincodeResult && (
@@ -1596,9 +1731,19 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
       <LoowayReviewsSection />
 
       {/* ========================================================================= */}
-      {/* 11. FAQS SECTION (NEW COMPONENT)                                          */}
+      {/* 11. FAQS SECTION (DYNAMIC FROM DB/ADMIN)                                  */}
       {/* ========================================================================= */}
-      <LoowayFaqSection />
+      <LoowayFaqSection faqs={product?.productFaqRes} content={content} />
+
+      {/* Tap-to-Zoom Lightbox Modal */}
+      <ImageZoomModal
+        isOpen={isZoomOpen}
+        onClose={() => setIsZoomOpen(false)}
+        images={mediaList}
+        currentIndex={selectedImageIndex}
+        onNavigate={(idx) => setSelectedImageIndex(idx)}
+        alt={product?.name || "Looway Pee & Puke Bags"}
+      />
     </div>
   );
 }

@@ -1,5 +1,5 @@
 export const MIX_BOX_PAD_UNIT = 21;
-export const MIX_BOX_MAX_PADS = 126;
+export const MIX_BOX_MAX_PADS = 63; // Up to 3 boxes (63 pads) per order
 export const MIX_BOX_FREE_LINERS_PER_BOX = 4;
 
 export type PadSize = "L" | "XL" | "XL+";
@@ -94,7 +94,7 @@ export function validateMixBoxRecipe(recipe: MixBoxRecipe) {
     return {
       valid: false,
       totalPads,
-      message: `Remove ${totalPads - MIX_BOX_MAX_PADS} pads. Maximum is ${MIX_BOX_MAX_PADS} pads.`,
+      message: `Maximum 3 boxes (63 pads) per order. Remove ${totalPads - MIX_BOX_MAX_PADS} pad${totalPads - MIX_BOX_MAX_PADS === 1 ? "" : "s"}.`,
     };
   }
 

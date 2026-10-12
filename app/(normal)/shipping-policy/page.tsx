@@ -26,6 +26,30 @@ const Page = () => {
                 can expect when ordering from us.
               </p>
             </section>
+
+            <section>
+              <h2 className="font-bold text-black">Shipping Charges &amp; Free Delivery</h2>
+              <p className="mt-2">
+                We believe in simple, transparent delivery pricing:
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+                <div className="bg-white border rounded-xl p-4 flex flex-col gap-1.5 shadow-2xs">
+                  <h3 className="font-semibold text-emerald-800">Orders ₹399 and Above</h3>
+                  <p className="text-xl font-bold text-emerald-700">FREE Delivery</p>
+                  <p className="text-sm text-neutral-600">
+                    An order of exactly ₹399 or more qualifies for free standard delivery anywhere in India.
+                  </p>
+                </div>
+
+                <div className="bg-white border rounded-xl p-4 flex flex-col gap-1.5 shadow-2xs">
+                  <h3 className="font-semibold text-neutral-800">Orders Below ₹399</h3>
+                  <p className="text-xl font-bold text-[#016271]">₹60 Delivery Fee</p>
+                  <p className="text-sm text-neutral-600">
+                    A flat courier shipping fee of ₹60 is applied to orders below ₹399.
+                  </p>
+                </div>
+              </div>
+            </section>
             <section>
               <h2 className="font-bold text-black">Order Processing Time</h2>
               <p className="mt-2">

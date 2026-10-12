@@ -16,11 +16,11 @@ const PLAN_ALIASES: Record<string, string[]> = {
 
 const SIZE_ALIASES: Array<{ key: string; patterns: RegExp[] }> = [
   { key: "MIX", patterns: [/mix/i, /custom/i] },
-  { key: "XLP", patterns: [/xl\+/i, /\bxlp\b/i, /320/i, /overnight/i, /day[-\s]?night/i, /xlplus/i] },
+  { key: "XLP", patterns: [/xl\+/i, /\bxlp\b/i, /320/i, /overnight/i, /day[-\s]?night/i, /xlplus/i, /\b80\b/i, /\bp80\b/i] },
   { key: "XXL", patterns: [/\bxxl\b/i, /xxxl/i, /44/i, /56/i] },
   { key: "LXL", patterns: [/\bm-xl\b/i, /\blxl\b/i, /28/i, /44/i] },
-  { key: "XL", patterns: [/\bxl\b/i, /280/i, /extra\s*large/i] },
-  { key: "L", patterns: [/\bl\b/i, /240/i, /large/i] },
+  { key: "XL", patterns: [/\bxl\b/i, /280/i, /extra\s*large/i, /\b60\b/i, /\bp60\b/i] },
+  { key: "L", patterns: [/\bl\b/i, /240/i, /large/i, /\b40\b/i, /\bp40\b/i] },
   { key: "M", patterns: [/\bm\b/i, /medium/i] },
   { key: "S", patterns: [/\bs\b/i, /small/i] },
 ];
@@ -89,6 +89,12 @@ export function resolveStaticSizeKey(
         staticContent?.SIZES?.[key]?.hash?.toLowerCase() === cleanStr,
     );
     if (exact) return exact;
+
+    const countMatch = availableKeys.find((key) => {
+      const item = staticContent?.SIZES?.[key];
+      return item?.count && (cleanStr.includes(String(item.count)) || cleanStr === String(item.count));
+    });
+    if (countMatch) return countMatch;
 
     const matchedSizeOrHash = SIZE_ALIASES.find(
       (alias) =>
@@ -171,9 +177,11 @@ export function getMaxBoxes(staticContent: any, fallback = 6) {
   return Number.isFinite(value) && value > 0 ? value : fallback;
 }
 
-export function getFreeShippingThreshold(staticContent: any, fallback?: number) {
+import { FREE_SHIPPING_THRESHOLD } from "@/lib/shippingConfig";
+
+export function getFreeShippingThreshold(staticContent: any, fallback = FREE_SHIPPING_THRESHOLD) {
   const value = Number(staticContent?.PRICING?.FREE_SHIP ?? fallback);
-  return Number.isFinite(value) && value > 0 ? value : null;
+  return Number.isFinite(value) && value > 0 ? value : FREE_SHIPPING_THRESHOLD;
 }
 
 export function getModeDiscount(staticContent: any, planId?: string | null) {

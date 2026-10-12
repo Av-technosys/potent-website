@@ -1,6 +1,7 @@
 "use client";
 
 import { Minus, Plus } from "lucide-react";
+import { toast } from "sonner";
 import {
   MIX_BOX_MAX_PADS,
   MIX_BOX_PAD_UNIT,
@@ -120,10 +121,15 @@ export default function SizeSelectorBox({
 
                 <button
                   type="button"
-                  disabled={total >= MAX}
-                  onClick={() => updateQty(item.name, "inc")}
-                  className={`grid h-8 w-8 place-items-center rounded-full border border-gray-300 bg-[#F3E6F0] text-[#7E4D77] transition hover:bg-[#9A5B90] hover:text-white ${
-                    total >= MAX ? "opacity-30 pointer-events-none" : ""
+                  onClick={() => {
+                    if (total >= MAX) {
+                      toast.info("Maximum 3 boxes per order");
+                      return;
+                    }
+                    updateQty(item.name, "inc");
+                  }}
+                  className={`grid h-8 w-8 place-items-center rounded-full border border-gray-300 bg-[#F3E6F0] text-[#7E4D77] transition hover:bg-[#9A5B90] hover:text-white cursor-pointer ${
+                    total >= MAX ? "opacity-40" : ""
                   }`}
                 >
                   <Plus size={14} />
@@ -136,9 +142,16 @@ export default function SizeSelectorBox({
 
       <div className="flex items-center justify-between rounded-2xl bg-[#F3E6F0] px-4 py-3 text-sm font-semibold text-[#7E4D77]">
         <span>Your Box Contains</span>
-        <span className="rounded-full bg-[#9A5B90] px-3 py-1 text-xs text-white">
-          {total} / 21 pads
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="rounded-full bg-[#9A5B90] px-3 py-1 text-xs text-white">
+            {total} / 21 pads
+          </span>
+          {total >= MAX && (
+            <span className="text-[11px] font-bold text-[#7E4D77]">
+              (Max 3 boxes reached)
+            </span>
+          )}
+        </div>
       </div>
 
       {multiplierOptions.length > 0 && (

@@ -101,13 +101,20 @@ export async function getAddresses() {
   const { userId } = await requireUserWithRefresh();
 
   if (!userId) {
-
     throw new Error("UNAUTHORIZED");
   }
-  return await db
+  const rows = await db
     .select()
     .from(address)
     .where(eq(address.userId, userId));
+
+  return rows.map((row) => ({
+    ...row,
+    street: row.streetAddress1 || "",
+    locality: row.streetAddress2 || "",
+    fullName: row.fullName || "",
+    phone: row.phone || "",
+  }));
 }
 
 export async function getUserAddressById(addressId: number) {
@@ -123,7 +130,15 @@ export async function getUserAddressById(addressId: number) {
       )
     );
 
-  return data[0] || null;
+  const row = data[0];
+  if (!row) return null;
+  return {
+    ...row,
+    street: row.streetAddress1 || "",
+    locality: row.streetAddress2 || "",
+    fullName: row.fullName || "",
+    phone: row.phone || "",
+  };
 }
 
 export async function updateUserAddress(data: any) {
@@ -136,25 +151,39 @@ export async function updateUserAddress(data: any) {
       .where(eq(address.userId, userId));
   }
 
-  await db
+  const [updated] = await db
     .update(address)
     .set({
-      streetAddress1: data.street,
-      streetAddress2: data.locality,
-      city: data.city,
-      state: data.state,
-      pincode: data.pincode,
-      country: data.country,
-      isDefault: data.isDefault,
+      fullName: data.fullName || "",
+      phone: data.phone || "",
+      streetAddress1: data.street ?? data.streetAddress1 ?? "",
+      streetAddress2: data.locality ?? data.streetAddress2 ?? "",
+      city: data.city || "",
+      state: data.state || "",
+      pincode: data.pincode || "",
+      country: data.country || "India",
+      isDefault: Boolean(data.isDefault),
     })
     .where(
       and(
         eq(address.id, Number(data.id)),
         eq(address.userId, userId)
       )
-    );
+    )
+    .returning();
 
-  return { success: true };
+  return {
+    success: true,
+    data: updated
+      ? {
+          ...updated,
+          street: updated.streetAddress1 || "",
+          locality: updated.streetAddress2 || "",
+          fullName: updated.fullName || "",
+          phone: updated.phone || "",
+        }
+      : null,
+  };
 }
 
 export async function deleteUserAddress(id: number) {
@@ -208,17 +237,28 @@ export async function createUserAddress(data: NewAddressInput) {
       .insert(address)
       .values({
         userId,
-        streetAddress1: data.street,
-        streetAddress2: data.locality,
-        city: data.city,
-        state: data.state,
-        pincode: data.pincode,
-        country: data.country,
+        fullName: data.fullName || "",
+        phone: data.phone || "",
+        streetAddress1: data.street || "",
+        streetAddress2: data.locality || "",
+        city: data.city || "",
+        state: data.state || "",
+        pincode: data.pincode || "",
+        country: data.country || "India",
         isDefault: data.isDefault ?? false,
       })
       .returning();
 
-    return { success: true, data: newAddress };
+    return {
+      success: true,
+      data: {
+        ...newAddress,
+        street: newAddress.streetAddress1 || "",
+        locality: newAddress.streetAddress2 || "",
+        fullName: newAddress.fullName || "",
+        phone: newAddress.phone || "",
+      },
+    };
   } catch (error) {
     return { success: false, error };
   }

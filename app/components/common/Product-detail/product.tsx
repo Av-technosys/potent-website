@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowRight,
@@ -24,6 +24,7 @@ import {
   Star,
   Truck,
   X,
+  ZoomIn,
 } from "lucide-react";
 import Image from "next/image";
 import { addToCart as addToCartAction } from "@/store/cartActions";
@@ -36,6 +37,9 @@ import SizeSelectorBox from "./sizeSelectorBox";
 import WhatsInside from "./WhatsInside";
 import OvyComparison from "./OvyComparison";
 import OvyPromos from "./OvyPromos";
+import LinersPackAndSpecs from "./LinersPackAndSpecs";
+import PantyPackAndSpecs from "./PantyPackAndSpecs";
+import ImageZoomModal from "./ImageZoomModal";
 import { toast } from "sonner";
 import { getImageUrl } from "@/lib/imageUrl";
 import {
@@ -94,6 +98,11 @@ export default function ProductDetailPage({
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  const slug = productInfo?.slug || "";
+  const isLiners = slug === "ovy-liners" || slug.includes("liner");
+  const isPanty = slug === "ovy-panty" || slug.includes("panty") || slug.includes("panties");
+  const isPads = !isLiners && !isPanty && (slug === "ovy-pads" || slug.includes("pad") || Boolean(productInfo?.isMixBox));
+
   const variantsList = Array.isArray(productInfo?.productVariants)
     ? productInfo.productVariants
     : Array.isArray(productInfo?.prodcutVarientBoxRes)
@@ -103,13 +112,13 @@ export default function ProductDetailPage({
   const getPickedVariantSelection = (variant: any) => [
     {
       name: variant?.name || productInfo?.name,
-      quantity: 21,
+      quantity: isPads ? 21 : isPanty ? 8 : (variant?.name?.includes("80") ? 80 : variant?.name?.includes("40") ? 40 : 60),
       price: Number(variant?.price || 0),
     },
   ];
 
-  const defaultSize = defaultVariant.size || "XL (280mm)";
-  const defaultFlow = defaultVariant.flowType || "Medium to Heavy Flow";
+  const defaultSize = defaultVariant.size || defaultVariant.name || (isPads ? "XL (280mm)" : isPanty ? "M-XL" : "Pack of 60");
+  const defaultFlow = defaultVariant.flowType || (isPads ? "Medium to Heavy Flow" : isPanty ? "Waist ~28–44 in • Fits most" : "190mm • Ultra-thin (~1mm)");
 
   const [selectedPlanType, setSelectedPlanType] = useState("pickSize");
   const [selectedVarient, setSelectedVarient] = useState<any>(
@@ -125,12 +134,13 @@ export default function ProductDetailPage({
     cycleLength: 28,
   });
   const [activeVariant, setActiveVariant] = useState(defaultVariant);
-  const initialImage =
-    defaultVariant?.bannerImage ||
-    defaultVariant?.image ||
-    productInfo?.bannerImage ||
-    productInfo?.productMediaRes?.[0]?.mediaURL ||
-    "";
+  const initialImage = isPanty
+    ? "/ovy/panty-box.jpg"
+    : defaultVariant?.bannerImage ||
+      defaultVariant?.image ||
+      productInfo?.bannerImage ||
+      productInfo?.productMediaRes?.[0]?.mediaURL ||
+      (isLiners ? "/products/liners.jpg" : "");
   const [activeImage, setActiveImage] = useState(initialImage);
   const [deliveryPincode, setDeliveryPincode] = useState("");
   const [deliveryStatus, setDeliveryStatus] = useState<DeliveryStatus>({
@@ -185,6 +195,7 @@ export default function ProductDetailPage({
   });
   const [showSizeCompare, setShowSizeCompare] = useState(false);
   const [showStickyBar, setShowStickyBar] = useState(false);
+  const mainButtonsRef = useRef<HTMLDivElement>(null);
 
   const staticContent = useMemo(
     () => getProductStaticContent(productInfo),
@@ -196,36 +207,59 @@ export default function ProductDetailPage({
     staticContent,
   );
   const canCustomizeBox = Boolean(
-    productInfo?.isMixBox ||
-      productInfo?.hasVarientBox ||
+    isPads && (
+      productInfo?.isMixBox ||
       productInfo?.slug === "ovy-pads" ||
-      (Array.isArray(productInfo?.prodcutVarientBoxRes) &&
-        productInfo.prodcutVarientBoxRes.length > 0) ||
-      (Array.isArray(productInfo?.productVariants) &&
-        productInfo.productVariants.length > 1),
+      productInfo?.hasVarientBox
+    )
   );
   const isMixBoxCheckout = canCustomizeBox && selectedPlanType === "mixYourBox";
   const isQuantityChangable = !isMixBoxCheckout;
   const staticVariantInfo = getStaticVariantInfo(staticContent, staticSizeKey);
 
   const productImages = useMemo(() => {
+    if (isPanty) {
+      return ["/ovy/panty-box.jpg"];
+    }
     const list = [
       activeVariant?.bannerImage,
       activeVariant?.image,
       productInfo?.bannerImage,
       ...(productInfo?.productMediaRes || []).map((item: any) => item?.mediaURL),
+      ...(isLiners ? ["/products/liners.jpg", "/ovy/liner-cotton.jpg", "/ovy/liner-feather.jpg"] : []),
     ].filter(Boolean);
     return Array.from(new Set(list));
-  }, [activeVariant, productInfo]);
+  }, [activeVariant, productInfo, isPanty, isLiners]);
 
   const displayDescription =
     getStaticShortText(staticVariantInfo, staticContent) ||
     activeVariant?.description ||
-    productInfo?.description;
-  const displayHighlights =
-    getStaticBullets(staticVariantInfo).length > 0
-      ? getStaticBullets(staticVariantInfo)
-      : activeVariant?.highlights || productInfo?.highlights || [
+    productInfo?.description ||
+    (isLiners
+      ? "A thin, everyday layer that sits in your underwear and keeps it clean between periods — for normal daily discharge, spotting before or after your period, and light bladder leaks. 190mm length and ultra-thin ~1mm, individually wrapped."
+      : isPanty
+        ? "A pad, reimagined as underwear you simply step into — single-use and disposable, never washed. Super-absorbent holding as much as 5 pads for up to 10–12 hours, with 360° leak protection yet genuinely super-thin under clothes."
+        : "Rash-free, toxin-free organic sanitary pads with a super-absorbent SAP gel core & 100% biodegradable disposal bags. Dermatologically tested and pH-balanced for total peace of mind.");
+
+  const defaultBullets = isLiners
+    ? [
+        "Ultra-thin ~1mm — you forget it’s there",
+        "Breathable, cottony-soft top sheet",
+        "190mm length — everyday coverage",
+        "Fragrance-free & dye-free — gentle on skin",
+        "Individually wrapped — easy to carry",
+        "Secure adhesive — stays put through the day",
+      ]
+    : isPanty
+      ? [
+          "Super-absorbent — holds as much as 5 regular pads, for up to 10–12 hours",
+          "One panty = 2–3 pad changes — no mid-day swaps in public washrooms",
+          "Genuinely super-thin — feels like normal underwear, not a bulky diaper",
+          "Full 360° coverage — leak-resistant back and soft leak-guard sides",
+          "Worn like underwear — no pad to place, no wings, no adhesive",
+          "Each panty individually sealed in its own soft wrapper",
+        ]
+      : [
           "100% Organic Top Sheet — Soft, breathable & rash-free",
           "Super Absorbent SAP Gel Core for maximum leak protection",
           "Includes 100% Biodegradable Disposal Bags with every pad",
@@ -233,6 +267,11 @@ export default function ProductDetailPage({
           "Dermatologically Tested & pH-Balanced for sensitive skin",
           "Zero Chlorine, Fragrances, Parabens or Synthetic Dyes",
         ];
+
+  const displayHighlights =
+    getStaticBullets(staticVariantInfo).length > 0
+      ? getStaticBullets(staticVariantInfo)
+      : activeVariant?.highlights || productInfo?.highlights || defaultBullets;
 
   const staticSpecs = getStaticSpecs(staticContent, staticSizeKey);
   const quickSpecs = staticSpecs.length > 0 ? staticSpecs.slice(0, 4) : [
@@ -248,7 +287,7 @@ export default function ProductDetailPage({
   );
   const freeShippingThreshold = getFreeShippingThreshold(
     staticContent,
-    productInfo?.freeShippingOver || 599,
+    399,
   );
 
   const isOutOfStock = Boolean(
@@ -394,28 +433,56 @@ export default function ProductDetailPage({
 
   const syncHash = (sizeKey: string | null) => {
     if (!sizeKey || typeof window === "undefined" || selectedPlanType === "mixYourBox") return;
+    const currentParams = new URLSearchParams(window.location.search);
+    currentParams.set("size", sizeKey.toLowerCase());
     const hash =
       staticContent?.SIZES?.[sizeKey]?.hash || `#${sizeKey.toLowerCase()}`;
     window.history.replaceState(
       null,
       "",
-      `${window.location.pathname}${window.location.search}${hash}`,
+      `${window.location.pathname}?${currentParams.toString()}${hash}`,
     );
-    window.dispatchEvent(new Event("hashchange"));
   };
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const handleScroll = () => {
-        if (window.scrollY > 450) {
-          setShowStickyBar(true);
-        } else {
-          setShowStickyBar(false);
-        }
-      };
-      window.addEventListener("scroll", handleScroll);
-      return () => window.removeEventListener("scroll", handleScroll);
+    if (typeof window === "undefined") return;
+
+    let isMainIntersecting = false;
+
+    const updateStickyBar = () => {
+      // If the main buttons are visible anywhere on screen, HIDE sticky bar
+      if (isMainIntersecting) {
+        setShowStickyBar(false);
+        return;
+      }
+      if (mainButtonsRef.current) {
+        const rect = mainButtonsRef.current.getBoundingClientRect();
+        // Only show if user has scrolled down past the main buttons (bottom < 0)
+        setShowStickyBar(rect.bottom < 0);
+      }
+    };
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        isMainIntersecting = entry.isIntersecting;
+        updateStickyBar();
+      },
+      { threshold: 0 }
+    );
+
+    if (mainButtonsRef.current) {
+      observer.observe(mainButtonsRef.current);
     }
+
+    window.addEventListener("scroll", updateStickyBar, { passive: true });
+    window.addEventListener("resize", updateStickyBar, { passive: true });
+    updateStickyBar();
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("scroll", updateStickyBar);
+      window.removeEventListener("resize", updateStickyBar);
+    };
   }, []);
 
   useEffect(() => {
@@ -462,7 +529,8 @@ export default function ProductDetailPage({
 
       if (matchedVariant) {
         setActiveVariant(matchedVariant);
-        if (matchedVariant.size) setSelectedSize(matchedVariant.size);
+        setSelectedVarient(getPickedVariantSelection(matchedVariant));
+        setSelectedSize(matchedVariant.size || matchedVariant.name || "");
         if (matchedVariant.flowType) setSelectedFlow(matchedVariant.flowType);
         if (matchedVariant.bannerImage || matchedVariant.image) {
           setActiveImage(matchedVariant.bannerImage || matchedVariant.image);
@@ -532,6 +600,7 @@ export default function ProductDetailPage({
       sku: activeVariant?.sku || `${selectedSize}-${selectedFlow}`,
       slug: productInfo?.slug || "",
       title: activeVariant?.name || productInfo?.name,
+      variantName: activeVariant?.name || (selectedSize ? `Size: ${selectedSize}` : undefined),
       price: typeof effectiveUnitPrice === "number" ? effectiveUnitPrice : 349,
       selectedPlan: selectedPlan,
       isSubscribed: effectivePurchaseType === "subscription",
@@ -564,7 +633,6 @@ export default function ProductDetailPage({
       ...(isMixBoxCheckout ? { uuid: crypto.randomUUID() } : {}),
     });
 
-    toast.success("Added to cart!");
     return result;
   };
 
@@ -581,8 +649,47 @@ export default function ProductDetailPage({
     }
 
     if (effectivePurchaseType !== "subscription") {
-      const added = await addToCart();
-      if (added) router.push("/checkout");
+      if (isMixBoxCheckout && !mixBoxPricing?.valid) {
+        toast.error(
+          mixBoxPricing?.message ?? "Complete your box before checkout.",
+        );
+        return;
+      }
+      const directItem = {
+        productId: productInfo.id,
+        productVariantId: activeVariant?.id,
+        sku: activeVariant?.sku || `${selectedSize}-${selectedFlow}`,
+        slug: productInfo?.slug || "",
+        title: activeVariant?.name || productInfo?.name,
+        variantName: activeVariant?.name || (selectedSize ? `Size: ${selectedSize}` : undefined),
+        image:
+          activeVariant?.bannerImage ||
+          activeVariant?.image ||
+          productInfo?.bannerImage ||
+          "/product.png",
+        price: typeof effectiveUnitPrice === "number" ? effectiveUnitPrice : 349,
+        originalPrice: activeVariant?.strikethroughPrice,
+        quantity: isMixBoxCheckout ? 1 : quantity,
+        mixBoxRecipe: isMixBoxCheckout ? mixBoxRecipe : undefined,
+        totalPads:
+          isMixBoxCheckout && mixBoxPricing?.valid
+            ? mixBoxPricing.totalPads
+            : undefined,
+        boxCount:
+          isMixBoxCheckout && mixBoxPricing?.valid
+            ? mixBoxPricing.boxCount
+            : undefined,
+        freeLiners:
+          isMixBoxCheckout && mixBoxPricing?.valid
+            ? mixBoxPricing.freeLiners
+            : undefined,
+        purchaseType: "one_time",
+      };
+      window.sessionStorage.setItem(
+        "potent-direct-checkout",
+        JSON.stringify(directItem),
+      );
+      router.push("/checkout?mode=direct");
       return;
     }
 
@@ -705,7 +812,8 @@ export default function ProductDetailPage({
 
   const handleVariantChange = (variant: any) => {
     setActiveVariant(variant);
-    if (variant.size) setSelectedSize(variant.size);
+    setSelectedVarient(getPickedVariantSelection(variant));
+    setSelectedSize(variant.size || variant.name || "");
     if (variant.flowType) setSelectedFlow(variant.flowType);
     if (variant.bannerImage || variant.image) {
       setActiveImage(variant.bannerImage || variant.image);
@@ -732,6 +840,10 @@ export default function ProductDetailPage({
   );
 
   // Gallery Prev / Next navigation
+  const [isZoomOpen, setIsZoomOpen] = useState(false);
+  const touchStartXRef = useRef<number | null>(null);
+  const touchStartYRef = useRef<number | null>(null);
+
   const currentImageIndex = productImages.indexOf(activeImage);
   const handlePrevImage = () => {
     if (productImages.length <= 1) return;
@@ -742,6 +854,26 @@ export default function ProductDetailPage({
     if (productImages.length <= 1) return;
     const nextIdx = (currentImageIndex + 1) % productImages.length;
     setActiveImage(productImages[nextIdx]);
+  };
+
+  const handleHeroTouchStart = (e: React.TouchEvent) => {
+    touchStartXRef.current = e.touches[0].clientX;
+    touchStartYRef.current = e.touches[0].clientY;
+  };
+
+  const handleHeroTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartXRef.current === null || touchStartYRef.current === null) return;
+    const diffX = e.changedTouches[0].clientX - touchStartXRef.current;
+    const diffY = e.changedTouches[0].clientY - touchStartYRef.current;
+    if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 40) {
+      if (diffX < 0) {
+        handleNextImage();
+      } else {
+        handlePrevImage();
+      }
+    }
+    touchStartXRef.current = null;
+    touchStartYRef.current = null;
   };
 
   // Quiz Recommendation Calculation
@@ -877,6 +1009,7 @@ export default function ProductDetailPage({
       sku: targetVariant?.sku || `${recommendedQuizResult.size}`,
       slug: productInfo?.slug || "",
       title: `${targetVariant?.name || productInfo?.name} (${recommendedQuizResult.size})`,
+      variantName: targetVariant?.name || `Size: ${recommendedQuizResult.size}`,
       price: basePrice,
       selectedPlan: BUY_ONCE_PLAN,
       isSubscribed: false,
@@ -893,78 +1026,98 @@ export default function ProductDetailPage({
 
   return (
     <div id="starter" className="max-w-[1180px] mx-auto px-3.5 sm:px-6 lg:px-8 pt-4 sm:pt-10 pb-16">
-      {/* Top View Toggle: Pick a Size vs Mix Your Box */}
-      <div className="mx-auto mb-6 sm:mb-8 flex justify-center">
-        <div className="inline-flex gap-1 rounded-full border border-gray-200/80 bg-white p-1 shadow-xs" role="tablist">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={selectedPlanType === "pickSize"}
-            onClick={() => {
-              setSelectedPlanType("pickSize");
-              const firstVariant = variantsList[0] || productInfo;
-              setSelectedVarient(getPickedVariantSelection(firstVariant));
-              handleVariantChange(firstVariant);
-            }}
-            className={`inline-flex cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold transition-all ${
-              selectedPlanType === "pickSize"
-                ? "bg-[#9A5B90] text-white shadow-xs"
-                : "text-[#1A150F]/70 hover:text-[#1A150F]"
-            }`}
-          >
-            <Sparkles className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-            Pick a Size
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={selectedPlanType === "mixYourBox"}
-            disabled={!canCustomizeBox}
-            onClick={() => {
-              if (!canCustomizeBox) return;
-              setSelectedPlanType("mixYourBox");
-              const variants = productInfo.prodcutVarientBoxRes || [];
-              const baseQuantity = Math.floor(21 / Math.max(variants.length, 1));
-              let remaining = 21;
-              const selectedVarientInfo = variants.map((item: any, index: number) => {
-                const qty = index === variants.length - 1 ? remaining : baseQuantity;
-                remaining -= qty;
-                return { name: item.name, quantity: qty, price: Number(item.price || 0) };
-              });
-              setCartSizes(selectedVarientInfo);
-              setSelectedVarient(selectedVarientInfo);
-              setTotal(selectedVarientInfo.reduce((s: number, i: any) => s + i.quantity, 0));
-            }}
-            className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold transition-all ${
-              !canCustomizeBox
-                ? "cursor-not-allowed text-black/40"
-                : selectedPlanType === "mixYourBox"
+      {/* Top View Toggle: Pick a Size vs Mix Your Box — ONLY for Pads */}
+      {isPads && canCustomizeBox && (
+        <div className="mx-auto mb-6 sm:mb-8 flex justify-center">
+          <div className="inline-flex gap-1 rounded-full border border-gray-200/80 bg-white p-1 shadow-xs" role="tablist">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={selectedPlanType === "pickSize"}
+              onClick={() => {
+                setSelectedPlanType("pickSize");
+                const firstVariant = variantsList[0] || productInfo;
+                setSelectedVarient(getPickedVariantSelection(firstVariant));
+                handleVariantChange(firstVariant);
+              }}
+              className={`inline-flex cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold transition-all ${
+                selectedPlanType === "pickSize"
                   ? "bg-[#9A5B90] text-white shadow-xs"
-                  : "cursor-pointer text-[#1A150F]/70 hover:text-[#1A150F]"
-            }`}
-          >
-            <PackageCheck className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-            Mix Your Box
-            {!canCustomizeBox && (
-              <span className="ml-0.5 rounded-full bg-[#F3E6F0] px-1.5 py-0.5 font-sans text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wider text-[#7E4D77]">
-                Soon
-              </span>
-            )}
-          </button>
+                  : "text-[#1A150F]/70 hover:text-[#1A150F]"
+              }`}
+            >
+              <Sparkles className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              Pick a Size
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={selectedPlanType === "mixYourBox"}
+              disabled={!canCustomizeBox}
+              onClick={() => {
+                if (!canCustomizeBox) return;
+                setSelectedPlanType("mixYourBox");
+                const variants = productInfo.prodcutVarientBoxRes || [];
+                const baseQuantity = Math.floor(21 / Math.max(variants.length, 1));
+                let remaining = 21;
+                const selectedVarientInfo = variants.map((item: any, index: number) => {
+                  const qty = index === variants.length - 1 ? remaining : baseQuantity;
+                  remaining -= qty;
+                  return { name: item.name, quantity: qty, price: Number(item.price || 0) };
+                });
+                setCartSizes(selectedVarientInfo);
+                setSelectedVarient(selectedVarientInfo);
+                setTotal(selectedVarientInfo.reduce((s: number, i: any) => s + i.quantity, 0));
+              }}
+              className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold transition-all ${
+                !canCustomizeBox
+                  ? "cursor-not-allowed text-black/40"
+                  : selectedPlanType === "mixYourBox"
+                    ? "bg-[#9A5B90] text-white shadow-xs"
+                    : "cursor-pointer text-[#1A150F]/70 hover:text-[#1A150F]"
+              }`}
+            >
+              <PackageCheck className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              Mix Your Box
+              {!canCustomizeBox && (
+                <span className="ml-0.5 rounded-full bg-[#F3E6F0] px-1.5 py-0.5 font-sans text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wider text-[#7E4D77]">
+                  Soon
+                </span>
+              )}
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Main PDP Grid (Aligned 12 Column Layout like Looway) */}
       <div className="grid grid-cols-1 items-start gap-6 sm:gap-8 lg:grid-cols-12 lg:gap-12">
         {/* LEFT COLUMN: Gallery & Product Badges (6 Columns out of 12) */}
         <div className="lg:col-span-6 static lg:sticky lg:top-24 space-y-4 sm:space-y-6">
           <div>
-            <div className="relative aspect-[4/5] w-full overflow-hidden rounded-2xl sm:rounded-3xl border border-gray-200/80 bg-[#FBF1FB] shadow-xs flex items-center justify-center p-3 sm:p-6">
+            <div
+              onTouchStart={handleHeroTouchStart}
+              onTouchEnd={handleHeroTouchEnd}
+              className="relative aspect-[4/5] w-full overflow-hidden rounded-2xl sm:rounded-3xl border border-gray-200/80 bg-[#FBF1FB] shadow-xs flex items-center justify-center p-3 sm:p-6 group"
+            >
               <div className="absolute top-3 left-3 sm:top-4 sm:left-4 z-10 flex flex-col gap-1.5">
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-white/90 px-2.5 sm:px-3.5 py-1 sm:py-1.5 text-[11px] sm:text-xs font-semibold text-[#7E4D77] shadow-xs backdrop-blur-xs">
                   <CheckCircle2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-[#7E4D77]" /> 100% Organic Cotton • Dermatologically Tested
                 </span>
               </div>
+
+              {/* Top-Right Zoom Button */}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsZoomOpen(true);
+                }}
+                className="absolute top-3 right-3 sm:top-4 sm:right-4 z-20 flex h-9 w-9 sm:h-10 sm:w-10 cursor-pointer items-center justify-center rounded-full bg-white/90 text-gray-700 shadow-md backdrop-blur-xs transition-all hover:scale-110 hover:bg-white hover:text-[#7E4D77]"
+                aria-label="Enlarge image"
+                title="Enlarge image"
+              >
+                <ZoomIn className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
+              </button>
 
               {activeImage ? (
                 <div className="relative h-full w-full p-4 sm:p-6">
@@ -981,7 +1134,9 @@ export default function ProductDetailPage({
                 <div className="grid h-full place-items-center p-6 sm:p-8 text-center text-gray-500">
                   <div>
                     <Sparkles className="mx-auto mb-2 h-7 w-7 sm:h-8 sm:w-8 text-[#9A5B90]" />
-                    <p className="font-semibold text-gray-900">Ovy Organic Pad</p>
+                    <p className="font-semibold text-gray-900">
+                      {productInfo?.name || (isLiners ? "Ovy Daily Liners" : isPanty ? "Ovy Period Panties" : "Ovy Organic Pad")}
+                    </p>
                   </div>
                 </div>
               )}
@@ -1008,7 +1163,11 @@ export default function ProductDetailPage({
               )}
 
               <span className="absolute bottom-3 sm:bottom-4 left-1/2 z-10 -translate-x-1/2 font-caveat text-lg sm:text-xl whitespace-nowrap text-[#7E4D77]/90">
-                soft, rash-free & super absorbent
+                {isLiners
+                  ? "breathable, ultra-thin & gentle on skin"
+                  : isPanty
+                    ? "360° leak protection & super-absorbent"
+                    : "soft, rash-free & super absorbent"}
               </span>
             </div>
 
@@ -1058,7 +1217,7 @@ export default function ProductDetailPage({
 
           {/* Product Title */}
           <h1 className="font-serif text-2xl font-bold leading-tight text-[#1A150F] sm:text-4xl lg:text-[40px]">
-            {productInfo?.name || "Ovy Organic Soft Sanitary Pads"}
+            {productInfo?.name || (isLiners ? "Ovy Daily Panty Liners" : isPanty ? "Ovy Super Slim Period Panties" : "Ovy Organic Soft Sanitary Pads")}
           </h1>
 
           {/* Save to Wishlist Button */}
@@ -1084,13 +1243,45 @@ export default function ProductDetailPage({
 
           {/* Size & Meta Summary */}
           <div className="flex items-center gap-2 flex-wrap text-xs sm:text-sm font-medium text-gray-600">
-            <span>{selectedPlanType === "mixYourBox" ? "Custom Box (21 Pads)" : activeVariant?.size || selectedSize}</span>
-            <span className="h-1 w-1 rounded-full bg-gray-400" />
-            <span>21 Pads + 4 Free Liners</span>
-            <span className="h-1 w-1 rounded-full bg-gray-400" />
-            <span className="rounded-full bg-[#F3E6F0] px-2 py-0.5 text-[11px] sm:text-xs font-semibold text-[#7E4D77]">
-              {selectedPlanType === "mixYourBox" ? "All Flow Types" : activeVariant?.flowType || selectedFlow || "Medium to Heavy Flow"}
-            </span>
+            {isLiners ? (
+              <>
+                <span>{activeVariant?.name || selectedSize || "Pack of 60"}</span>
+                <span className="h-1 w-1 rounded-full bg-gray-400" />
+                <span>
+                  {activeVariant?.name?.includes("40")
+                    ? "40 Liners per pack"
+                    : activeVariant?.name?.includes("80")
+                      ? "80 Liners per pack"
+                      : "60 Liners per pack"}
+                </span>
+                <span className="h-1 w-1 rounded-full bg-gray-400" />
+                <span className="rounded-full bg-[#F3E6F0] px-2 py-0.5 text-[11px] sm:text-xs font-semibold text-[#7E4D77]">
+                  190mm • Ultra-thin (~1mm)
+                </span>
+              </>
+            ) : isPanty ? (
+              <>
+                <span>{activeVariant?.name || selectedSize || "M-XL"}</span>
+                <span className="h-1 w-1 rounded-full bg-gray-400" />
+                <span>8 Disposable Period Panties</span>
+                <span className="h-1 w-1 rounded-full bg-gray-400" />
+                <span className="rounded-full bg-[#F3E6F0] px-2 py-0.5 text-[11px] sm:text-xs font-semibold text-[#7E4D77]">
+                  {activeVariant?.name?.includes("XXL")
+                    ? "Waist ~44–56 in • Fuller fit"
+                    : "Waist ~28–44 in • Fits most"}
+                </span>
+              </>
+            ) : (
+              <>
+                <span>{selectedPlanType === "mixYourBox" ? "Custom Box (21 Pads)" : activeVariant?.size || selectedSize}</span>
+                <span className="h-1 w-1 rounded-full bg-gray-400" />
+                <span>21 Pads + 4 Free Liners</span>
+                <span className="h-1 w-1 rounded-full bg-gray-400" />
+                <span className="rounded-full bg-[#F3E6F0] px-2 py-0.5 text-[11px] sm:text-xs font-semibold text-[#7E4D77]">
+                  {selectedPlanType === "mixYourBox" ? "All Flow Types" : activeVariant?.flowType || selectedFlow || "Medium to Heavy Flow"}
+                </span>
+              </>
+            )}
           </div>
 
           {/* Rating Row */}
@@ -1105,34 +1296,90 @@ export default function ProductDetailPage({
 
           {/* Description */}
           <p className="text-xs sm:text-base leading-relaxed text-gray-600">
-            <strong className="font-semibold text-[#1A150F]">Rash-free, toxin-free organic sanitary pads</strong> with a super-absorbent SAP gel core & 100% biodegradable disposal bags. Dermatologically tested and pH-balanced for total peace of mind.
+            {displayDescription}
           </p>
 
           {/* Size Selector Grid (for Pick a Size mode) */}
           {selectedPlanType === "pickSize" && (
             <div>
               <div className="mb-2.5 flex items-baseline justify-between">
-                <span className="text-[11px] sm:text-xs font-bold tracking-wider uppercase text-gray-700">SELECT SIZE</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsQuizOpen(true);
-                    setQuizStep(0);
-                  }}
-                  className="cursor-pointer font-caveat text-sm sm:text-base font-semibold text-[#7E4D77] underline underline-offset-2 hover:text-[#9A5B90]"
-                >
-                  Find My Fit (Size Quiz) →
-                </button>
+                <span className="text-[11px] sm:text-xs font-bold tracking-wider uppercase text-gray-700">
+                  {isLiners ? "SELECT PACK" : "SELECT SIZE"}
+                </span>
+                {isPads && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsQuizOpen(true);
+                      setQuizStep(0);
+                    }}
+                    className="cursor-pointer font-caveat text-sm sm:text-base font-semibold text-[#7E4D77] underline underline-offset-2 hover:text-[#9A5B90]"
+                  >
+                    Find My Fit (Size Quiz) →
+                  </button>
+                )}
               </div>
 
               {/* Variant Size Cards Grid */}
-              <div className="grid grid-cols-3 gap-2 sm:gap-3">
+              <div className={`grid ${variantsList.length === 2 ? "grid-cols-2" : "grid-cols-3"} gap-2 sm:gap-3`}>
                 {variantsList.map((variant: any, idx: number) => {
-                  const isSelected = activeVariant?.id === variant.id || selectedSize === variant.size;
-                  const sizeName = variant.size?.split(" ")[0] || variant.name?.split(" ")[0] || `Size ${idx + 1}`;
-                  const mmText = variant.size?.match(/\((.*?)\)/)?.[1] || (idx === 0 ? "240mm" : idx === 1 ? "280mm" : "320mm");
-                  const flowDesc = variant.flowType || (idx === 0 ? "Light Flow" : idx === 1 ? "Medium-Heavy" : "Heavy & Overnight");
-                  const variantIsOutOfStock = variant.isInStock === false || variant.is_in_stock === false;
+                  const isSelected = activeVariant?.id && variant?.id
+                    ? activeVariant.id === variant.id
+                    : activeVariant
+                      ? activeVariant === variant
+                      : selectedSize === (variant.size || variant.name);
+                  const variantIsOutOfStock =
+                    variant.isInStock === false || variant.is_in_stock === false;
+
+                  let sizeName =
+                    variant.size?.split(" ")[0] || variant.name || `Option ${idx + 1}`;
+                  let subText = "";
+                  let flowDesc = variant.flowType || "";
+
+                  if (isLiners) {
+                    sizeName =
+                      variant.name ||
+                      (idx === 0
+                        ? "Pack of 40"
+                        : idx === 1
+                          ? "Pack of 60"
+                          : "Pack of 80");
+                    const packCount = variant.name?.includes("40")
+                      ? 40
+                      : variant.name?.includes("80")
+                        ? 80
+                        : 60;
+                    subText = `190mm • ₹${variant.price || (packCount === 40 ? 249 : packCount === 60 ? 339 : 419)}`;
+                    flowDesc =
+                      packCount === 40
+                        ? "Starter / Occasional"
+                        : packCount === 60
+                          ? "Our pick / Regular"
+                          : "Best value / Daily";
+                  } else if (isPanty) {
+                    sizeName =
+                      variant.name || (idx === 0 ? "M-XL" : "XXL-XXXL");
+                    const isXxl =
+                      sizeName.includes("XXL") || variant.name?.includes("XXL");
+                    subText = `${isXxl ? "Waist 44–56 in" : "Waist 28–44 in"} • ₹${variant.price || 349}`;
+                    flowDesc = isXxl ? "Fuller, relaxed fit" : "Fits most body types";
+                  } else {
+                    sizeName =
+                      variant.size?.split(" ")[0] ||
+                      variant.name?.split(" ")[0] ||
+                      `Size ${idx + 1}`;
+                    const mmText =
+                      variant.size?.match(/\((.*?)\)/)?.[1] ||
+                      (idx === 0 ? "240mm" : idx === 1 ? "280mm" : "320mm");
+                    subText = `${mmText} • ₹${variant.price || 349}`;
+                    flowDesc =
+                      variant.flowType ||
+                      (idx === 0
+                        ? "Light Flow"
+                        : idx === 1
+                          ? "Medium-Heavy"
+                          : "Heavy & Overnight");
+                  }
 
                   return (
                     <button
@@ -1147,13 +1394,21 @@ export default function ProductDetailPage({
                       }`}
                     >
                       <div className="flex items-center justify-between gap-1">
-                        <div className="font-serif text-base sm:text-xl font-semibold text-[#1A150F]">{sizeName}</div>
+                        <div className="font-serif text-base sm:text-xl font-semibold text-[#1A150F]">
+                          {sizeName}
+                        </div>
                         {variantIsOutOfStock && (
-                          <span className="text-[9px] font-bold text-stone-500 bg-stone-100 px-1.5 py-0.5 rounded">Out of stock</span>
+                          <span className="text-[9px] font-bold text-stone-500 bg-stone-100 px-1.5 py-0.5 rounded">
+                            Out of stock
+                          </span>
                         )}
                       </div>
-                      <div className="mt-0.5 text-[10px] sm:text-xs font-medium text-gray-600">{mmText} • ₹{variant.price || 349}</div>
-                      <div className="mt-1 sm:mt-2 text-[10px] sm:text-xs font-semibold tracking-tight text-[#7E4D77] line-clamp-1">{flowDesc}</div>
+                      <div className="mt-0.5 text-[10px] sm:text-xs font-medium text-gray-600">
+                        {subText}
+                      </div>
+                      <div className="mt-1 sm:mt-2 text-[10px] sm:text-xs font-semibold tracking-tight text-[#7E4D77] line-clamp-1">
+                        {flowDesc}
+                      </div>
                       <div
                         className={`absolute top-2 right-2 sm:top-3.5 sm:right-3.5 flex h-3.5 w-3.5 sm:h-4.5 sm:w-4.5 items-center justify-center rounded-full bg-[#9A5B90] text-white transition-all ${
                           isSelected ? "scale-100 opacity-100" : "scale-50 opacity-0"
@@ -1167,75 +1422,91 @@ export default function ProductDetailPage({
               </div>
 
               {/* Size Comparison Expander / Quick Table */}
-              <div className="mt-3">
-                <button
-                  type="button"
-                  onClick={() => setShowSizeCompare(!showSizeCompare)}
-                  className="cursor-pointer text-xs font-semibold text-[#7E4D77] underline underline-offset-2 hover:text-[#9A5B90]"
-                >
-                  {showSizeCompare ? "Hide Size Comparison Table" : "View Size Comparison Table ↓"}
-                </button>
-                {showSizeCompare && (
-                  <div className="mt-4 overflow-hidden rounded-2xl border-2 border-[#F3E6F0] bg-white">
-                    <div className="bg-[#F3E6F0] p-3 px-4">
-                      <span className="text-xs font-extrabold tracking-wider uppercase text-[#7E4D77]">SIZE COMPARISON CHART</span>
+              {isPads && (
+                <div className="mt-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowSizeCompare(!showSizeCompare)}
+                    className="cursor-pointer text-xs font-semibold text-[#7E4D77] underline underline-offset-2 hover:text-[#9A5B90]"
+                  >
+                    {showSizeCompare ? "Hide Size Comparison Table" : "View Size Comparison Table ↓"}
+                  </button>
+                  {showSizeCompare && (
+                    <div className="mt-4 overflow-hidden rounded-2xl border-2 border-[#F3E6F0] bg-white">
+                      <div className="bg-[#F3E6F0] p-3 px-4">
+                        <span className="text-xs font-extrabold tracking-wider uppercase text-[#7E4D77]">
+                          SIZE COMPARISON CHART
+                        </span>
+                      </div>
+                      <table className="w-full border-collapse text-left text-xs sm:text-sm">
+                        <thead>
+                          <tr className="border-b border-gray-100 font-serif text-sm font-semibold text-[#1A150F]">
+                            <th className="p-3" />
+                            <th className={`p-3 text-center ${selectedSize.includes("240") ? "bg-[#F3E6F0] text-[#7E4D77]" : ""}`}>
+                              L
+                            </th>
+                            <th className={`p-3 text-center ${selectedSize.includes("280") ? "bg-[#F3E6F0] text-[#7E4D77]" : ""}`}>
+                              XL
+                            </th>
+                            <th className={`p-3 text-center ${selectedSize.includes("320") ? "bg-[#F3E6F0] text-[#7E4D77]" : ""}`}>
+                              XL+
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100 text-gray-600">
+                          <tr>
+                            <th className="p-3 font-semibold text-[#1A150F]">Length</th>
+                            <td className="p-3 text-center">240mm</td>
+                            <td className="p-3 text-center">280mm</td>
+                            <td className="p-3 text-center">320mm</td>
+                          </tr>
+                          <tr>
+                            <th className="p-3 font-semibold text-[#1A150F]">Flow</th>
+                            <td className="p-3 text-center">Light</td>
+                            <td className="p-3 text-center">Medium/Heavy</td>
+                            <td className="p-3 text-center">Heavy/Night</td>
+                          </tr>
+                          <tr>
+                            <th className="p-3 font-semibold text-[#1A150F]">Coverage</th>
+                            <td className="p-3 text-center">Standard</td>
+                            <td className="p-3 text-center">Extended</td>
+                            <td className="p-3 text-center">Maximum</td>
+                          </tr>
+                        </tbody>
+                      </table>
                     </div>
-                    <table className="w-full border-collapse text-left text-xs sm:text-sm">
-                      <thead>
-                        <tr className="border-b border-gray-100 font-serif text-sm font-semibold text-[#1A150F]">
-                          <th className="p-3" />
-                          <th className={`p-3 text-center ${selectedSize.includes("240") ? "bg-[#F3E6F0] text-[#7E4D77]" : ""}`}>L</th>
-                          <th className={`p-3 text-center ${selectedSize.includes("280") ? "bg-[#F3E6F0] text-[#7E4D77]" : ""}`}>XL</th>
-                          <th className={`p-3 text-center ${selectedSize.includes("320") ? "bg-[#F3E6F0] text-[#7E4D77]" : ""}`}>XL+</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100 text-gray-600">
-                        <tr>
-                          <th className="p-3 font-semibold text-[#1A150F]">Length</th>
-                          <td className="p-3 text-center">240mm</td>
-                          <td className="p-3 text-center">280mm</td>
-                          <td className="p-3 text-center">320mm</td>
-                        </tr>
-                        <tr>
-                          <th className="p-3 font-semibold text-[#1A150F]">Flow</th>
-                          <td className="p-3 text-center">Light</td>
-                          <td className="p-3 text-center">Medium/Heavy</td>
-                          <td className="p-3 text-center">Heavy/Night</td>
-                        </tr>
-                        <tr>
-                          <th className="p-3 font-semibold text-[#1A150F]">Coverage</th>
-                          <td className="p-3 text-center">Standard</td>
-                          <td className="p-3 text-center">Extended</td>
-                          <td className="p-3 text-center">Maximum</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
           {/* Size Quiz CTA Highlighted Banner */}
-          <button
-            type="button"
-            onClick={() => {
-              setIsQuizOpen(true);
-              setQuizStep(0);
-            }}
-            className="flex w-full cursor-pointer items-center gap-3 sm:gap-4 rounded-2xl sm:rounded-3xl border-2 border-[#9A5B90] bg-gradient-to-r from-[#F3E6F0] to-[#E4F1F1] p-3.5 sm:p-5 text-left shadow-xs transition-all hover:-translate-y-0.5 hover:shadow-md"
-          >
-            <div className="flex h-9 w-9 sm:h-11 sm:w-11 flex-none items-center justify-center rounded-xl sm:rounded-2xl bg-white text-[#7E4D77] shadow-xs">
-              <Sparkles className="h-4.5 w-4.5 sm:h-5.5 sm:w-5.5" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <b className="block text-xs sm:text-base font-bold tracking-tight text-[#1A150F]">Unsure which size is right for your flow?</b>
-              <span className="text-[11px] sm:text-sm text-gray-600">Take our 30-second Period Fit Quiz for a custom recommendation</span>
-            </div>
-            <div className="flex-none text-[#7E4D77]">
-              <ArrowRight className="h-4.5 w-4.5 sm:h-5.5 sm:w-5.5" />
-            </div>
-          </button>
+          {isPads && (
+            <button
+              type="button"
+              onClick={() => {
+                setIsQuizOpen(true);
+                setQuizStep(0);
+              }}
+              className="flex w-full cursor-pointer items-center gap-3 sm:gap-4 rounded-2xl sm:rounded-3xl border-2 border-[#9A5B90] bg-gradient-to-r from-[#F3E6F0] to-[#E4F1F1] p-3.5 sm:p-5 text-left shadow-xs transition-all hover:-translate-y-0.5 hover:shadow-md"
+            >
+              <div className="flex h-9 w-9 sm:h-11 sm:w-11 flex-none items-center justify-center rounded-xl sm:rounded-2xl bg-white text-[#7E4D77] shadow-xs">
+                <Sparkles className="h-4.5 w-4.5 sm:h-5.5 sm:w-5.5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <b className="block text-xs sm:text-base font-bold tracking-tight text-[#1A150F]">
+                  Unsure which size is right for your flow?
+                </b>
+                <span className="text-[11px] sm:text-sm text-gray-600">
+                  Take our 30-second Period Fit Quiz for a custom recommendation
+                </span>
+              </div>
+              <div className="flex-none text-[#7E4D77]">
+                <ArrowRight className="h-4.5 w-4.5 sm:h-5.5 sm:w-5.5" />
+              </div>
+            </button>
+          )}
 
           {/* BUY BOX CONTAINER */}
           <div className="space-y-4 sm:space-y-5 rounded-2xl sm:rounded-3xl border border-gray-200/80 bg-white p-4 sm:p-7 shadow-sm">
@@ -1390,10 +1661,17 @@ export default function ProductDetailPage({
             {/* Quantity Stepper (for Pick a Size mode) */}
             {isQuantityChangable && (
               <div>
-                <div className="mb-2.5 text-xs font-bold tracking-wider uppercase text-gray-500">QUANTITY (BOXES)</div>
+                <div className="mb-2.5 flex items-baseline justify-between">
+                  <span className="text-xs font-bold tracking-wider uppercase text-gray-500">
+                    QUANTITY {isLiners ? "(PACKS)" : isPanty ? "(PACKS)" : "(BOXES)"}
+                  </span>
+                  <span className="text-[11px] font-semibold text-gray-500">
+                    Maximum {maxBoxes} per order
+                  </span>
+                </div>
                 <div className="flex flex-wrap items-center gap-3">
                   <div className="flex gap-2">
-                    {[1, 2, 3, 4].map((num) => (
+                    {[1, 2, 3, 4].filter((n) => n <= maxBoxes).map((num) => (
                       <button
                         key={num}
                         type="button"
@@ -1421,18 +1699,32 @@ export default function ProductDetailPage({
                     </button>
                     <span className="min-w-12 text-center text-sm font-semibold text-[#1A150F]">
                       {quantity}
-                      <small className="block text-[10px] font-normal text-gray-500">box{quantity > 1 ? "es" : ""}</small>
+                      <small className="block text-[10px] font-normal text-gray-500">
+                        {isLiners || isPanty ? `pack${quantity > 1 ? "s" : ""}` : `box${quantity > 1 ? "es" : ""}`}
+                      </small>
                     </span>
                     <button
                       type="button"
-                      disabled={quantity >= maxBoxes}
-                      onClick={() => setQuantity(Math.min(maxBoxes, quantity + 1))}
-                      className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-lg font-bold text-[#7E4D77] transition-all hover:bg-[#F3E6F0] disabled:cursor-not-allowed disabled:opacity-30"
+                      onClick={() => {
+                        if (quantity >= maxBoxes) {
+                          toast.info(`Maximum ${maxBoxes} per order`);
+                          return;
+                        }
+                        setQuantity(quantity + 1);
+                      }}
+                      className={`flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-lg font-bold text-[#7E4D77] transition-all hover:bg-[#F3E6F0] ${
+                        quantity >= maxBoxes ? "opacity-40" : ""
+                      }`}
                     >
                       +
                     </button>
                   </div>
                 </div>
+                {quantity >= maxBoxes && (
+                  <p className="mt-1.5 text-right text-[11px] font-semibold text-[#7E4D77]">
+                    Maximum {maxBoxes} per order reached
+                  </p>
+                )}
               </div>
             )}
 
@@ -1471,7 +1763,7 @@ export default function ProductDetailPage({
             </div>
 
             {/* Primary & Secondary Action Buttons */}
-            <div className="space-y-3 pt-2">
+            <div ref={mainButtonsRef} className="space-y-3 pt-2">
               {isOutOfStock ? (
                 <button
                   type="button"
@@ -1512,7 +1804,7 @@ export default function ProductDetailPage({
             <div className="space-y-4 pt-3">
               {/* Shipping Sub-header */}
               <div className="text-center text-xs sm:text-sm text-gray-500 font-medium">
-                Free shipping over ₹599 · ships in 24 hrs · secure checkout
+                Free shipping over ₹399 · ships in 24 hrs · secure checkout
               </div>
 
               {/* Satisfaction Guarantee */}
@@ -1543,7 +1835,7 @@ export default function ProductDetailPage({
                   </div>
                   <div className="flex items-center gap-2">
                     <Truck className="h-4.5 w-4.5 text-[#9A5B90] shrink-0" />
-                    <span>Free shipping over ₹599</span>
+                    <span>Free shipping over ₹399</span>
                   </div>
                 </div>
               </div>
@@ -1664,27 +1956,36 @@ export default function ProductDetailPage({
           </div>
           <div className="flex items-center gap-2">
             <CheckCircle2 className="h-4 w-4 flex-none text-[#1A8D91]" />
-            <span>Free shipping over ₹599</span>
+            <span>Free shipping over ₹399</span>
           </div>
         </div>
       </div>
 
-      {/* Engineered in Layers — What's Inside Section */}
-      <WhatsInside />
+      {/* Below-the-fold Sections */}
+      {isLiners ? (
+        <LinersPackAndSpecs activeVariant={activeVariant} />
+      ) : isPanty ? (
+        <PantyPackAndSpecs activeVariant={activeVariant} />
+      ) : (
+        <>
+          {/* Engineered in Layers — What's Inside Section */}
+          <WhatsInside />
 
-      {/* An Honest Comparison — Why Ovy Beats An Ordinary Pad */}
-      <OvyComparison />
+          {/* An Honest Comparison — Why Ovy Beats An Ordinary Pad */}
+          <OvyComparison />
 
-      {/* Good To Know — Questions, Answered (3 Promo Cards) */}
-      <OvyPromos
-        onOpenQuiz={() => {
-          setIsQuizOpen(true);
-          setQuizStep(0);
-        }}
-      />
+          {/* Good To Know — Questions, Answered (3 Promo Cards) */}
+          <OvyPromos
+            onOpenQuiz={() => {
+              setIsQuizOpen(true);
+              setQuizStep(0);
+            }}
+          />
+        </>
+      )}
 
       {/* Interactive Size Recommendation Quiz Modal */}
-      {isQuizOpen && (
+      {isPads && isQuizOpen && (
         <div className="fixed inset-0 z-[96] flex items-center justify-center p-5">
           <div className="absolute inset-0 bg-[#1A150F]/50 backdrop-blur-xs" onClick={() => setIsQuizOpen(false)} />
           <div className="relative max-h-[90vh] w-full max-w-[540px] overflow-auto rounded-3xl bg-white p-6 sm:p-8 shadow-xl">
@@ -1895,35 +2196,74 @@ export default function ProductDetailPage({
         </div>
       )}
 
-      {/* Sticky Mobile Buying Bar */}
+      {/* Sticky Mobile/Desktop Buying Bar */}
       <div
-        className={`fixed left-0 right-0 bottom-[56px] md:bottom-0 z-40 flex items-center gap-4 border-t border-gray-200/80 bg-white/95 p-3.5 px-5 shadow-lg backdrop-blur-md transition-transform duration-300 ${
+        className={`fixed left-0 right-0 bottom-[56px] md:bottom-0 z-40 flex items-center justify-between gap-3 sm:gap-4 border-t border-gray-200/80 bg-white/95 p-3.5 px-4 sm:px-6 shadow-lg backdrop-blur-md transition-transform duration-300 ${
           showStickyBar ? "translate-y-0 pointer-events-auto" : "translate-y-[115%] pointer-events-none"
         }`}
       >
-        <div>
-          <div className="font-serif text-xl font-bold text-[#1A150F]">₹{typeof totalAmount === "number" ? totalAmount : 349}</div>
-          <div className="text-xs text-gray-500">{isOutOfStock ? "Out of stock" : "21 Pads + 4 Free Liners"}</div>
+        <div className="min-w-0">
+          <div className="font-serif text-lg sm:text-xl font-bold text-[#1A150F]">₹{typeof totalAmount === "number" ? totalAmount : 349}</div>
+          <div className="text-xs text-gray-500 truncate">
+            {isOutOfStock
+              ? "Out of stock"
+              : effectivePurchaseType === "subscription"
+                ? (selectedPlan?.title || selectedPlan?.label || (effectiveSubscriptionType === "cycle_sync" ? "Cycle Sync" : "Subscription Plan"))
+                : isLiners
+                  ? `${activeVariant?.name || "Pack of 60"} (${activeVariant?.name?.includes("40") ? "40" : activeVariant?.name?.includes("80") ? "80" : "60"} Liners)`
+                  : isPanty
+                    ? `${activeVariant?.name || "M-XL"} (8 Panties)`
+                    : "21 Pads + 4 Free Liners"}
+          </div>
         </div>
         {isOutOfStock ? (
           <button
             type="button"
             disabled
-            className="flex-1 cursor-not-allowed rounded-2xl bg-gray-200 p-3.5 text-sm font-semibold text-gray-500 shadow-none"
+            className="flex-1 max-w-[280px] cursor-not-allowed rounded-2xl bg-gray-200 p-3.5 text-sm font-semibold text-gray-500 shadow-none"
           >
             Out of stock
           </button>
-        ) : (
+        ) : effectivePurchaseType === "subscription" ? (
           <button
             type="button"
-            onClick={addToCart}
+            onClick={handleBuyNow}
             disabled={Boolean(isMixBoxCheckout && !mixBoxPricing?.valid)}
-            className="flex-1 cursor-pointer rounded-2xl bg-[#9A5B90] p-3.5 text-sm font-semibold text-white transition hover:bg-[#7E4D77] disabled:opacity-50"
+            className="flex-1 max-w-[280px] cursor-pointer rounded-2xl bg-[#141413] p-3.5 text-sm font-semibold text-white shadow-md transition hover:bg-[#2a2a28] disabled:opacity-50"
           >
-            Add to Cart
+            Checkout Subscription →
           </button>
+        ) : (
+          <div className="flex flex-1 max-w-[340px] items-center gap-2">
+            <button
+              type="button"
+              onClick={addToCart}
+              disabled={Boolean(isMixBoxCheckout && !mixBoxPricing?.valid)}
+              className="flex-1 cursor-pointer rounded-2xl bg-[#9A5B90] p-3.5 text-sm font-semibold text-white shadow-md transition hover:bg-[#7E4D77] disabled:opacity-50"
+            >
+              Add to Cart
+            </button>
+            <button
+              type="button"
+              onClick={handleBuyNow}
+              disabled={Boolean(isMixBoxCheckout && !mixBoxPricing?.valid)}
+              className="hidden sm:block flex-1 cursor-pointer rounded-2xl bg-[#141413] p-3.5 text-sm font-semibold text-white transition hover:bg-[#2a2a28] disabled:opacity-50"
+            >
+              Buy Now →
+            </button>
+          </div>
         )}
       </div>
+
+      {/* Tap-to-Zoom Lightbox Modal */}
+      <ImageZoomModal
+        isOpen={isZoomOpen}
+        onClose={() => setIsZoomOpen(false)}
+        images={productImages.map(getImageUrl)}
+        currentIndex={Math.max(0, currentImageIndex)}
+        onNavigate={(idx) => setActiveImage(productImages[idx])}
+        alt={activeVariant?.name || productInfo?.name}
+      />
     </div>
   );
 }

@@ -9,9 +9,14 @@ import { and, eq } from "drizzle-orm";
 
 export async function POST(req: Request) {
   const body = await req.json();
-  const { couponCode, addressId } = body;
+  const { couponCode, addressId, directItem } = body;
   const { userId } = await requireUserWithRefresh();
-  const pricing = await calculateCheckoutPricingForUser({ userId, couponCode });
+  const customItems = directItem ? [directItem] : undefined;
+  const pricing = await calculateCheckoutPricingForUser({
+    userId,
+    couponCode,
+    customItems,
+  });
 
   if (!pricing.success || pricing.final <= 0) {
     return NextResponse.json(
@@ -50,6 +55,7 @@ export async function POST(req: Request) {
       couponCode,
       address: shippingAddress,
       razorpayOrderId: order.id,
+      customItems,
     });
 
     if (!pendingOrder.success) {
