@@ -4,8 +4,10 @@ import { NextResponse } from "next/server";
 import { RAZORPAY_KEY_SECRET } from "@/env";
 import { requireUserWithRefresh } from "@/helper/user/action";
 import { db } from "@/src/db";
-import { payment } from "@/src/db/schema";
+import { order, payment } from "@/src/db/schema";
 import { and, eq } from "drizzle-orm";
+import { ORDER_STATUS } from "@/const/globalconst";
+import { syncAndGetUserRewards } from "@/lib/rewards";
 
 function signaturesMatch(expected: string, received: string) {
   const expectedBuffer = Buffer.from(expected);
@@ -70,18 +72,40 @@ export async function POST(req: Request) {
       .update(payment)
       .set({
         gatewayPaymentId: razorpay_payment_id,
+        paymentStatus: "success",
         paymentMeta: {
           ...((pendingPayment.paymentMeta as any) || {}),
+          status: "success",
           checkoutVerifiedAt: new Date().toISOString(),
           razorpayPaymentId: razorpay_payment_id,
+          ...(body.isGift !== undefined
+            ? {
+                isGift: Boolean(body.isGift),
+                giftNote:
+                  body.isGift && body.giftNote
+                    ? String(body.giftNote).trim().slice(0, 200)
+                    : null,
+              }
+            : {}),
         },
       })
       .where(eq(payment.id, pendingPayment.id));
+
+    await db
+      .update(order)
+      .set({
+        status: ORDER_STATUS.PAID,
+        updatedAt: new Date(),
+      })
+      .where(eq(order.id, pendingPayment.orderId));
   }
+
+  await syncAndGetUserRewards(userId);
 
   return NextResponse.json({
     success: true,
     orderId: pendingPayment.orderId,
-    paymentStatus: pendingPayment.paymentStatus ?? "pending",
+    paymentStatus: "success",
   });
 }
+

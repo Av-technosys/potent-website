@@ -20,6 +20,7 @@ import {
   sendShippingConfirmationEmail,
   sendUserExperienceEmail,
 } from "../emailTemplates/action";
+import { reverseCancelledOrderRewards } from "@/lib/rewards";
 
 const cancelRequest = orderAction;
 const returnRequest = orderAction;
@@ -28,29 +29,121 @@ const VALID_ORDER_STATUSES = ORDER_STATUS_ITEMS.map((item) => item.value);
 
 export const fetchOrders = async ({
   page = 1,
-  pageSize = 3,
+  pageSize = 10,
   search = "",
   status = "",
-}) => {
+}: {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+  status?: string;
+} = {}) => {
+  const currentPage = Number.isFinite(page) && page > 0 ? page : 1;
+  const limit = Number.isFinite(pageSize) && pageSize > 0 ? pageSize : 10;
+  const offset = (currentPage - 1) * limit;
+
   const filters = [];
 
   if (search && search.trim() !== "") {
-    filters.push(or(sql`${order.id}::text ILIKE ${`%${search}%`}`));
+    const text = search.trim();
+    filters.push(
+      or(
+        sql`${order.id}::text ILIKE ${`%${text}%`}`,
+        sql`${users.name} ILIKE ${`%${text}%`}`,
+        sql`${users.email} ILIKE ${`%${text}%`}`,
+        sql`${users.phone} ILIKE ${`%${text}%`}`,
+      ),
+    );
   }
 
   if (status && status.trim() !== "") {
-    filters.push(eq(order.status, status));
+    filters.push(eq(order.status, status as any));
   }
 
   const whereClause = filters.length ? and(...filters) : undefined;
 
-  return paginate({
-    table: order,
-    page,
-    pageSize,
-    where: whereClause,
-    orderBy: desc(order.createdAt),
-  });
+  const [ordersData, countResult] = await Promise.all([
+    db
+      .select({
+        id: order.id,
+        userId: order.userId,
+        status: order.status,
+        totalAmount: order.totalAmount,
+        addressLine1: order.addressLine1,
+        addressLine2: order.addressLine2,
+        city: order.city,
+        state: order.state,
+        pincode: order.pincode,
+        createdAt: order.createdAt,
+        updatedAt: order.updatedAt,
+        customerName: users.name,
+        customerEmail: users.email,
+        customerPhone: users.phone,
+      })
+      .from(order)
+      .leftJoin(users, eq(order.userId, users.id))
+      .where(whereClause)
+      .orderBy(desc(order.createdAt))
+      .limit(limit)
+      .offset(offset),
+    db
+      .select({ count: sql<number>`count(*)` })
+      .from(order)
+      .leftJoin(users, eq(order.userId, users.id))
+      .where(whereClause),
+  ]);
+
+  const [{ count }] = countResult;
+  const total = Number(count);
+  const totalPages = Math.ceil(total / limit);
+
+  const orderIds = ordersData.map((o) => o.id);
+  const itemsMap = new Map<string, any[]>();
+
+  if (orderIds.length > 0) {
+    const rawItems = await db
+      .select({
+        id: orderItem.id,
+        orderId: orderItem.orderId,
+        productVariantId: orderItem.productVariantId,
+        quantity: orderItem.quantity,
+        mixBoxRecipe: orderItem.mixBoxRecipe,
+        totalPads: orderItem.totalPads,
+        boxCount: orderItem.boxCount,
+        freeLiners: orderItem.freeLiners,
+        productVarientName: orderItem.productVarientName,
+        productVarientSlug: orderItem.productVarientSlug,
+        productVarientImage: orderItem.productVarientImage,
+        productVarientPrice: orderItem.productVarientPrice,
+        productVarientSKU: orderItem.productVarientSKU,
+      })
+      .from(orderItem)
+      .where(inArray(orderItem.orderId, orderIds));
+
+    for (const item of rawItems) {
+      if (!item.orderId) continue;
+      const current = itemsMap.get(item.orderId) || [];
+      current.push(item);
+      itemsMap.set(item.orderId, current);
+    }
+  }
+
+  const data = ordersData.map((orderRow) => ({
+    ...orderRow,
+    items: itemsMap.get(orderRow.id) || [],
+  }));
+
+  return {
+    data,
+    meta: {
+      total,
+      totalPages,
+      page: currentPage,
+      pageSize: limit,
+      hasNext: currentPage < totalPages,
+      hasPrev: currentPage > 1,
+    },
+  };
 };
 
 export const fetchOrderDetails = async (orderId: string) => {
@@ -164,7 +257,35 @@ export const changeOrderStatus = async (id: string, status: string) => {
     .returning();
 
   if (result[0]) {
-    await sendOrderStatusMail(id, status);
+    if (status === ORDER_STATUS.CANCELED || status === ORDER_STATUS.RETURNED) {
+      await reverseCancelledOrderRewards(id);
+    }
+
+    if (status === ORDER_STATUS.CANCELED || status === "cancelled" || status === "canceled") {
+      try {
+        const [existingReq] = await db
+          .select({ id: cancelRequest.id })
+          .from(cancelRequest)
+          .where(and(eq(cancelRequest.orderId, id), eq(cancelRequest.requestType, "cance_order")))
+          .limit(1);
+
+        if (!existingReq && result[0].userId) {
+          await db.insert(cancelRequest).values({
+            orderId: id,
+            userId: result[0].userId,
+            requestType: "cance_order",
+            userReason: "Order cancelled",
+            status: "approved",
+          });
+        }
+      } catch (cancelErr) {
+        console.error("Error creating cancelRequest entry on status update:", cancelErr);
+      }
+    }
+
+    sendOrderStatusMail(id, status).catch((mailError) => {
+      console.warn("sendOrderStatusMail background:", mailError?.message || mailError);
+    });
   }
 
   return result[0];
@@ -174,6 +295,9 @@ export async function updateOrderStatus(id: string, status: string | any) {
   const updated = await changeOrderStatus(id, status);
   revalidatePath("/admin/order");
   revalidatePath(`/admin/order/${id}`);
+  revalidatePath("/admin/cancel-requests");
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/security");
   revalidatePath("/dashboard/orders");
   revalidatePath(`/dashboard/orders/${id}`);
   return updated;
@@ -199,21 +323,71 @@ export async function createCancelRequest(orderId: string, userReason: string) {
       .where(and(eq(cancelRequest.orderId, orderId), eq(cancelRequest.userId, userId), eq(cancelRequest.requestType, "cance_order")))
       .limit(1);
 
-    if (existing) return { success: false, message: "Cancel request already submitted" };
+    if (!existing) {
+      await db.insert(cancelRequest).values({
+        orderId,
+        userId,
+        requestType: "cance_order",
+        userReason,
+        status: "approved",
+      });
+    }
 
-    await db.insert(cancelRequest).values({
-      orderId,
-      userId,
-      requestType: "cance_order",
-      userReason,
-    });
+    await changeOrderStatus(orderId, ORDER_STATUS.CANCELED);
 
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard/security");
     revalidatePath("/dashboard/orders");
     revalidatePath("/admin/cancel-requests");
-    return { success: true, message: "Cancel request submitted" };
+    return {
+      success: true,
+      message: "Order cancelled and reward credits updated",
+    };
   } catch (error) {
     console.error("createCancelRequest error:", error);
-    return { success: false, message: "Failed to submit cancel request" };
+    return { success: false, message: "Failed to cancel order" };
+  }
+}
+
+export async function cancelUnpaidOrder(orderId: string) {
+  try {
+    const { userId } = await requireUserWithRefresh();
+    const [orderRow] = await db
+      .select()
+      .from(order)
+      .where(and(eq(order.id, orderId), eq(order.userId, userId)))
+      .limit(1);
+
+    if (!orderRow) return { success: false, message: "Order not found" };
+    if (orderRow.status !== ORDER_STATUS.PENDING) {
+      return { success: false, message: "Only unpaid orders can be cancelled directly" };
+    }
+
+    const [existingReq] = await db
+      .select({ id: cancelRequest.id })
+      .from(cancelRequest)
+      .where(and(eq(cancelRequest.orderId, orderId), eq(cancelRequest.requestType, "cance_order")))
+      .limit(1);
+
+    if (!existingReq) {
+      await db.insert(cancelRequest).values({
+        orderId,
+        userId,
+        requestType: "cance_order",
+        userReason: "Cancelled by customer (unpaid order)",
+        status: "approved",
+      });
+    }
+
+    await changeOrderStatus(orderId, ORDER_STATUS.CANCELED);
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard/orders");
+    revalidatePath("/admin/cancel-requests");
+    revalidatePath("/admin/order");
+    return { success: true, message: "Unpaid order cancelled" };
+  } catch (error) {
+    console.error("cancelUnpaidOrder error:", error);
+    return { success: false, message: "Failed to cancel unpaid order" };
   }
 }
 
@@ -464,12 +638,16 @@ export async function createPendingCheckoutOrder({
   userId,
   razorpayOrderId,
   customItems,
+  isGift,
+  giftNote,
 }: {
   userId: any;
   couponCode?: string;
   address: any;
   razorpayOrderId: string;
   customItems?: any[];
+  isGift?: boolean;
+  giftNote?: string;
 }) {
   try {
     const pricing = await calculateCheckoutPricingForUser({
@@ -600,7 +778,12 @@ export async function createPendingCheckoutOrder({
           gst: pricing.gst,
           shipping: pricing.shipping,
           coupon: pricing.coupon,
+          rewardsUsed: pricing.rewardsUsed ?? 0,
+          rewardBalance: pricing.rewardBalance ?? 0,
           razorpayOrderId,
+          isGift: Boolean(isGift),
+          giftNote:
+            isGift && giftNote ? String(giftNote).trim().slice(0, 200) : null,
         },
       });
 
@@ -651,6 +834,22 @@ export async function getOrdersByUserId() {
       .where(eq(order.userId, userId))
       .orderBy(desc(order.createdAt));
 
+    const orderIds = orders.map((o) => o.id);
+    const paymentRows = orderIds.length
+      ? await db
+          .select()
+          .from(payment)
+          .where(inArray(payment.orderId, orderIds))
+          .orderBy(desc(payment.createdAt))
+      : [];
+
+    const paymentMap = new Map<string, (typeof paymentRows)[0]>();
+    for (const p of paymentRows) {
+      if (p.orderId && !paymentMap.has(p.orderId)) {
+        paymentMap.set(p.orderId, p);
+      }
+    }
+
     const orderData = await Promise.all(
       orders.map(async (orderRow) => {
         const [items, cancelRequests] = await Promise.all([
@@ -681,24 +880,34 @@ export async function getOrdersByUserId() {
 
         const [returnRequests, reviews] = items.length
           ? await Promise.all([
-              db
-                .select()
-                .from(returnRequest)
-                .where(eq(returnRequest.orderId, orderRow.id)),
-              productIds.length
-                ? db
-                    .select()
-                    .from(review)
-                    .where(and(eq(review.userId, userId), inArray(review.productId, productIds)))
-                : Promise.resolve([]),
-            ])
-          : [[], []];
+            db
+              .select()
+              .from(returnRequest)
+              .where(eq(returnRequest.orderId, orderRow.id)),
+            productIds.length
+              ? db
+                  .select()
+                  .from(review)
+                  .where(and(eq(review.userId, userId), inArray(review.productId, productIds)))
+              : Promise.resolve([]),
+          ])
+        : [[], []];
 
         const returnRequestRow = returnRequests[0] ?? null;
         const reviewMap = new Map(reviews.map((review) => [review.productId, review]));
 
+        const linkedPayment = paymentMap.get(orderRow.id);
+        const isUnpaid =
+          orderRow.status === "pending" &&
+          linkedPayment?.paymentStatus !== "success";
+
         return {
           ...orderRow,
+          isUnpaid,
+          payment: linkedPayment ?? null,
+          paymentStatus:
+            linkedPayment?.paymentStatus ??
+            (orderRow.status === "paid" ? "success" : "pending"),
           cancelRequest: cancelRequests[0] ?? null,
           order_items: items.map((item) => ({
             ...item,

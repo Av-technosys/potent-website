@@ -8,6 +8,7 @@ export const StatsCards = ({
   stats: {
     totalOrders: number;
     totalSpent: number;
+    rewardBalance?: number;
   };
 }) => {
   const items = [
@@ -18,13 +19,14 @@ export const StatsCards = ({
     },
     {
       label: "Total Spent",
-      value: `₹${stats.totalSpent}`,
+      value: `₹${Number(stats.totalSpent || 0).toLocaleString("en-IN")}`,
       icon: IconWallet,
-    },  {
-      label: "Rewards Coins",
-      value: "NA", // 🔒 static (as you want)
+    },
+    {
+      label: "Rewards Balance",
+      value: `₹${Number(stats.rewardBalance ?? 0).toLocaleString("en-IN")}`,
       icon: IconCoin,
-    }
+    },
   ];
 
   return (

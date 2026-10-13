@@ -9,10 +9,13 @@ import { getProfile, updateProfile } from "@/helper";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card } from "@/components/ui/card";
 
+import { toast } from "sonner";
+
 interface User {
   fullName: string;
   phone: string;
   email: string;
+  birthday?: string;
   emailVerified?: boolean | null;
   createdAt?: Date | string | null;
 }
@@ -22,6 +25,7 @@ export default function ProfilePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [user, setUser] = useState<User | null>(null);
+  const [birthdayLocked, setBirthdayLocked] = useState(false);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -31,9 +35,11 @@ export default function ProfilePage() {
           fullName: data.fullName,
           phone: data.phone,
           email: data.email,
+          birthday: data.birthday || "",
           emailVerified: data.emailVerified,
           createdAt: data.createdAt,
         });
+        setBirthdayLocked(Boolean(data.birthday));
       } catch (error) {
         console.error("Error loading profile:", error);
       } finally {
@@ -45,6 +51,7 @@ export default function ProfilePage() {
   }, []);
 
   const handleChange = (field: keyof User, value: string) => {
+    if (field === "birthday" && birthdayLocked) return;
     setUser((prev) => (prev ? { ...prev, [field]: value } : prev));
   };
 
@@ -54,14 +61,31 @@ export default function ProfilePage() {
     setIsSaving(true);
 
     try {
-      await updateProfile({
+      const updated = await updateProfile({
         fullName: user.fullName,
         phone: user.phone,
+        birthday: user.birthday || "",
       });
+
+      if (updated?.birthday) {
+        setBirthdayLocked(true);
+        setUser((prev) =>
+          prev ? { ...prev, birthday: updated.birthday } : prev,
+        );
+      }
+
+      if (updated?.bonusAdded) {
+        toast.success(
+          "Profile updated! ₹100 Birthday Bonus added to your Rewards balance.",
+        );
+      } else {
+        toast.success("Profile updated successfully");
+      }
 
       setIsEditing(false);
     } catch (error) {
       console.error("Error updating profile:", error);
+      toast.error("Failed to update profile");
     } finally {
       setIsSaving(false);
     }
@@ -122,6 +146,7 @@ export default function ProfilePage() {
         isEditing={isEditing}
         isSaving={isSaving}
         user={user}
+        birthdayLocked={birthdayLocked}
         onChange={handleChange}
         onSubmit={handleSubmit}
         onCancel={() => setIsEditing(false)}

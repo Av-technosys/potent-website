@@ -102,7 +102,9 @@ export const OrderReview = ({
         const response = await createReview(reviewData);
 
         if (response.success) {
-          toast.success("Review submitted successfully!");
+          toast.success(
+            "Review submitted! ₹50 cash credit added to your Rewards balance.",
+          );
 
           setRatings((prev) => ({ ...prev, [productVarientId]: 0 }));
           setComments((prev) => ({ ...prev, [productVarientId]: "" }));
@@ -214,9 +216,10 @@ export const OrderReview = ({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                 {orderDetails?.order_items?.map((item: any, index: number) => {
                   const variantId =
+                    item.productVariantId ||
                     item.productId ||
-                    item.productId ||
-                    item.productVariant?.id;
+                    item.productVariant?.id ||
+                    item.id;
                   const alreadyReviewed = Boolean(item.review);
 
                   return (

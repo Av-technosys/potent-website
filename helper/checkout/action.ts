@@ -19,6 +19,11 @@ import {
   STANDARD_SHIPPING_FEE as SHIPPING_FEE,
   calculateShippingFee as calculateShipping,
 } from "@/lib/shippingConfig";
+import {
+  MAX_REWARD_REDEEM_PER_ORDER,
+  syncAndGetUserRewards,
+} from "@/lib/rewards";
+import { ensureDefaultCoupons } from "@/helper/coupon/action";
 
 const roundMoney = (amount: number) => Number(amount.toFixed(2));
 
@@ -73,6 +78,8 @@ async function getValidCoupon({
 }) {
   const normalizedCode = code?.trim().toUpperCase();
   if (!normalizedCode) return { couponInfo: null, error: null };
+
+  await ensureDefaultCoupons();
 
   const couponRows = await db
     .select()
@@ -218,6 +225,11 @@ export async function calculateCheckoutPricingForUser({
     }, 0),
   );
 
+  const rewardState = userId
+    ? await syncAndGetUserRewards(userId)
+    : { balance: 0 };
+  const rewardBalance = Math.max(0, Math.round(Number(rewardState.balance || 0)));
+
   const { couponInfo, error } = await getValidCoupon({
     code: couponCode,
     userId,
@@ -227,6 +239,15 @@ export async function calculateCheckoutPricingForUser({
   if (error) {
     const gst = 0;
     const shipping = calculateShipping(subtotal);
+    const totalBeforeRewards = roundMoney(subtotal + shipping);
+    const rewardsUsed =
+      totalBeforeRewards > 0
+        ? Math.min(
+            rewardBalance,
+            MAX_REWARD_REDEEM_PER_ORDER,
+            Math.max(0, Math.floor(totalBeforeRewards - 1)),
+          )
+        : 0;
     return {
       success: false,
       message: error,
@@ -236,7 +257,10 @@ export async function calculateCheckoutPricingForUser({
       discountedSubtotal: subtotal,
       gst,
       shipping,
-      final: roundMoney(subtotal + shipping),
+      rewardBalance,
+      rewardsUsed,
+      remainingRewardBalance: Math.max(0, rewardBalance - rewardsUsed),
+      final: roundMoney(Math.max(totalBeforeRewards - rewardsUsed, 0)),
       coupon: null,
     };
   }
@@ -261,7 +285,16 @@ export async function calculateCheckoutPricingForUser({
   // Product prices are GST-inclusive. Keep GST at zero here so it is not
   // added again to the customer-facing total or Razorpay order amount.
   const gst = 0;
-  const final = roundMoney(discountedSubtotal + shipping);
+  const totalBeforeRewards = roundMoney(discountedSubtotal + shipping);
+  const rewardsUsed =
+    totalBeforeRewards > 0
+      ? Math.min(
+          rewardBalance,
+          MAX_REWARD_REDEEM_PER_ORDER,
+          Math.max(0, Math.floor(totalBeforeRewards - 1)),
+        )
+      : 0;
+  const final = roundMoney(Math.max(totalBeforeRewards - rewardsUsed, 0));
 
   return {
     success: true,
@@ -271,6 +304,9 @@ export async function calculateCheckoutPricingForUser({
     discountedSubtotal,
     gst,
     shipping,
+    rewardBalance,
+    rewardsUsed,
+    remainingRewardBalance: Math.max(0, rewardBalance - rewardsUsed),
     final,
     coupon: couponInfo
       ? {
@@ -304,6 +340,9 @@ export async function getCheckoutPricing(couponCode?: string | null) {
       discountedSubtotal: 0,
       gst: 0,
       shipping: 0,
+      rewardBalance: 0,
+      rewardsUsed: 0,
+      remainingRewardBalance: 0,
       final: 0,
       coupon: null,
     };
@@ -332,8 +371,85 @@ export async function getDirectCheckoutPricing(
       discountedSubtotal: 0,
       gst: 0,
       shipping: 0,
+      rewardBalance: 0,
+      rewardsUsed: 0,
+      remainingRewardBalance: 0,
       final: 0,
       coupon: null,
     };
+  }
+}
+
+export async function validateCartCoupon({
+  code,
+  items,
+}: {
+  code: string;
+  items: any[];
+}) {
+  try {
+    await ensureDefaultCoupons();
+
+    const normalizedCode = String(code || "").trim().toUpperCase();
+    if (!normalizedCode) {
+      return { success: false, message: "Please enter a coupon code" };
+    }
+
+    let userId = "";
+    try {
+      const auth = await requireUserWithRefresh();
+      userId = auth.userId || "";
+    } catch {
+      // Guest user is permitted to validate cart coupon
+    }
+
+    const subtotal = roundMoney(
+      items.reduce((sum, item) => {
+        const price = Number(item.price || 0);
+        return sum + price * Number(item.quantity || 1);
+      }, 0),
+    );
+
+    const { couponInfo, error } = await getValidCoupon({
+      code: normalizedCode,
+      userId,
+      subtotal,
+    });
+
+    if (error || !couponInfo) {
+      return {
+        success: false,
+        message: error || "Invalid coupon code",
+      };
+    }
+
+    let discount = couponInfo.isDiscountPercentage
+      ? subtotal * ((couponInfo.discountPercentage ?? 0) / 100)
+      : (couponInfo.discountFixedAmount ?? 0);
+
+    if (couponInfo.maximumDiscountAmount > 0) {
+      discount = Math.min(discount, couponInfo.maximumDiscountAmount);
+    }
+    discount = roundMoney(Math.min(discount, subtotal));
+
+    return {
+      success: true,
+      coupon: {
+        id: couponInfo.id,
+        name: couponInfo.name,
+        code: couponInfo.code,
+        description: couponInfo.description,
+        isDiscountPercentage: couponInfo.isDiscountPercentage,
+        discountPercentage: couponInfo.discountPercentage,
+        discountFixedAmount: couponInfo.discountFixedAmount,
+        minimumOrderValue: couponInfo.minimumOrderValue,
+        maximumDiscountAmount: couponInfo.maximumDiscountAmount,
+      },
+      discount,
+      message: `Coupon ${couponInfo.code} applied! Saved ₹${discount.toFixed(2)}`,
+    };
+  } catch (err: any) {
+    console.error("validateCartCoupon error:", err);
+    return { success: false, message: "Failed to validate coupon" };
   }
 }

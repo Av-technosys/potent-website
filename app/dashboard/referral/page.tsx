@@ -44,17 +44,16 @@ const page = async () => {
     <div className="flex flex-col gap-6">
       <RewardsReferrelHeader
         tittle="Referral Program"
-        description="Manage your rewards and account security"
+        description="Share your unique code with friends — you earn ₹200 and they get ₹100"
       />
       <RewardReferrelOverview
-        tittle="Total Earnings"
-        amount="1600"
-        description="From successful referrals"
+        tittle="Total Referral Earnings"
+        description="From successful referrals (added directly to your Rewards Balance)"
       />
       <div className="w-full space-y-6">
         <Card className="rounded-2xl">
           <CardHeader>
-            <CardTitle>How it Work</CardTitle>
+            <CardTitle>How It Works</CardTitle>
           </CardHeader>
 
           <CardContent>

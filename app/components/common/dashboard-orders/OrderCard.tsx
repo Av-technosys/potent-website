@@ -14,6 +14,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
+  cancelUnpaidOrder,
   createCancelRequest,
   createReturnRequest,
 } from "@/helper/order/action";
@@ -22,9 +23,13 @@ import { IconDownload, IconEye, IconRefresh, IconX } from "@tabler/icons-react";
 import { TrackOrderModal } from "./TrackOrderModal";
 import { RaiseSupportModal } from "./RaiseSupportModal";
 import { ChangeEvent, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import Image from "next/image";
 import Link from "next/link";
+import { CreditCard, Gift } from "lucide-react";
+import { PackingSlipModal } from "@/app/components/common/orders/PackingSlipModal";
+import { loadRazorpayScript } from "@/lib/razorpay";
 import { getImageUrl } from "@/lib/imageUrl";
 import { formatMixBoxRecipe } from "@/lib/mixYourBox";
 
@@ -42,16 +47,133 @@ export const OrderCard = ({
   const order = order_details;
   const items = order_details?.order_items;
 
+  const [paying, setPaying] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const router = useRouter();
+
+  const isUnpaid = Boolean(
+    order?.isUnpaid ||
+    (order?.status === "pending" &&
+      order?.paymentStatus !== "success" &&
+      order?.payment?.paymentStatus !== "success"),
+  );
+
   const isDelivered = order?.status === "delivered";
+  const isCanceled = order?.status === "canceled";
+  const canReview =
+    !isUnpaid &&
+    !isCanceled &&
+    ["paid", "processing", "shipped", "delivered", "completed"].includes(
+      order?.status,
+    );
   const isSubscriptionOnly = Boolean(order?.isSubscriptionOnly);
+  const isGift = Boolean(
+    order?.payment?.paymentMeta?.isGift ||
+    order?.paymentMeta?.isGift ||
+    order?.isGift,
+  );
+  const giftNote =
+    order?.payment?.paymentMeta?.giftNote ||
+    order?.paymentMeta?.giftNote ||
+    order?.giftNote ||
+    null;
   const canCancel =
+    !isUnpaid &&
     !isSubscriptionOnly &&
-    ["pending", "paid", "processing"].includes(order?.status) &&
+    ["paid", "processing"].includes(order?.status) &&
     !order?.cancelRequest;
 
   const reviewHandler = () => {
     setorderReview(true);
     setSingleOrderData(order_details);
+  };
+
+  const handleCancelUnpaid = async () => {
+    if (!confirm("Are you sure you want to cancel this unpaid order?")) return;
+    try {
+      setCancelling(true);
+      const res = await cancelUnpaidOrder(order.id);
+      if (res.success) {
+        toast.success("Unpaid order cancelled");
+        router.refresh();
+      } else {
+        toast.error(res.message);
+      }
+    } catch {
+      toast.error("Failed to cancel order");
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  const handlePayNow = async () => {
+    try {
+      setPaying(true);
+      const scriptLoaded = await loadRazorpayScript();
+      if (!scriptLoaded) {
+        toast.error("Payment gateway failed to load");
+        return;
+      }
+
+      const res = await fetch("/api/razorpay/retry-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: order.id }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data?.razorpayOrderId) {
+        toast.error(data?.error || "Failed to initiate payment");
+        return;
+      }
+
+      const options: any = {
+        key: data.keyId || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+        amount: data.amount,
+        currency: "INR",
+        name: "POTENT HYGIENE",
+        description: `Order Payment #${order.id}`,
+        order_id: data.razorpayOrderId,
+        handler: async function (response: any) {
+          try {
+            const verifyRes = await fetch("/api/razorpay/verify", {
+              method: "POST",
+              credentials: "include",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(response),
+            });
+            const verifyData = await verifyRes.json();
+            if (verifyData.success) {
+              toast.success("Payment completed successfully! 🎉");
+              router.refresh();
+            } else {
+              toast.error("Payment verification failed");
+            }
+          } catch {
+            toast.error("Error verifying payment");
+          }
+        },
+        theme: {
+          color: "#016271",
+        },
+        modal: {
+          ondismiss: function () {
+            toast.info("Payment not completed");
+          },
+        },
+      };
+
+      const razor = new (window as any).Razorpay(options);
+      razor.on("payment.failed", function (response: any) {
+        toast.error(response?.error?.description || "Payment not completed");
+      });
+      razor.open();
+    } catch (err: any) {
+      console.error("Pay now error:", err);
+      toast.error("Could not open payment window");
+    } finally {
+      setPaying(false);
+    }
   };
 
   return (
@@ -63,17 +185,31 @@ export const OrderCard = ({
             <h3 className="text-[16px] font-bold text-[#2D3748]">{order.id}</h3>
             <Badge
               className={`${
-                isDelivered
+                isUnpaid
+                  ? "border border-amber-300 bg-amber-100 text-amber-800"
+                  : isDelivered
                   ? "bg-[#DCFCE7] text-[#15824D]"
+                  : isCanceled
+                  ? "bg-red-100 text-red-700"
                   : "bg-[#DCF7FC] text-[#016271]"
               } border-none px-2.5 py-0.5 text-[10px] font-bold uppercase shadow-none`}
             >
-              {order.status}
+              {isUnpaid ? "Payment not completed" : order.status}
             </Badge>
+            {isGift && (
+              <Badge className="bg-[#9A5B90] text-white border-none px-2.5 py-0.5 text-[10px] font-bold uppercase shadow-none">
+                🎁 Gift Order
+              </Badge>
+            )}
           </div>
           <p className="text-[13px] font-medium text-gray-400">
             Ordered on {new Date(order.createdAt).toLocaleDateString()}
           </p>
+          {isGift && giftNote && (
+            <p className="mt-1 text-[11px] italic text-[#7E4D77]">
+              Gift note: &ldquo;{giftNote}&rdquo;
+            </p>
+          )}
         </div>
         <div className="text-right">
           <p className="text-[11px] font-bold tracking-tight text-gray-400 uppercase">
@@ -169,60 +305,111 @@ export const OrderCard = ({
         </div>
       </div>
 
+      {/* Unpaid Order Banner */}
+      {isUnpaid && (
+        <div className="mx-6 mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3.5 text-xs font-medium text-amber-900">
+          ⚠️ Payment was not completed for this order. Click <strong>Pay now</strong> to complete your order, or cancel if you no longer need it.
+        </div>
+      )}
+
       {/* Action Buttons Section */}
-      <div className="flex flex-col gap-4 p-6 md:flex-row">
-        <Button
-          asChild
-          className="flex flex-1 gap-2 rounded-xl border border-[#016271] bg-white py-3 font-bold text-[#016271] hover:bg-[#EAF9FC] md:py-5"
-        >
-          <Link
-            href={
-              isSubscriptionOnly
-                ? "/dashboard/subscriptions"
-                : `/dashboard/orders/${order.id}`
+      {isUnpaid ? (
+        <div className="flex flex-col gap-3 p-6 sm:flex-row sm:items-center">
+          <Button
+            onClick={handlePayNow}
+            disabled={paying || cancelling}
+            className="flex flex-1 gap-2 rounded-xl bg-[#016271] py-3 text-sm font-bold text-white hover:bg-[#014d59] md:py-5 cursor-pointer shadow-sm"
+          >
+            <CreditCard size={18} />
+            {paying ? "Opening Payment..." : `Pay now (₹${order.totalAmount})`}
+          </Button>
+
+          <Button
+            asChild
+            variant="outline"
+            className="flex flex-1 gap-2 rounded-xl border-gray-200 py-3 font-semibold text-gray-700 hover:bg-gray-50 md:py-5"
+          >
+            <Link href={`/dashboard/orders/${order.id}`}>
+              <IconEye size={18} stroke={2.5} />
+              View Details
+            </Link>
+          </Button>
+
+          <Button
+            variant="ghost"
+            onClick={handleCancelUnpaid}
+            disabled={paying || cancelling}
+            className="rounded-xl px-4 py-2.5 text-xs font-semibold text-gray-500 hover:bg-red-50 hover:text-red-600 sm:shrink-0 cursor-pointer"
+          >
+            {cancelling ? "Cancelling..." : "Cancel Order"}
+          </Button>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-4 p-6 md:flex-row">
+          <Button
+            asChild
+            className="flex flex-1 gap-2 rounded-xl border border-[#016271] bg-white py-3 font-bold text-[#016271] hover:bg-[#EAF9FC] md:py-5"
+          >
+            <Link
+              href={
+                isSubscriptionOnly
+                  ? "/dashboard/subscriptions"
+                  : `/dashboard/orders/${order.id}`
+              }
+            >
+              <IconEye size={18} stroke={2.5} />
+              {isSubscriptionOnly ? "View Subscription" : "View Details"}
+            </Link>
+          </Button>
+
+          <PackingSlipModal
+            order={order}
+            items={items}
+            paymentMeta={order?.payment?.paymentMeta || order?.paymentMeta}
+            triggerButton={
+              <Button
+                disabled={isSubscriptionOnly}
+                className="flex flex-1 gap-2 rounded-xl bg-[#016271] py-3 font-bold hover:bg-[#014d59] md:py-5 cursor-pointer text-white"
+              >
+                {isGift ? (
+                  <Gift className="h-4 w-4" />
+                ) : (
+                  <IconDownload size={18} stroke={2.5} />
+                )}
+                {isGift ? "Gift Parcel Slip" : "Download Invoice"}
+              </Button>
             }
-          >
-            <IconEye size={18} stroke={2.5} />
-            {isSubscriptionOnly ? "View Subscription" : "View Details"}
-          </Link>
-        </Button>
+          />
 
-        <Button
-          disabled={isSubscriptionOnly}
-          className="flex flex-1 gap-2 rounded-xl bg-[#016271] py-3 font-bold hover:bg-[#016271] md:py-5"
-        >
-          <IconDownload size={18} stroke={2.5} />
-          Download Invoice
-        </Button>
+          {canCancel && <CancelRequestDialog orderId={order.id} />}
 
-        {canCancel && <CancelRequestDialog orderId={order.id} />}
+          {order?.cancelRequest && !isCanceled && (
+            <Button
+              disabled
+              className="flex-1 rounded-xl bg-orange-100 py-3 font-bold text-orange-700 hover:bg-orange-100 md:py-5"
+            >
+              Cancel {order.cancelRequest.status ?? "pending"}
+            </Button>
+          )}
 
-        {order?.cancelRequest && (
-          <Button
-            disabled
-            className="flex-1 rounded-xl bg-orange-100 py-3 font-bold text-orange-700 hover:bg-orange-100 md:py-5"
-          >
-            Cancel {order.cancelRequest.status ?? "pending"}
-          </Button>
-        )}
+          {canReview && (
+            <Button
+              onClick={() => reviewHandler()}
+              className="flex flex-1 gap-2 rounded-xl bg-[#1D4E4E] py-3 font-bold hover:bg-[#1D4E4E] md:py-5 cursor-pointer"
+            >
+              Review (+₹50)
+            </Button>
+          )}
 
-        {isDelivered && (
-          <Button
-            onClick={() => reviewHandler()}
-            className="flex flex-1 gap-2 rounded-xl bg-[#1D4E4E] py-3 font-bold hover:bg-[#1D4E4E] md:py-5"
-          >
-            Review
-          </Button>
-        )}
-
-        {/* State ke hisab se sahi Modal call hoga */}
-        {!isSubscriptionOnly &&
-          (isDelivered ? (
-            <RaiseSupportModal order={order} />
-          ) : (
-            <TrackOrderModal order={order} />
-          ))}
-      </div>
+          {/* State ke hisab se sahi Modal call hoga */}
+          {!isSubscriptionOnly &&
+            (isDelivered ? (
+              <RaiseSupportModal order={order} />
+            ) : (
+              <TrackOrderModal order={order} />
+            ))}
+        </div>
+      )}
     </Card>
   );
 };
@@ -231,6 +418,7 @@ function CancelRequestDialog({ orderId }: { orderId: string }) {
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
   const [isPending, startTransition] = useTransition();
+  const router = useRouter();
 
   const submit = () => {
     startTransition(async () => {
@@ -238,6 +426,7 @@ function CancelRequestDialog({ orderId }: { orderId: string }) {
       if (result.success) {
         toast.success(result.message);
         setOpen(false);
+        router.refresh();
       } else {
         toast.error(result.message);
       }

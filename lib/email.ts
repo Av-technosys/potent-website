@@ -1,6 +1,12 @@
-import { EMAIL_FROM } from "@/env";
+import {
+  EMAIL_FROM,
+  AWS_REGION,
+  AWS_ACCESS_KEY_ID,
+  AWS_SECRET_ACCESS_KEY,
+  SES_AWS_ACCESS_KEY_ID,
+} from "@/env";
 import { sesClient } from "@/lib/aws";
-import { SendEmailCommand } from "@aws-sdk/client-ses";
+import { SendEmailCommand, SESClient } from "@aws-sdk/client-ses";
 import fs from "fs";
 import path from "path";
 
@@ -70,7 +76,29 @@ export const sendEmail = async ({ to, subject, html }: SendEmailParams) => {
     },
   });
 
-  return await sesClient.send(command);
+  try {
+    return await sesClient.send(command);
+  } catch (err: any) {
+    if (
+      err?.name === "InvalidClientTokenId" &&
+      AWS_ACCESS_KEY_ID &&
+      AWS_ACCESS_KEY_ID !== SES_AWS_ACCESS_KEY_ID
+    ) {
+      try {
+        const fallbackClient = new SESClient({
+          region: AWS_REGION || "ap-south-1",
+          credentials: {
+            accessKeyId: AWS_ACCESS_KEY_ID,
+            secretAccessKey: AWS_SECRET_ACCESS_KEY,
+          },
+        });
+        return await fallbackClient.send(command);
+      } catch (fallbackErr) {
+        throw fallbackErr;
+      }
+    }
+    throw err;
+  }
 };
 
 export const sendTemplateEmail = async ({

@@ -5,6 +5,8 @@ import { order, users } from "@/src/db/schema";
 import { eq , desc} from "drizzle-orm";
 import { requireUserWithRefresh } from "@/helper/user/action";
 
+import { syncAndGetUserRewards } from "@/lib/rewards";
+
 export async function getUserProfile() {
   const { email } = await requireUserWithRefresh();
 
@@ -20,18 +22,27 @@ export async function getUserProfile() {
 
   const user = userResult[0];
 
-  const userOrders = await db
-    .select()
-    .from(order)
-    .where(eq(order.userId, user.id)) 
-    .orderBy(desc(order.createdAt))
-    .limit(5);
+  const [userOrders, rewards] = await Promise.all([
+    db
+      .select()
+      .from(order)
+      .where(eq(order.userId, user.id))
+      .orderBy(desc(order.createdAt)),
+    syncAndGetUserRewards(user.id),
+  ]);
 
-  const totalOrders = userOrders.length;
+  // Exclude unpaid (pending) and cancelled orders from user totals
+  const paidOrders = userOrders.filter((o) =>
+    ["paid", "processing", "shipped", "delivered", "completed"].includes(
+      String(o.status || "").toLowerCase(),
+    ),
+  );
 
-  const totalSpent = userOrders.reduce(
+  const totalOrders = paidOrders.length;
+
+  const totalSpent = paidOrders.reduce(
     (sum, o) => sum + Number(o.totalAmount || 0),
-    0
+    0,
   );
 
   return {
@@ -43,8 +54,9 @@ export async function getUserProfile() {
     stats: {
       totalOrders,
       totalSpent,
+      rewardBalance: rewards.balance,
     },
-    orders: userOrders,
+    orders: userOrders.slice(0, 5),
   };
 }
 export async function updateUserProfile(fullName: string, phone: string) {

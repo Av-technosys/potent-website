@@ -25,6 +25,11 @@ import {
   sendOrderConfirmationEmail,
 } from "@/helper/emailTemplates/action";
 import { sendEmail } from "@/lib/email";
+import {
+  calculateOrderRewardRupees,
+  reverseCancelledOrderRewards,
+  syncAndGetUserRewards,
+} from "@/lib/rewards";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -33,6 +38,7 @@ const HANDLED_EVENTS = new Set([
   "payment.captured",
   "payment.failed",
   "subscription.charged",
+  "subscription.cancelled",
 ]);
 
 function signaturesMatch(expected: string, received: string) {
@@ -311,20 +317,6 @@ async function handlePaymentCaptured(gatewayPayment: any) {
         })
         .where(eq(order.id, intent.order.id));
 
-      await tx.insert(rewardCoinsHistory).values({
-        orderId: intent.order.id,
-        userId: intent.order.userId,
-        coins: amount,
-        type: "order_payment",
-      });
-
-      await tx
-        .update(users)
-        .set({
-          rewardOrderCoins: sql`${users.rewardOrderCoins} + ${amount}`,
-        })
-        .where(eq(users.id, intent.order.userId));
-
       const coupon = (intent.payment.paymentMeta as any)?.coupon;
       if (coupon?.id) {
         await tx.insert(couponTransaction).values({
@@ -336,6 +328,10 @@ async function handlePaymentCaptured(gatewayPayment: any) {
       }
     }
   });
+
+  if (intent.order?.userId) {
+    await syncAndGetUserRewards(intent.order.userId);
+  }
 
   if (!alreadySuccess && intent.order?.id) {
     await sendSuccessEmails({
@@ -666,20 +662,6 @@ async function handleSubscriptionCharged(eventPayload: any) {
       });
     }
 
-    await tx.insert(rewardCoinsHistory).values({
-      orderId: paidOrderId,
-      userId: subscriptionRow.subscription.userId,
-      coins: amount,
-      type: "subscription_charge",
-    });
-
-    await tx
-      .update(users)
-      .set({
-        rewardOrderCoins: sql`${users.rewardOrderCoins} + ${amount}`,
-      })
-      .where(eq(users.id, subscriptionRow.subscription.userId));
-
     await tx
       .update(subscriptions)
       .set({
@@ -705,6 +687,10 @@ async function handleSubscriptionCharged(eventPayload: any) {
     return { orderId: paidOrderId };
   });
 
+  if (subscriptionRow.subscription.userId) {
+    await syncAndGetUserRewards(subscriptionRow.subscription.userId);
+  }
+
   await sendSuccessEmails({
     email: subscriptionRow.user?.email ?? gatewayPayment.email,
     name: subscriptionRow.user?.name,
@@ -717,6 +703,65 @@ async function handleSubscriptionCharged(eventPayload: any) {
     action: "subscription_charged",
     orderId: result.orderId,
     paymentId: gatewayPayment.id,
+  };
+}
+
+async function handleSubscriptionCancelledWebhook(eventPayload: any) {
+  const gatewaySubEntity = eventPayload.payload?.subscription?.entity;
+  if (!gatewaySubEntity?.id) {
+    return { action: "ignored_missing_subscription" };
+  }
+
+  const [row] = await db
+    .select({
+      subscription: subscriptions,
+      gatewaySubscription: paymentGatewaySubscription,
+    })
+    .from(paymentGatewaySubscription)
+    .innerJoin(
+      subscriptions,
+      eq(paymentGatewaySubscription.subscriptionId, subscriptions.id),
+    )
+    .where(
+      eq(
+        paymentGatewaySubscription.gatewaySubscriptionId,
+        gatewaySubEntity.id,
+      ),
+    )
+    .limit(1);
+
+  if (!row?.subscription) {
+    return { action: "subscription_not_found" };
+  }
+
+  await db
+    .update(subscriptions)
+    .set({
+      isActive: false,
+      isPaused: false,
+      endDate: new Date(),
+    })
+    .where(eq(subscriptions.id, row.subscription.id));
+
+  if (row.subscription.orderId) {
+    await db
+      .update(order)
+      .set({
+        status: ORDER_STATUS.CANCELED,
+        updatedAt: new Date(),
+      })
+      .where(eq(order.id, row.subscription.orderId));
+
+    await reverseCancelledOrderRewards(row.subscription.orderId);
+  }
+
+  if (row.subscription.userId) {
+    await syncAndGetUserRewards(row.subscription.userId);
+  }
+
+  return {
+    action: "subscription_cancelled",
+    subscriptionId: row.subscription.id,
   };
 }
 
@@ -751,6 +796,8 @@ export async function POST(req: Request) {
     result = await handlePaymentCaptured(eventPayload.payload?.payment?.entity);
   } else if (eventName === "payment.failed") {
     result = await handlePaymentFailed(eventPayload.payload?.payment?.entity);
+  } else if (eventName === "subscription.cancelled") {
+    result = await handleSubscriptionCancelledWebhook(eventPayload);
   } else {
     result = await handleSubscriptionCharged(eventPayload);
     paymentId = result?.paymentId ?? paymentId;

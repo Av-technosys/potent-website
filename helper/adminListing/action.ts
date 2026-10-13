@@ -15,7 +15,7 @@ import {
   users,
 } from "@/db/schema";
 import { desc, eq, ilike, inArray, notInArray, or, sql } from "drizzle-orm";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, unstable_cache } from "next/cache";
 
 const cancelRequest = orderAction;
 const returnRequest = orderAction;
@@ -245,14 +245,67 @@ export async function fetchAdminCancelRequests({
   const offset = (currentPage - 1) * limit;
   const text = search.trim();
 
-  const whereClause = text
-    ? or(
+  // Self-heal: Ensure all orders marked cancelled/canceled in database have a corresponding record
+  try {
+    const missingCancelledOrders = await db
+      .select({
+        id: order.id,
+        userId: order.userId,
+        createdAt: order.createdAt,
+        updatedAt: order.updatedAt,
+      })
+      .from(order)
+      .leftJoin(
+        cancelRequest,
+        and(
+          eq(cancelRequest.orderId, order.id),
+          eq(cancelRequest.requestType, "cance_order"),
+        ),
+      )
+      .where(
+        and(
+          or(
+            eq(order.status, "cancelled"),
+            eq(order.status, "canceled"),
+          ),
+          sql`${cancelRequest.id} IS NULL`,
+        ),
+      )
+      .limit(10);
+
+    if (missingCancelledOrders.length > 0) {
+      await db.insert(cancelRequest).values(
+        missingCancelledOrders
+          .filter((o) => o.userId)
+          .map((o) => ({
+            orderId: o.id,
+            userId: o.userId!,
+            requestType: "cance_order",
+            userReason: "Order cancelled",
+            status: "approved",
+            createdAt: o.createdAt || new Date(),
+            updatedAt: o.updatedAt || new Date(),
+          })),
+      );
+    }
+  } catch (syncErr) {
+    console.error("Auto-sync cancelled orders error:", syncErr);
+  }
+
+  const filters = [eq(cancelRequest.requestType, "cance_order")];
+
+  if (text) {
+    filters.push(
+      or(
         sql`${cancelRequest.orderId}::text ILIKE ${`%${text}%`}`,
         ilike(users.name, `%${text}%`),
         ilike(users.email, `%${text}%`),
-        ilike(cancelRequest.status, `%${text}%`),
-      )
-    : undefined;
+        sql`${cancelRequest.status}::text ILIKE ${`%${text}%`}`,
+      ),
+    );
+  }
+
+  const whereClause = and(...filters);
 
   const data = await db
     .select({
@@ -271,7 +324,7 @@ export async function fetchAdminCancelRequests({
     })
     .from(cancelRequest)
     .leftJoin(order, eq(cancelRequest.orderId, order.id))
-    .leftJoin(users, eq(cancelRequest.userId, users.id))
+    .leftJoin(users, eq(sql`COALESCE(${cancelRequest.userId}, ${order.userId})`, users.id))
     .where(whereClause)
     .orderBy(desc(cancelRequest.createdAt))
     .limit(limit)
@@ -281,7 +334,7 @@ export async function fetchAdminCancelRequests({
     .select({ count: sql<number>`count(*)` })
     .from(cancelRequest)
     .leftJoin(order, eq(cancelRequest.orderId, order.id))
-    .leftJoin(users, eq(cancelRequest.userId, users.id))
+    .leftJoin(users, eq(sql`COALESCE(${cancelRequest.userId}, ${order.userId})`, users.id))
     .where(whereClause);
 
   const total = Number(count);
@@ -390,53 +443,67 @@ export async function fetchAdminReturnRequests({
 }
 
 export async function fetchAdminDashboardStats() {
-  const [
-    [{ totalOrders }],
-    [{ totalProducts }],
-    [{ activeProducts }],
-    [{ totalUsers }],
-    [{ verifiedUsers }],
-    [{ totalRevenue }],
-    [{ successfulPayments }],
-    [{ pendingOrders }],
-  ] = await Promise.all([
-    db.select({ totalOrders: sql<number>`count(*)` }).from(order),
-    db.select({ totalProducts: sql<number>`count(*)` }).from(product),
-    db
-      .select({ activeProducts: sql<number>`count(*)` })
-      .from(productVariant)
-      .where(eq(productVariant.isInStock, true)),
-    db.select({ totalUsers: sql<number>`count(*)` }).from(users),
-    db
-      .select({ verifiedUsers: sql<number>`count(*)` })
-      .from(users)
-      .where(eq(users.isEmailVerified, true)),
-    db
-      .select({
-        totalRevenue: sql<number>`coalesce(sum(${payment.amount}), 0)`,
-      })
-      .from(payment)
-      .where(eq(payment.paymentStatus, "success")),
-    db
-      .select({ successfulPayments: sql<number>`count(*)` })
-      .from(payment)
-      .where(eq(payment.paymentStatus, "success")),
-    db
-      .select({ pendingOrders: sql<number>`count(*)` })
-      .from(order)
-      .where(eq(order.status, "pending")),
-  ]);
+  try {
+    const [
+      [{ totalOrders }],
+      [{ totalProducts }],
+      [{ activeProducts }],
+      [{ totalUsers }],
+      [{ verifiedUsers }],
+      [{ totalRevenue }],
+      [{ successfulPayments }],
+      [{ pendingOrders }],
+    ] = await Promise.all([
+      db.select({ totalOrders: sql<number>`count(*)` }).from(order),
+      db.select({ totalProducts: sql<number>`count(*)` }).from(product),
+      db
+        .select({ activeProducts: sql<number>`count(*)` })
+        .from(productVariant)
+        .where(eq(productVariant.isInStock, true)),
+      db.select({ totalUsers: sql<number>`count(*)` }).from(users),
+      db
+        .select({ verifiedUsers: sql<number>`count(*)` })
+        .from(users)
+        .where(eq(users.isEmailVerified, true)),
+      db
+        .select({
+          totalRevenue: sql<number>`coalesce(sum(${payment.amount}), 0)`,
+        })
+        .from(payment)
+        .where(eq(payment.paymentStatus, "success")),
+      db
+        .select({ successfulPayments: sql<number>`count(*)` })
+        .from(payment)
+        .where(eq(payment.paymentStatus, "success")),
+      db
+        .select({ pendingOrders: sql<number>`count(*)` })
+        .from(order)
+        .where(eq(order.status, "pending")),
+    ]);
 
-  return {
-    totalOrders: Number(totalOrders),
-    totalProducts: Number(totalProducts),
-    activeProducts: Number(activeProducts),
-    totalUsers: Number(totalUsers),
-    verifiedUsers: Number(verifiedUsers),
-    totalRevenue: Number(totalRevenue),
-    successfulPayments: Number(successfulPayments),
-    pendingOrders: Number(pendingOrders),
-  };
+    return {
+      totalOrders: Number(totalOrders || 0),
+      totalProducts: Number(totalProducts || 0),
+      activeProducts: Number(activeProducts || 0),
+      totalUsers: Number(totalUsers || 0),
+      verifiedUsers: Number(verifiedUsers || 0),
+      totalRevenue: Number(totalRevenue || 0),
+      successfulPayments: Number(successfulPayments || 0),
+      pendingOrders: Number(pendingOrders || 0),
+    };
+  } catch (error) {
+    console.error("fetchAdminDashboardStats error:", error);
+    return {
+      totalOrders: 0,
+      totalProducts: 0,
+      activeProducts: 0,
+      totalUsers: 0,
+      verifiedUsers: 0,
+      totalRevenue: 0,
+      successfulPayments: 0,
+      pendingOrders: 0,
+    };
+  }
 }
 
 export async function fetchFeaturedProductOptions() {

@@ -82,7 +82,7 @@ const dashboardLinks = [
   },
   {
     name: "Rewards & Security",
-    href: "/dashboard/rewards",
+    href: "/dashboard/security",
     icon: <IconShieldLock size={20} />,
   },
 ];

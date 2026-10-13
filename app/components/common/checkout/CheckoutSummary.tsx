@@ -3,7 +3,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { ShieldCheck, CreditCard, Smartphone, Building2 } from "lucide-react";
+import { ShieldCheck, CreditCard, Smartphone, Building2, Gift } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -39,6 +39,8 @@ export function CheckoutSummary({
   const [discountedSubtotal, setDiscountedSubtotal] = useState(0);
   const [gst, setGst] = useState(0);
   const [shipping, setShipping] = useState(0);
+  const [rewardBalance, setRewardBalance] = useState(0);
+  const [rewardsUsed, setRewardsUsed] = useState(0);
   const [final, setFinal] = useState(0);
   const [couponInput, setCouponInput] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
@@ -47,12 +49,19 @@ export function CheckoutSummary({
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<
     "upi" | "card" | "netbanking"
   >("upi");
+  const [paymentErrorMessage, setPaymentErrorMessage] = useState<string | null>(
+    null,
+  );
   const router = useRouter();
 
   const isSubscriptionCheckout = checkoutMode === "subscription";
   const isDirectCheckout = checkoutMode === "direct";
 
   const storeItems = useCartStore((state) => state.items);
+  const isGift = useCartStore((state) => state.isGift);
+  const giftNote = useCartStore((state) => state.giftNote);
+  const setIsGift = useCartStore((state) => state.setIsGift);
+  const setGiftNote = useCartStore((state) => state.setGiftNote);
   const displayItems = isDirectCheckout
     ? (directCheckoutItem ? [directCheckoutItem] : cart)
     : isSubscriptionCheckout
@@ -100,8 +109,18 @@ export function CheckoutSummary({
     setDiscountedSubtotal(res.discountedSubtotal);
     setGst(res.gst);
     setShipping(res.shipping);
+    setRewardBalance(Number(res.rewardBalance || 0));
+    setRewardsUsed(Number(res.rewardsUsed || 0));
     setFinal(res.final);
     setAppliedCoupon(res.coupon);
+    if (res.coupon) {
+      useCartStore.getState().setAppliedCoupon({
+        ...res.coupon,
+        discount: res.discount,
+      });
+    } else if (couponCode === null || couponCode === "") {
+      useCartStore.getState().setAppliedCoupon(null);
+    }
     return true;
   };
 
@@ -143,6 +162,8 @@ export function CheckoutSummary({
       setDiscountedSubtotal(data.discountedSubtotal ?? data.final);
       setGst(0);
       setShipping(data.shipping ?? 0);
+      setRewardBalance(Number(data.rewardBalance || 0));
+      setRewardsUsed(Number(data.rewardsUsed || 0));
       setFinal(data.final);
     } finally {
       setQuoteLoading(false);
@@ -156,10 +177,18 @@ export function CheckoutSummary({
       setFinal(0);
       setTotal(0);
       setDiscount(0);
+      setRewardBalance(0);
+      setRewardsUsed(0);
       setSubscriptionQuote(null);
       loadSubscriptionQuote();
     } else {
-      loadPricing();
+      const storeCoupon = useCartStore.getState().appliedCoupon?.code;
+      if (storeCoupon) {
+        setCouponInput(storeCoupon);
+        loadPricing(storeCoupon);
+      } else {
+        loadPricing();
+      }
     }
   }, [checkoutMode, subscriptionCheckout, directCheckoutItem]);
 
@@ -182,7 +211,8 @@ export function CheckoutSummary({
   const handleRemoveCoupon = async () => {
     setCouponInput("");
     setCouponLoading(true);
-    await loadPricing();
+    await loadPricing("");
+    useCartStore.getState().setAppliedCoupon(null);
     setCouponLoading(false);
     toast.success("Coupon removed");
   };
@@ -190,6 +220,7 @@ export function CheckoutSummary({
   const handlePayment = async () => {
     try {
       setLoading(true);
+      setPaymentErrorMessage(null);
 
       if (!selected) {
         toast.error("Please select an address");
@@ -208,6 +239,8 @@ export function CheckoutSummary({
           addressId: selected,
           name: "POTENT HYGIENE",
           description: subscriptionQuote?.label ?? "Subscription Payment",
+          isGift,
+          giftNote: isGift ? giftNote : "",
         });
 
         toast.success("Subscription payment successful");
@@ -226,6 +259,8 @@ export function CheckoutSummary({
           address: filteredAddress[0],
           directItem: directCheckoutItem,
           paymentMethod: selectedPaymentMethod,
+          isGift,
+          giftNote: isGift ? giftNote : "",
         });
 
         toast.success("Payment Successful 🎉");
@@ -244,6 +279,8 @@ export function CheckoutSummary({
         // userId,
         address: filteredAddress[0],
         paymentMethod: selectedPaymentMethod,
+        isGift,
+        giftNote: isGift ? giftNote : "",
       });
 
       toast.success("Payment Successful 🎉");
@@ -251,12 +288,22 @@ export function CheckoutSummary({
       clearCart();
       router.push(`/order-confirmation/${res?.orderId}`);
     } catch (err: any) {
-      if (err?.message === "Payment cancelled") {
-        toast.info("Payment cancelled");
+      const errMsg = err?.message || err?.description || "";
+      if (
+        errMsg === "Payment not completed" ||
+        errMsg === "Payment cancelled" ||
+        errMsg.toLowerCase().includes("cancel") ||
+        errMsg.toLowerCase().includes("dismiss")
+      ) {
+        toast.info("Payment not completed");
+        setPaymentErrorMessage("Payment not completed");
         return;
       }
 
-      toast.error("Payment Failed ❌", err);
+      toast.error("Payment not completed", {
+        description: err?.description || err?.message,
+      });
+      setPaymentErrorMessage("Payment not completed");
     } finally {
       setLoading(false);
     }
@@ -460,13 +507,53 @@ export function CheckoutSummary({
           </div>
         )}
 
+        {/* 🎁 Gift Option in Checkout */}
+        <div className="rounded-xl border border-[#9A5B90]/30 bg-gradient-to-r from-[#FAF0F6] to-[#F1F8F9] p-3.5 sm:p-4">
+          <label className="flex items-start gap-3 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={isGift}
+              onChange={(e) => setIsGift(e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#9A5B90] accent-[#9A5B90] focus:ring-[#9A5B90]"
+            />
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5 font-bold text-xs sm:text-sm text-[#7E4D77]">
+                <Gift className="h-4 w-4 shrink-0 text-[#9A5B90]" />
+                <span>This is a gift</span>
+              </div>
+              <p className="mt-0.5 text-[11px] text-[#7E4D77]/80">
+                Hides price on parcel &amp; slip · Includes your personal note
+              </p>
+            </div>
+          </label>
+
+          {isGift && (
+            <div className="mt-3 pt-3 border-t border-[#9A5B90]/20 space-y-1">
+              <textarea
+                value={giftNote}
+                onChange={(e) => setGiftNote(e.target.value.slice(0, 200))}
+                placeholder="Write a personal note for the recipient (up to 200 characters)..."
+                maxLength={200}
+                rows={2}
+                className="w-full rounded-lg border border-gray-200 bg-white p-2.5 text-xs text-gray-800 placeholder-gray-400 focus:border-[#9A5B90] focus:outline-none focus:ring-1 focus:ring-[#9A5B90]"
+              />
+              <div className="flex justify-between items-center text-[10px] text-gray-400">
+                <span>Prices will be omitted from the parcel &amp; slip</span>
+                <span>{giftNote.length}/200</span>
+              </div>
+            </div>
+          )}
+        </div>
+
         {discount > 0 && (
           <>
             <div className="flex justify-between text-sm text-green-700">
               <span>
                 {isSubscriptionCheckout
                   ? `Subscription Discount · Save ${subscriptionQuote?.discountPercentage ?? 0}%`
-                  : "Coupon Discount"}
+                  : appliedCoupon?.code
+                    ? `Coupon Discount (${appliedCoupon.code})`
+                    : "Coupon Discount"}
               </span>
               <span className="font-bold">-₹{discount.toFixed(2)}</span>
             </div>
@@ -487,6 +574,29 @@ export function CheckoutSummary({
               ? "Free Delivery"
               : `₹${shipping.toFixed(2)}`}
           </span>
+        </div>
+
+        <div className="rounded-xl border border-[#1B8392]/25 bg-[#E9F7F9]/60 px-3.5 py-2.5 space-y-1.5">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-semibold text-[#016271]">
+              Rewards Balance Available
+            </span>
+            <span className="font-bold text-[#016271]">
+              ₹{rewardBalance.toLocaleString("en-IN")}
+            </span>
+          </div>
+          {rewardsUsed > 0 ? (
+            <div className="flex items-center justify-between text-sm text-emerald-700 pt-1 border-t border-[#1B8392]/15">
+              <span className="font-semibold">
+                Rewards Credit Applied (Auto)
+              </span>
+              <span className="font-bold">-₹{rewardsUsed.toFixed(2)}</span>
+            </div>
+          ) : (
+            <p className="text-[11px] text-gray-500">
+              Earn cash credits on orders, reviews, referrals &amp; birthdays.
+            </p>
+          )}
         </div>
 
         <div className="flex justify-between text-xs text-gray-500 pt-0.5">
@@ -643,6 +753,13 @@ export function CheckoutSummary({
           </button>
         </div>
       </div>
+
+      {paymentErrorMessage && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-3.5 text-xs text-amber-900 font-medium flex items-start gap-2 shadow-xs">
+          <span className="font-bold text-amber-800 shrink-0">Payment not completed:</span>
+          <span>Your items are still safely in your bag. You can try again whenever you are ready.</span>
+        </div>
+      )}
 
       <Button
         onClick={handlePayment}

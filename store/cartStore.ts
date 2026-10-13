@@ -2,12 +2,15 @@
 // stores/cartStore.ts
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
-import type { CartItem } from "./cartTypes";
+import type { CartItem, CartCoupon } from "./cartTypes";
 import { getMixBoxCartKey } from "@/lib/mixYourBox";
 import { getProductMaxQuantity } from "@/lib/productQuantityLimits";
 
 type CartState = {
   items: CartItem[];
+  appliedCoupon: CartCoupon | null;
+  isGift: boolean;
+  giftNote: string;
 
   addItem: (item: Omit<CartItem, "addedAt">) => void;
   removeItem: (
@@ -24,6 +27,9 @@ type CartState = {
   ) => void;
   clearCart: () => void;
   setCart: (items: CartItem[]) => void;
+  setAppliedCoupon: (coupon: CartCoupon | null) => void;
+  setIsGift: (isGift: boolean) => void;
+  setGiftNote: (giftNote: string) => void;
 
   totalItems: () => number;
   subtotal: () => number;
@@ -57,8 +63,14 @@ export const useCartStore = create<CartState>()(
   persist(
     (set, get) => ({
       items: [],
+      appliedCoupon: null,
+      isGift: false,
+      giftNote: "",
 
       setCart: (items) => set({ items }),
+      setAppliedCoupon: (appliedCoupon) => set({ appliedCoupon }),
+      setIsGift: (isGift) => set({ isGift }),
+      setGiftNote: (giftNote) => set({ giftNote }),
 
       addItem: (item) =>
         set((state:any) => {
@@ -156,7 +168,8 @@ export const useCartStore = create<CartState>()(
             .filter((i) => i.quantity > 0),
         })),
 
-      clearCart: () => set({ items: [] }),
+      clearCart: () =>
+        set({ items: [], appliedCoupon: null, isGift: false, giftNote: "" }),
 
       totalItems: () =>
         get().items.length,

@@ -1,7 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { db } from "@/db";
-import { referralCoinHistory, rewardCoinsHistory, users } from "@/db/schema";
+import { users } from "@/db/schema";
 import { requireUserWithRefresh } from "@/helper/user/action";
+import { formatRewardDate, syncAndGetUserRewards } from "@/lib/rewards";
 import { eq } from "drizzle-orm";
 import { Check } from "lucide-react";
 
@@ -9,18 +10,26 @@ const programTerms = [
   "Your friend must be a new customer to Potent Hygiene",
   "Minimum order value of ₹500 required for referral to be valid",
   "Maximum ₹500 referral credit can be used per order",
-  "Referral credits have no expiry date",
+  "Referral credits are added in rupees (₹) to your Rewards Balance with no expiry date",
 ];
+
 export async function ReferralHistory() {
   const { email } = await requireUserWithRefresh();
   const [userDetail] = await db
-    .select({ id: users.id })
+    .select({ id: users.id, name: users.name })
     .from(users)
     .where(eq(users.email, email));
-  const referralHistory = await db
-    .select()
-    .from(referralCoinHistory)
-    .where(eq(referralCoinHistory.userId, userDetail?.id));
+
+  const synced = userDetail?.id
+    ? await syncAndGetUserRewards(userDetail.id)
+    : { validReferrals: [] };
+
+  const referralHistory = (synced.validReferrals || []).filter(
+    (item) =>
+      item.newUserId !== userDetail?.id &&
+      (item.newUserName || "").trim().toLowerCase() !==
+        (userDetail?.name || "").trim().toLowerCase(),
+  );
 
   return (
     <div className="w-full space-y-6">
@@ -30,10 +39,10 @@ export async function ReferralHistory() {
         </CardHeader>
 
         <CardContent className="space-y-4">
-          {referralHistory && referralHistory.length >= 0 ? (
+          {referralHistory && referralHistory.length > 0 ? (
             referralHistory.map((item, index) => (
               <div
-                key={index}
+                key={item.id || index}
                 className="flex items-center justify-between gap-4 rounded-xl border p-4"
               >
                 {/* LEFT */}
@@ -45,23 +54,23 @@ export async function ReferralHistory() {
 
                   {/* TEXT */}
                   <div>
-                    <p className="font-medium text-gray-800">
-                      {item.newUserName}
+                    <p className="font-semibold text-gray-800">
+                      {item.newUserName || "Referred Friend"}
                     </p>
                     <p className="text-sm text-gray-500">
-                      Referred on {item.createdAt?.toISOString()}
+                      Referred on {formatRewardDate(item.createdAt)}
                     </p>
                   </div>
                 </div>
 
                 {/* RIGHT */}
-                <div className="font-semibold whitespace-nowrap text-green-600">
-                  {item.coins}
+                <div className="font-bold whitespace-nowrap text-green-600">
+                  +₹{Number(item.coins || 200).toLocaleString("en-IN")}
                 </div>
               </div>
             ))
           ) : (
-            <p>No Referral History</p>
+            <p className="text-sm text-gray-500">No referrals yet. Share your code above to earn ₹200 per friend!</p>
           )}
         </CardContent>
       </Card>

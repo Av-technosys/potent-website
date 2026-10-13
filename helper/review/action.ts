@@ -8,46 +8,74 @@ import { revalidatePath } from "next/cache";
 import { requireUserWithRefresh } from "../user/action";
 import { ORDER_STATUS } from "@/const/globalconst";
 
+import { syncAndGetUserRewards, REVIEW_REWARD_RUPEES } from "@/lib/rewards";
+
 export async function createReview(reviewData: any) {
   try {
     const { userId } = await requireUserWithRefresh();
     const { productVarientId, orderItemId, rating, message } = reviewData;
 
-
-    if (!productVarientId) {
-      throw new Error("Product  ID is required for review submission");
-    }
-    if (!orderItemId) {
-      throw new Error("Order item ID is required for review submission");
+    if (!orderItemId && !productVarientId) {
+      throw new Error("Product or order item ID is required for review submission");
     }
 
     await db.transaction(async (tx) => {
-      const [deliveredItem] = await tx
-        .select({
-          orderId: order.id,
-          orderStatus: order.status,
-          productId: productVariant.productId,
-        })
-        .from(orderItem)
-        .innerJoin(order, eq(orderItem.orderId, order.id))
-        .innerJoin(productVariant, eq(orderItem.productVariantId, productVariant.id))
-        .where(
-          and(
-            eq(orderItem.id, orderItemId),
-            eq(orderItem.productVariantId, productVarientId),
-            eq(order.userId, userId),
-          ),
-        )
-        .limit(1);
+      let resolvedProductId: string | null = null;
 
-      if (!deliveredItem || deliveredItem.orderStatus !== ORDER_STATUS.DELIVERED) {
-        throw new Error("Review is allowed only after delivery");
+      if (orderItemId) {
+        const [itemRow] = await tx
+          .select({
+            orderId: order.id,
+            orderStatus: order.status,
+            productId: productVariant.productId,
+            slug: orderItem.productVarientSlug,
+          })
+          .from(orderItem)
+          .innerJoin(order, eq(orderItem.orderId, order.id))
+          .leftJoin(
+            productVariant,
+            eq(orderItem.productVariantId, productVariant.id),
+          )
+          .where(and(eq(orderItem.id, orderItemId), eq(order.userId, userId)))
+          .limit(1);
+
+        if (!itemRow || itemRow.orderStatus === ORDER_STATUS.CANCELED) {
+          throw new Error("Order item not found or order was cancelled");
+        }
+
+        resolvedProductId = itemRow.productId ?? null;
+        if (!resolvedProductId && itemRow.slug) {
+          const [prodBySlug] = await tx
+            .select({ id: product.id })
+            .from(product)
+            .where(eq(product.slug, itemRow.slug))
+            .limit(1);
+          resolvedProductId = prodBySlug?.id ?? null;
+        }
+      }
+
+      if (!resolvedProductId && productVarientId) {
+        const [variantRow] = await tx
+          .select({ productId: productVariant.productId })
+          .from(productVariant)
+          .where(eq(productVariant.id, productVarientId))
+          .limit(1);
+        resolvedProductId = variantRow?.productId ?? productVarientId;
+      }
+
+      if (!resolvedProductId) {
+        throw new Error("Could not resolve product for this review");
       }
 
       const [existingReview] = await tx
         .select({ id: review.id })
         .from(review)
-        .where(and(eq(review.userId, userId), eq(review.productId, deliveredItem.productId)))
+        .where(
+          and(
+            eq(review.userId, userId),
+            eq(review.productId, resolvedProductId),
+          ),
+        )
         .limit(1);
 
       if (existingReview) {
@@ -62,28 +90,35 @@ export async function createReview(reviewData: any) {
         },
       });
 
-      const reviewId = await tx
-        .insert(review)
-        .values({
-          userId,
-          productId: deliveredItem.productId,
-          name: userInfo?.name || "Guest User",
-          rating: Number(rating),
-          message,
-        })
-        .returning({ id: review.id });
+      await tx.insert(review).values({
+        userId,
+        productId: resolvedProductId,
+        name: userInfo?.name || "Verified Buyer",
+        rating: Number(rating),
+        message,
+        isAdminApproved: true,
+      });
     });
 
+    const synced = await syncAndGetUserRewards(userId);
+
+    revalidatePath("/dashboard");
     revalidatePath("/dashboard/orders");
     revalidatePath("/dashboard/reviews");
+    revalidatePath("/dashboard/security");
     revalidatePath("/admin/reviews");
 
-    return { success: true };
+    return {
+      success: true,
+      rewardAdded: REVIEW_REWARD_RUPEES,
+      balance: synced.balance,
+    };
   } catch (error) {
     console.error("Failed to create review:", error);
     return {
       success: false,
-      message: error instanceof Error ? error.message : "Failed to create review",
+      message:
+        error instanceof Error ? error.message : "Failed to create review",
     };
   }
 }
@@ -220,7 +255,6 @@ export async function getUserAllReviews() {
   try {
     const { userId } = await requireUserWithRefresh();
 
-    //if (!userId) return [];
     const reviews = await db
       .select({
         id: review.id,
@@ -230,13 +264,100 @@ export async function getUserAllReviews() {
         email: users.email,
         message: review.message,
         productId: review.productId,
+        productName: product.name,
         isAdminApproved: review.isAdminApproved,
         createdAt: review.createdAt,
       })
       .from(review)
       .innerJoin(users, eq(review.userId, users.id))
+      .leftJoin(product, eq(review.productId, product.id))
       .where(eq(review.userId, userId));
 
     return reviews.map((r) => ({ ...r, media: [] }));
-  } catch (error) { }
+  } catch (error) {
+    return [];
+  }
 }
+
+export async function getReviewableProducts() {
+  try {
+    const { userId } = await requireUserWithRefresh();
+
+    const existingReviews = await db
+      .select({ productId: review.productId })
+      .from(review)
+      .where(eq(review.userId, userId));
+
+    const reviewedProductIds = new Set(
+      existingReviews.map((r) => r.productId).filter(Boolean),
+    );
+
+    const orderedItems = await db
+      .select({
+        orderId: order.id,
+        orderStatus: order.status,
+        orderCreatedAt: order.createdAt,
+        orderItemId: orderItem.id,
+        productName: orderItem.productName,
+        productVariantId: orderItem.productVariantId,
+        slug: orderItem.productVarientSlug,
+        resolvedProductId: productVariant.productId,
+      })
+      .from(orderItem)
+      .innerJoin(order, eq(orderItem.orderId, order.id))
+      .leftJoin(
+        productVariant,
+        eq(orderItem.productVariantId, productVariant.id),
+      )
+      .where(eq(order.userId, userId));
+
+    const seenProducts = new Set<string>();
+    const results: Array<{
+      id: string;
+      productId: string;
+      name: string;
+      slug?: string;
+      orderId: string;
+      deliveredDate: string;
+    }> = [];
+
+    for (const item of orderedItems) {
+      if (item.orderStatus === ORDER_STATUS.CANCELED) continue;
+
+      let prodId = item.resolvedProductId ?? null;
+      if (!prodId && item.slug) {
+        const [prodBySlug] = await db
+          .select({ id: product.id })
+          .from(product)
+          .where(eq(product.slug, item.slug))
+          .limit(1);
+        prodId = prodBySlug?.id ?? null;
+      }
+
+      const key = prodId || item.slug || item.productName;
+      if (!key || seenProducts.has(key)) continue;
+      if (prodId && reviewedProductIds.has(prodId)) continue;
+
+      seenProducts.add(key);
+      results.push({
+        id: prodId || item.productVariantId || item.orderItemId,
+        productId: prodId || "",
+        name: item.productName,
+        slug: item.slug || undefined,
+        orderId: `#${String(item.orderId).slice(0, 8).toUpperCase()}`,
+        deliveredDate: item.orderCreatedAt
+          ? new Date(item.orderCreatedAt).toLocaleDateString("en-GB", {
+              day: "numeric",
+              month: "short",
+              year: "numeric",
+            })
+          : "",
+      });
+    }
+
+    return results;
+  } catch (error) {
+    return [];
+  }
+}
+

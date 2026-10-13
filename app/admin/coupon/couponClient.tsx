@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/card";
 import { Loader2, Plus, Search } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import CouponTable from "./couponTable";
 
@@ -31,13 +31,20 @@ interface Props {
 const CouponClient = ({ coupons, total, currentPage }: Props) => {
   const pathname = usePathname();
   const updateQuery = useUpdateQuery();
-  const [isPending, startTransition] = useTransition();
-  const [searchText, setSearchText] = useState("");
-  const debouncedSearch = useDebounce(searchText, 800);
+  const searchParams = useSearchParams();
+  const [, startTransition] = useTransition();
+  const initialSearch = searchParams.get("search") ?? "";
+  const [searchText, setSearchText] = useState(initialSearch);
+  const debouncedSearch = useDebounce(searchText, 500);
 
   useEffect(() => {
-    startTransition(() => updateQuery("search", debouncedSearch));
-  }, [debouncedSearch, updateQuery]);
+    const currentParam = searchParams.get("search") ?? "";
+    if (debouncedSearch.trim() === currentParam) return;
+
+    startTransition(() => {
+      updateQuery("search", debouncedSearch.trim() || undefined);
+    });
+  }, [debouncedSearch, searchParams, updateQuery]);
 
   return (
     <div className="w-full min-h-screen">
@@ -76,12 +83,6 @@ const CouponClient = ({ coupons, total, currentPage }: Props) => {
           </div>
 
           <div className="relative">
-            {isPending && (
-              <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60 backdrop-blur-[1px]">
-                <Loader2 className="animate-spin w-6 h-6 text-primary" />
-              </div>
-            )}
-
             <CouponTable page={currentPage} coupons={coupons} />
           </div>
 

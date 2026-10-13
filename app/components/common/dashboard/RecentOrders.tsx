@@ -12,13 +12,16 @@ export const RecentOrders = ({ orders }: { orders: any[] }) => {
 
       <div className="flex flex-col gap-3">
         {orders.map((order) => {
-          // 🔥 map DB → UI format
+          const isUnpaid = String(order.status || "").toLowerCase() === "pending";
           const formatted = {
             id: order.id,
-            status: order.status || "Pending",
+            status: isUnpaid
+              ? "Payment not completed"
+              : order.status || "Pending",
             items: order.itemsCount || 1, // fallback if not joined
             date: new Date(order.createdAt).toLocaleDateString(),
             amount: `₹${order.totalAmount || 0}`,
+            isUnpaid,
           };
 
           return (
@@ -32,7 +35,13 @@ export const RecentOrders = ({ orders }: { orders: any[] }) => {
                     {formatted.id}
                   </span>
 
-                  <Badge className="bg-[#DCFCE7] text-[#15824D] hover:bg-[#E6F4EA] border-none text-[10px] px-2 py-0 h-5">
+                  <Badge
+                    className={`${
+                      formatted.isUnpaid
+                        ? "border border-amber-300 bg-amber-100 text-amber-800 hover:bg-amber-100"
+                        : "bg-[#DCFCE7] text-[#15824D] hover:bg-[#E6F4EA]"
+                    } border-none text-[10px] px-2 py-0 h-5 font-semibold`}
+                  >
                     {formatted.status}
                   </Badge>
                 </div>

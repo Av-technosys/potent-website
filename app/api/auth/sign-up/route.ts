@@ -1,8 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { db } from "@/db";
-import { referralCoinHistory, users } from "@/db/schema";
+import { referralCoinHistory, rewardCoinsHistory, users } from "@/db/schema";
 import { cognitoAdminGetUser, cognitoSignUp } from "@/helper/cognito";
 import { generateUniqueReferralCode } from "@/lib/referralCode";
+import {
+  REFERRAL_EARNING_RUPEES,
+  REFERRAL_FRIEND_BONUS_RUPEES,
+  SIGNUP_BONUS_RUPEES,
+} from "@/lib/rewards";
 import { NextResponse } from "next/server";
 import { eq, sql } from "drizzle-orm";
 
@@ -30,17 +35,26 @@ export async function POST(req: Request) {
 
       // Fallback for legacy UUID referral links
       if (!foundUsers.length) {
-        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanRef);
+        const isUuid =
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+            cleanRef,
+          );
         if (isUuid) {
-          foundUsers = await db.select().from(users).where(eq(users.id, cleanRef));
+          foundUsers = await db
+            .select()
+            .from(users)
+            .where(eq(users.id, cleanRef));
         }
       }
 
       if (foundUsers?.length) {
-        // Self-referral check: cannot use own referral code
+        // Strict self-referral check: cannot use own referral code
         if (
           foundUsers[0].email?.toLowerCase() === email?.toLowerCase() ||
-          (phone && foundUsers[0].phone === phone)
+          (phone && foundUsers[0].phone === phone) ||
+          (name &&
+            foundUsers[0].name?.trim().toLowerCase() ===
+              String(name).trim().toLowerCase())
         ) {
           return NextResponse.json(
             { message: "You cannot use your own referral code." },
@@ -49,10 +63,6 @@ export async function POST(req: Request) {
         }
 
         refUser = foundUsers;
-        await db
-          .update(users)
-          .set({ referralCoins: sql`${users.referralCoins} + ${200}` })
-          .where(eq(users.id, refUser[0].id));
       } else {
         return NextResponse.json(
           { message: "Referral code is invalid." },
@@ -94,7 +104,7 @@ export async function POST(req: Request) {
         const cognitoId = cognitoRes.UserSub;
         if (!cognitoId) throw new Error("Cognito User ID missing");
 
-        const safeName = name || "New User";
+        const safeName = (name || "New User").trim();
         const safePhone = phone || "0000000000";
 
         const [existingDbUser] = await db
@@ -105,6 +115,15 @@ export async function POST(req: Request) {
         let userRes;
 
         if (!existingDbUser) {
+          const referredUser = refUser?.[0];
+          const isValidReferral =
+            referredUser &&
+            referredUser.email?.toLowerCase() !== email?.toLowerCase();
+
+          const initialRewardRupees =
+            SIGNUP_BONUS_RUPEES +
+            (isValidReferral ? REFERRAL_FRIEND_BONUS_RUPEES : 0);
+
           const generatedCode = await generateUniqueReferralCode(db, safeName);
           [userRes] = await db
             .insert(users)
@@ -114,20 +133,50 @@ export async function POST(req: Request) {
               phone: safePhone,
               cognitoId,
               referralCode: generatedCode,
-              referralCoins: refUser?.length ? 200 : 0,
+              rewardOrderCoins: initialRewardRupees,
+              referralCoins: 0,
             })
             .returning();
 
-          const referredUser = refUser?.[0];
+          // 1. Credit ₹100 Welcome Bonus for joining
+          await db.insert(rewardCoinsHistory).values({
+            userId: userRes.id,
+            coins: SIGNUP_BONUS_RUPEES,
+            type: "signup_bonus",
+          });
 
-          if (referredUser) {
-            await db.insert(referralCoinHistory).values({
-              userId: referredUser.id,
-              coins: 200,
-              newUserName: name,
-              newUserId: userRes.id,
-              type: "referral",
+          // 2. If signed up with a valid friend's referral code, credit friend bonus & referrer
+          if (isValidReferral && referredUser.id !== userRes.id) {
+            await db.insert(rewardCoinsHistory).values({
+              userId: userRes.id,
+              coins: REFERRAL_FRIEND_BONUS_RUPEES,
+              type: "referral_welcome",
             });
+
+            const [insertedRef] = await db
+              .insert(referralCoinHistory)
+              .values({
+                userId: referredUser.id,
+                coins: REFERRAL_EARNING_RUPEES,
+                newUserName: safeName,
+                newUserId: userRes.id,
+                type: "referral",
+              })
+              .returning({ id: referralCoinHistory.id });
+
+            await db.insert(rewardCoinsHistory).values({
+              userId: referredUser.id,
+              coins: REFERRAL_EARNING_RUPEES,
+              type: `referral_bonus:${insertedRef?.id || userRes.id}:${safeName}`,
+            });
+
+            await db
+              .update(users)
+              .set({
+                referralCoins: sql`COALESCE(${users.referralCoins}, 0) + ${REFERRAL_EARNING_RUPEES}`,
+                rewardOrderCoins: sql`COALESCE(${users.rewardOrderCoins}, 0) + ${REFERRAL_EARNING_RUPEES}`,
+              })
+              .where(eq(users.id, referredUser.id));
           }
         } else {
           userRes = existingDbUser;

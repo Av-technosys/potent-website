@@ -7,13 +7,13 @@ export const dynamic = "force-dynamic";
 
 const cards = [
   {
-    title: "Coin Value",
-    description: "₹1 = 100 Coin",
+    title: "Rewards Value",
+    description: "100% Cash Credit (₹)",
   },
-  // {
-  //   title: "Per Referrel",
-  //   description: "200 Coins",
-  // },
+  {
+    title: "Order Reward",
+    description: "5% On Every Order",
+  },
 ];
 
 const page = () => {
@@ -26,7 +26,7 @@ const page = () => {
       <Suspense fallback={<div>Loading...</div>}>
         <RewardReferrelOverview
           tittle="Your Reward Balance"
-          description="Coins"
+          description="Available cash credit in rupees (₹)"
           cards={cards}
         />
       </Suspense>

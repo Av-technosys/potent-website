@@ -113,11 +113,72 @@ export async function updateCoupon(couponData: any) {
   }
 }
 
+let hasEnsuredDefaultCoupons = false;
+
+export async function ensureDefaultCoupons() {
+  if (hasEnsuredDefaultCoupons) return;
+  try {
+    const existing = await db
+      .select({ code: coupon.code })
+      .from(coupon);
+    const existingCodes = new Set(
+      existing.map((c) => String(c.code || "").trim().toUpperCase()),
+    );
+
+    const defaults = [
+      {
+        name: "Teen First 10%",
+        code: "TEENFIRST10",
+        description: "10% off your teen essentials order",
+        isDiscountPercentage: true,
+        discountPercentage: 10,
+        discountFixedAmount: null,
+        minimumOrderValue: 0,
+        maximumDiscountAmount: 500,
+        useOnce: false,
+      },
+      {
+        name: "Test Flat ₹50 Off",
+        code: "TEST50",
+        description: "Flat ₹50 discount test coupon",
+        isDiscountPercentage: false,
+        discountPercentage: null,
+        discountFixedAmount: 50,
+        minimumOrderValue: 0,
+        maximumDiscountAmount: 50,
+        useOnce: false,
+      },
+      {
+        name: "Test 20% Off",
+        code: "TEST20",
+        description: "20% off test coupon",
+        isDiscountPercentage: true,
+        discountPercentage: 20,
+        discountFixedAmount: null,
+        minimumOrderValue: 0,
+        maximumDiscountAmount: 500,
+        useOnce: false,
+      },
+    ];
+
+    for (const item of defaults) {
+      if (!existingCodes.has(item.code)) {
+        await db.insert(coupon).values(item);
+      }
+    }
+    hasEnsuredDefaultCoupons = true;
+  } catch (err) {
+    console.error("ensureDefaultCoupons error:", err);
+  }
+}
+
 export async function getCouponsPagination({
   page = 1,
   pageSize = 10,
   search = "",
 }: GetCouponsOptions) {
+  await ensureDefaultCoupons();
+
   const filters = [];
 
   if (search.trim() !== "") {

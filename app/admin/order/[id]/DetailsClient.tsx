@@ -3,7 +3,8 @@
 
 
 
-import { CheckCircle2, Phone, Mail } from "lucide-react";
+import { CheckCircle2, Phone, Mail, Gift } from "lucide-react";
+import { PackingSlipModal } from "@/app/components/common/orders/PackingSlipModal";
 
 import { useState, useTransition } from "react";
 import { Loader2 } from "lucide-react";
@@ -74,6 +75,8 @@ export default function Details({ id, initialOrderInfo }: { id: string; initialO
       ? orderInfo.payment.paymentMeta
       : null;
   const appliedCoupon = paymentMeta?.coupon;
+  const isGift = Boolean(paymentMeta?.isGift);
+  const giftNote = paymentMeta?.giftNote ? String(paymentMeta.giftNote) : null;
 
   return (
     <div className={`w-full max-w-full mx-auto p-1 space-y-5 ${isPending ? "opacity-70" : ""}`}>
@@ -82,12 +85,35 @@ export default function Details({ id, initialOrderInfo }: { id: string; initialO
         {/* Left Card: Timeline */}
         <Card className="md:col-span-5 flex flex-col justify-between">
           <CardHeader>
-            <CardTitle className="text-md font-bold text-slate-900 tracking-tight">
-              OrderId : #{orderInfo?.order?.id}
-            </CardTitle>
+            <div className="flex items-center justify-between gap-2">
+              <CardTitle className="text-md font-bold text-slate-900 tracking-tight">
+                OrderId : #{orderInfo?.order?.id}
+              </CardTitle>
+              {isGift && (
+                <Badge className="bg-[#9A5B90] text-white">
+                  🎁 Gift Order
+                </Badge>
+              )}
+            </div>
             <p className="text-sm text-slate-500">
               Placed on {formatDate(orderInfo?.order?.createdAt)}
             </p>
+            {isGift && (
+              <div className="mt-3 rounded-lg border border-[#9A5B90]/30 bg-purple-50 p-3 text-xs text-purple-900">
+                <div className="font-bold flex items-center gap-1.5 text-[#7E4D77]">
+                  <Gift className="h-3.5 w-3.5" />
+                  <span>Gift Order — DO NOT print price on parcel or slip!</span>
+                </div>
+                {giftNote && (
+                  <div className="mt-2 rounded bg-white p-2 border border-purple-200">
+                    <span className="font-semibold text-gray-500 block text-[10px] uppercase">
+                      Gift Note for Recipient:
+                    </span>
+                    <p className="mt-0.5 italic text-gray-800 font-serif">“{giftNote}”</p>
+                  </div>
+                )}
+              </div>
+            )}
             <div className="mt-4 max-w-56">
               <Select
                 placeholder="Status"
@@ -98,7 +124,7 @@ export default function Details({ id, initialOrderInfo }: { id: string; initialO
               />
             </div>
           </CardHeader>
-          <CardContent className="space-y-12">
+          <CardContent className="space-y-8">
             <div className="relative space-y-10 ml-1">
               {steps.map((step, idx) => (
                 <div key={idx} className="flex gap-4 relative items-start">
@@ -116,16 +142,30 @@ export default function Details({ id, initialOrderInfo }: { id: string; initialO
                 </div>
               ))}
             </div>
-            <div className="flex gap-4 pt-4">
-              <Button
-                variant="outline"
-                className="flex-1 rounded-full border-slate-200 text-slate-600"
-              >
-                <Link href={`/admin/order`}>Cancel Order</Link>
-              </Button>
-              <Button className="flex-1 rounded-full bg-[#2D5A5D] hover:bg-[#234749]">
-                Track Order
-              </Button>
+            <div className="space-y-2 pt-4">
+              <PackingSlipModal
+                order={orderInfo?.order}
+                items={orderInfo?.items}
+                paymentMeta={paymentMeta}
+                customer={orderInfo?.users}
+                triggerButton={
+                  <Button className="w-full rounded-full bg-[#016271] hover:bg-[#014d59] text-white flex items-center justify-center gap-2 cursor-pointer">
+                    <Gift className="h-4 w-4" />
+                    <span>{isGift ? "Print Gift Parcel Slip (No Price)" : "Print Packing Slip"}</span>
+                  </Button>
+                }
+              />
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  className="flex-1 rounded-full border-slate-200 text-slate-600"
+                >
+                  <Link href={`/admin/order`}>Cancel Order</Link>
+                </Button>
+                <Button className="flex-1 rounded-full bg-[#2D5A5D] hover:bg-[#234749]">
+                  Track Order
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>

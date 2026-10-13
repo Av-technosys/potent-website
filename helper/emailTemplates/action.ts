@@ -90,8 +90,8 @@ async function sendSafely(send: () => ReturnType<typeof sendTemplateEmail>): Pro
     const result = await send();
 
     return { success: true, result };
-  } catch (error) {
-    console.error("SES Email Error:", error);
+  } catch (error: any) {
+    console.warn("SES Email Notification skipped:", error?.message || error);
     return { success: false, error };
   }
 }

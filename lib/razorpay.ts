@@ -35,12 +35,16 @@ export const initiateRazorpaySubscription = async ({
   addressId,
   name,
   description,
+  isGift,
+  giftNote,
 }: {
   item: any;
   amount: number;
   addressId: string;
   name: string;
   description: string;
+  isGift?: boolean;
+  giftNote?: string;
 }) => {
   const scriptLoaded = await loadRazorpayScript();
 
@@ -52,7 +56,7 @@ export const initiateRazorpaySubscription = async ({
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ item, amount, addressId }),
+    body: JSON.stringify({ item, amount, addressId, isGift, giftNote }),
   });
 
   const startData = await startRes.json();
@@ -102,7 +106,7 @@ export const initiateRazorpaySubscription = async ({
       },
       modal: {
         ondismiss: function () {
-          reject(new Error("Payment cancelled"));
+          reject(new Error("Payment not completed"));
         },
       },
     };
@@ -129,6 +133,8 @@ export const initiateRazorpaySubscription = async ({
   address,
   directItem,
   paymentMethod,
+  isGift,
+  giftNote,
 }: {
   amount: number;
   name: string;
@@ -139,6 +145,8 @@ export const initiateRazorpaySubscription = async ({
   address: any;
   directItem?: any;
   paymentMethod?: "upi" | "card" | "netbanking";
+  isGift?: boolean;
+  giftNote?: string;
 }) => {
   const scriptLoaded = await loadRazorpayScript();
 
@@ -206,7 +214,13 @@ export const initiateRazorpaySubscription = async ({
   const res = await fetch("/api/razorpay/order", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ couponCode, addressId: address?.id, directItem }),
+    body: JSON.stringify({
+      couponCode,
+      addressId: address?.id,
+      directItem,
+      isGift,
+      giftNote,
+    }),
   });
 
   const order = await res.json();
@@ -257,6 +271,8 @@ export const initiateRazorpaySubscription = async ({
               // userId,
               address,
               couponCode,
+              isGift,
+              giftNote,
             }),
           });
 
@@ -277,7 +293,7 @@ export const initiateRazorpaySubscription = async ({
       },
       modal: {
         ondismiss: function () {
-          reject(new Error("Payment cancelled"));
+          reject(new Error("Payment not completed"));
         },
       },
     };

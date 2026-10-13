@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { getOrderConfirmationById } from "@/helper/order/action";
 import { getImageUrl } from "@/lib/imageUrl";
 import { formatMixBoxRecipe } from "@/lib/mixYourBox";
+import { PackingSlipModal } from "@/app/components/common/orders/PackingSlipModal";
 
 export const dynamic = "force-dynamic";
 
@@ -48,6 +49,16 @@ export default async function DashboardOrderDetailsPage({ params }: any) {
     order.payment?.paymentStatus ??
     "pending";
 
+  const isUnpaid =
+    order.status === "pending" && paymentStatus !== "success";
+
+  const paymentMeta: any =
+    typeof order.payment?.paymentMeta === "object"
+      ? order.payment.paymentMeta
+      : {};
+  const isGift = Boolean(paymentMeta?.isGift);
+  const giftNote = paymentMeta?.giftNote ? String(paymentMeta.giftNote) : null;
+
   return (
     <div className="space-y-6">
       <Button
@@ -60,6 +71,12 @@ export default async function DashboardOrderDetailsPage({ params }: any) {
           Back to orders
         </Link>
       </Button>
+
+      {isUnpaid && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-medium text-amber-900">
+          ⚠️ <strong>Payment not completed:</strong> Payment was not completed for this order. You can return to your orders list and click <strong>Pay now</strong> to complete it.
+        </div>
+      )}
 
       <section className="rounded-2xl bg-white p-6 shadow-sm">
         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
@@ -76,10 +93,47 @@ export default async function DashboardOrderDetailsPage({ params }: any) {
           </div>
 
           <div className="flex flex-wrap gap-2 md:justify-end">
-            <Badge className="bg-[#016271] text-white">{order.status}</Badge>
-            <Badge variant="outline">Payment: {paymentStatus}</Badge>
+            <Badge
+              className={
+                isUnpaid
+                  ? "border border-amber-300 bg-amber-100 text-amber-800"
+                  : "bg-[#016271] text-white"
+              }
+            >
+              {isUnpaid ? "Payment not completed" : order.status}
+            </Badge>
+            <Badge variant="outline">
+              Payment: {isUnpaid ? "not completed" : paymentStatus}
+            </Badge>
+            {isGift && (
+              <Badge className="bg-[#9A5B90] text-white">
+                🎁 Gift Order
+              </Badge>
+            )}
+            <PackingSlipModal
+              order={order}
+              items={order.items}
+              paymentMeta={paymentMeta}
+            />
           </div>
         </div>
+
+        {isGift && (
+          <div className="mt-5 rounded-xl border border-[#9A5B90]/30 bg-gradient-to-r from-[#FAF0F6] to-[#F1F8F9] p-4 text-left">
+            <div className="flex items-center gap-2 text-sm font-bold text-[#7E4D77]">
+              <span>🎁</span>
+              <span>Gift Mode Active: Prices hidden on parcel &amp; packing slip</span>
+            </div>
+            {giftNote && (
+              <div className="mt-2.5 rounded-lg bg-white/90 p-3 text-xs text-gray-700 border border-[#9A5B90]/15">
+                <span className="text-[10px] font-bold text-[#7E4D77] uppercase tracking-wider block">
+                  Included Gift Note for recipient:
+                </span>
+                <p className="mt-1 italic text-gray-900">“{giftNote}”</p>
+              </div>
+            )}
+          </div>
+        )}
       </section>
 
       <section className="grid gap-6 xl:grid-cols-[1fr_320px]">

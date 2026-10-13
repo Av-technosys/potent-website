@@ -40,3 +40,16 @@ export type CartItem = {
   addedAt: number;
   uuid?: string; 
 };
+
+export type CartCoupon = {
+  id?: string;
+  name?: string;
+  code: string;
+  description?: string | null;
+  isDiscountPercentage?: boolean;
+  discountPercentage?: number | null;
+  discountFixedAmount?: number | null;
+  minimumOrderValue?: number | null;
+  maximumDiscountAmount?: number | null;
+  discount?: number;
+};

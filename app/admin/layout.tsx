@@ -6,6 +6,7 @@ export default function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
+
   return (
     <div className="bg-muted/40 flex h-screen overflow-hidden">
       <div className="sticky top-0 hidden h-screen lg:block">

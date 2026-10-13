@@ -2276,7 +2276,7 @@ export default function OvyTeenPageClient({
           </div>
         </section>
 
-        {/* Impact Section & Referral Card */}
+        {/* Impact Section */}
         <section className="mt-16 space-y-6">
           <div className="grid grid-cols-1 items-center overflow-hidden rounded-3xl border border-[#1A150F]/10 bg-white shadow-sm md:grid-cols-12">
             <div className="relative aspect-video bg-[#F3E6F0] md:col-span-5 md:aspect-auto md:h-full">
@@ -2325,38 +2325,6 @@ export default function OvyTeenPageClient({
                   </span>
                 </div>
               </div>
-            </div>
-          </div>
-
-          {/* Referral Card */}
-          <div className="border-1.5 flex flex-col items-center justify-between gap-4 rounded-3xl border-dashed border-[#9A5B90]/40 bg-gradient-to-r from-[#F7E8F0] to-[#EAF1F2] p-6 sm:flex-row">
-            <div className="flex items-center gap-4">
-              <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-white text-[#7E4D77] shadow-xs">
-                <Gift className="h-6 w-6" />
-              </div>
-              <div>
-                <h4 className="font-serif text-lg font-bold text-[#1A150F]">
-                  Gift ₹100 Off to a Friend
-                </h4>
-                <p className="text-xs text-[#1A150F]/70">
-                  Use promo code TEENFIRST10 for 10% off your first Teen Kit
-                  order
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 rounded-xl border border-[#9A5B90] bg-white px-3 py-1.5">
-              <span className="font-mono text-sm font-bold text-[#7E4D77]">
-                TEENFIRST10
-              </span>
-              <button
-                onClick={() => {
-                  navigator.clipboard.writeText("TEENFIRST10");
-                  toast.success("Promo code copied!");
-                }}
-                className="cursor-pointer rounded-lg bg-[#9A5B90] px-3 py-1 text-xs font-bold text-white transition-all hover:bg-[#7E4D77]"
-              >
-                Copy
-              </button>
             </div>
           </div>
         </section>

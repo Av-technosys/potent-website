@@ -50,6 +50,12 @@ export default async function OrderConfirmationPage({ params }: any) {
   const gatewayPayment: any = order.gatewayConfirmation?.gatewayPayment;
   const gatewayStatus =
     gatewayPayment?.status ?? order.payment?.paymentStatus ?? "pending";
+  const paymentMeta: any =
+    typeof order.payment?.paymentMeta === "object"
+      ? order.payment.paymentMeta
+      : {};
+  const isGift = Boolean(paymentMeta?.isGift);
+  const giftNote = paymentMeta?.giftNote ? String(paymentMeta.giftNote) : null;
 
   return (
     <main className="min-h-screen bg-[#FDFCF9] px-4 py-10">
@@ -80,7 +86,27 @@ export default async function OrderConfirmationPage({ params }: any) {
               Order #{String(order.id).slice(0, 8)}
             </Badge>
             <Badge variant="outline">Payment: {gatewayStatus}</Badge>
+            {isGift && (
+              <Badge className="bg-[#9A5B90] text-white">
+                🎁 Gift Order
+              </Badge>
+            )}
           </div>
+
+          {isGift && (
+            <div className="mt-4 mx-auto max-w-lg rounded-xl border border-[#9A5B90]/30 bg-gradient-to-r from-[#FAF0F6] to-[#F1F8F9] p-3 text-left">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-[#7E4D77]">
+                <span>🎁</span>
+                <span>Gift Mode Active: Prices hidden on parcel &amp; packing slip</span>
+              </div>
+              {giftNote && (
+                <div className="mt-2 rounded-lg bg-white/80 p-2.5 text-xs text-gray-700 border border-[#9A5B90]/15">
+                  <span className="text-[10px] font-bold text-[#7E4D77] uppercase tracking-wider block">Your Personal Note:</span>
+                  <p className="mt-0.5 italic">“{giftNote}”</p>
+                </div>
+              )}
+            </div>
+          )}
         </section>
 
         <section className="grid gap-6 md:grid-cols-[1fr_320px]">

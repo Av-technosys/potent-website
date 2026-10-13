@@ -35,15 +35,20 @@ const CategoryClient = ({ categories, total, currentPage }: Props) => {
   const searchParams = useSearchParams();
   const updateQuery = useUpdateQuery();
 
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
 
-
-  const [searchText, setSearchText] = useState("");
-  const debouncedSearch = useDebounce(searchText, 800);
+  const initialSearch = searchParams.get("search") ?? "";
+  const [searchText, setSearchText] = useState(initialSearch);
+  const debouncedSearch = useDebounce(searchText, 500);
 
   useEffect(() => {
-    startTransition(() => updateQuery("search", debouncedSearch));
-  }, [debouncedSearch]);
+    const currentParam = searchParams.get("search") ?? "";
+    if (debouncedSearch.trim() === currentParam) return;
+
+    startTransition(() => {
+      updateQuery("search", debouncedSearch.trim() || undefined);
+    });
+  }, [debouncedSearch, searchParams, updateQuery]);
 
   function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
     setSearchText(e.target.value);
@@ -148,14 +153,8 @@ const CategoryClient = ({ categories, total, currentPage }: Props) => {
             />
           </div>
 
-          {/* TABLE + LOADING OVERLAY */}
+          {/* TABLE CONTAINER */}
           <div className="relative">
-            {isPending && (
-              <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60 backdrop-blur-[1px]">
-                <Loader2 className="animate-spin w-6 h-6 text-primary" />
-              </div>
-            )}
-
             <CategoryTable page={currentPage} categories={categories} />
           </div>
 

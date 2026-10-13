@@ -17,11 +17,14 @@ import { Input } from "@/components/ui/input";
 import { IconPencil, IconStarFilled } from "@tabler/icons-react";
 import { toast } from "sonner";
 
+import { useRouter } from "next/navigation";
+
 interface WriteReviewModalProps {
   product?: any;
   trigger?: React.ReactNode;
   btnClassName?: string;
   btnStyle?: React.CSSProperties;
+  onSuccess?: () => void;
 }
 
 export const WriteReviewModal = ({
@@ -29,15 +32,23 @@ export const WriteReviewModal = ({
   trigger,
   btnClassName,
   btnStyle,
+  onSuccess,
 }: WriteReviewModalProps) => {
   const [open, setOpen] = useState(false);
   const [rating, setRating] = useState(5);
   const [userName, setUserName] = useState("");
   const [comment, setComment] = useState("");
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
-  const productName = product?.name || product?.title || "Product";
-  const productId = product?.id || product?.slug || "general";
+  const productName =
+    product?.name || product?.productName || product?.title || "Potent Product";
+  const productId =
+    product?.id ||
+    product?.productId ||
+    product?.slug ||
+    product?.productSlug ||
+    "general";
 
   const submitReview = async () => {
     if (!comment.trim()) {
@@ -54,8 +65,7 @@ export const WriteReviewModal = ({
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          userId: "user_guest",
-          name: userName.trim() || "Verified Buyer",
+          name: userName.trim(),
           productName: productName,
           productId: productId,
           rating: rating,
@@ -63,13 +73,21 @@ export const WriteReviewModal = ({
         }),
       });
 
+      const data = await response.json().catch(() => ({}));
+
       if (response.ok) {
-        toast.success("Review submitted successfully!");
+        toast.success(
+          "Review submitted! ₹50 cash credit added to your Rewards balance.",
+        );
         setComment("");
         setUserName("");
         setOpen(false);
+        onSuccess?.();
+        router.refresh();
       } else {
-        toast.error("Failed to submit review. Please try again.");
+        toast.error(
+          data?.error || "Failed to submit review. Please try again.",
+        );
       }
     } catch (error) {
       console.error("Review Submit Error:", error);

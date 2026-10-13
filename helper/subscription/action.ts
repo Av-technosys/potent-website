@@ -1,12 +1,18 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use server";
 import {
+  order,
   paymentGatewayPlans,
   paymentGatewaySubscription,
   product,
   productVariant,
   subscriptions,
 } from "@/db/schema";
+import { ORDER_STATUS } from "@/const/globalconst";
+import {
+  reverseCancelledOrderRewards,
+  syncAndGetUserRewards,
+} from "@/lib/rewards";
 import { db } from "@/lib/db";
 import { RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET } from "@/env";
 import { and, desc, eq } from "drizzle-orm";
@@ -576,6 +582,21 @@ export async function cancelUserSubscription(
     }
 
     if (!row.subscription.isActive) {
+      if (row.subscription.orderId) {
+        await db
+          .update(order)
+          .set({
+            status: ORDER_STATUS.CANCELED,
+            updatedAt: new Date(),
+          })
+          .where(eq(order.id, row.subscription.orderId));
+        await reverseCancelledOrderRewards(row.subscription.orderId);
+      }
+      await syncAndGetUserRewards(userId);
+      revalidatePath("/dashboard");
+      revalidatePath("/dashboard/orders");
+      revalidatePath("/dashboard/subscriptions");
+      revalidatePath("/dashboard/security");
       return { success: true, message: "Subscription is already cancelled" };
     }
 
@@ -630,7 +651,24 @@ export async function cancelUserSubscription(
       })
       .where(eq(subscriptions.id, row.subscription.id));
 
+    if (row.subscription.orderId) {
+      await db
+        .update(order)
+        .set({
+          status: ORDER_STATUS.CANCELED,
+          updatedAt: new Date(),
+        })
+        .where(eq(order.id, row.subscription.orderId));
+
+      await reverseCancelledOrderRewards(row.subscription.orderId);
+    }
+
+    await syncAndGetUserRewards(userId);
+
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard/orders");
     revalidatePath("/dashboard/subscriptions");
+    revalidatePath("/dashboard/security");
 
     return { success: true, message: "Subscription cancelled" };
   } catch (error) {

@@ -45,7 +45,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const quote = await getSubscriptionCheckoutQuote(item);
+    const quote = await getSubscriptionCheckoutQuote(item, userId);
     if (!quote.success) {
       return NextResponse.json(quote, { status: 400 });
     }
@@ -186,6 +186,8 @@ export async function POST(req: Request) {
           totalPads: quote.totalPads,
           boxCount: quote.boxCount,
           freeLiners: quote.freeLiners,
+          rewardsUsed: quote.rewardsUsed ?? 0,
+          rewardBalance: quote.rewardBalance ?? 0,
           addressId: shippingAddress.id,
         },
       });

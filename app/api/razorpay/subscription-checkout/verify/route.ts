@@ -13,6 +13,7 @@ import {
 } from "@/src/db/schema";
 import { requireUserWithRefresh } from "@/helper/user/action";
 import { ORDER_STATUS } from "@/const/globalconst";
+import { syncAndGetUserRewards } from "@/lib/rewards";
 
 function signaturesMatch(expected: string, received: string) {
   const expectedBuffer = Buffer.from(expected);
@@ -156,6 +157,8 @@ export async function POST(req: Request) {
         })
         .where(eq(subscriptions.id, subscriptionRow.localSubscriptionId));
     }
+
+    await syncAndGetUserRewards(userId);
 
     return NextResponse.json({
       success: true,

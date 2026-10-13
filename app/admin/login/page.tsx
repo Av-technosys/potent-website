@@ -52,7 +52,6 @@ const Page = () => {
       });
       const data = await res.json();
       if (res.ok) {
-        // store token or user info if returned
         localStorage.setItem("userEmail", formData.email);
         router.push("/dashboard");
       } else {

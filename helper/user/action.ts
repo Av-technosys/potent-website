@@ -43,6 +43,9 @@ export async function getCurrentUser() {
   };
 }
 
+import { revalidatePath } from "next/cache";
+import { getUserBirthday, setUserBirthday } from "@/lib/rewards";
+
 export async function getProfile() {
   const { email }: any = await requireUserWithRefresh();
 
@@ -57,12 +60,14 @@ export async function getProfile() {
   if (!result.length) throw new Error("User not found");
 
   const user = result[0];
+  const birthday = await getUserBirthday(user.id);
 
   return {
     userId: user.id,
     fullName: user.name,
     email: user.email,
     phone: user.phone,
+    birthday: birthday ?? "",
     emailVerified: user.isEmailVerified,
     createdAt: user.createdAt,
   };
@@ -71,6 +76,7 @@ export async function getProfile() {
 export async function updateProfile(data: {
   fullName: string;
   phone: string;
+  birthday?: string | null;
 }) {
   const { email }: any = await requireUserWithRefresh();
 
@@ -81,6 +87,7 @@ export async function updateProfile(data: {
     .set({
       name: data.fullName,
       phone: data.phone,
+      updatedAt: new Date(),
     })
     .where(eq(users.email, email))
     .returning();
@@ -88,12 +95,39 @@ export async function updateProfile(data: {
   if (!updated.length) throw new Error("User not found");
 
   const user = updated[0];
+  let birthdayResult: {
+    birthday: string | null;
+    bonusAdded: boolean;
+    balance: number;
+  } | null = null;
+
+  if (data.birthday !== undefined) {
+    birthdayResult = await setUserBirthday(user.id, data.birthday);
+  }
+
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/profile");
+  revalidatePath("/dashboard/security");
 
   return {
     fullName: user.name,
     email: user.email,
     phone: user.phone,
+    birthday: birthdayResult?.birthday ?? (await getUserBirthday(user.id)) ?? "",
+    bonusAdded: birthdayResult?.bonusAdded ?? false,
+    balance: birthdayResult?.balance,
   };
+}
+
+export async function saveUserBirthday(birthday: string) {
+  const { userId } = await requireUserWithRefresh();
+  if (!userId) throw new Error("Unauthorized");
+
+  const res = await setUserBirthday(userId, birthday);
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/profile");
+  revalidatePath("/dashboard/security");
+  return res;
 }
 
 

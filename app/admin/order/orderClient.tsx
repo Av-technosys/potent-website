@@ -9,8 +9,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Plus, Search } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Search } from "lucide-react";
+import { useEffect, useState, useTransition } from "react";
 import ProductPagination from "@/components/pagination";
 import OrderTable from "./orderTable";
 import {
@@ -20,54 +20,52 @@ import {
 } from "@/components/ui/input-group";
 import { useDebounce } from "@/components/debouceSearch";
 import { useUpdateQuery } from "@/components/filter";
-import { useTransition } from "react";
-import { Loader2 } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 import { ORDER_STATUS_ITEMS } from "@/const/globalconst";
+
 interface Props {
   order: any[];
   total: number;
   currentPage: number;
   pageSize: number;
-  status: any
-
+  status: any;
 }
 
+const filterStatusItems = [
+  { value: "all", label: "All Statuses" },
+  ...ORDER_STATUS_ITEMS,
+];
+
 const OrderClient = ({ order, total, currentPage, pageSize, status }: Props) => {
-
-
-  const [isPending, startTransition] = useTransition();
-
+  const searchParams = useSearchParams();
   const updateQuery = useUpdateQuery();
-  const [selectedOrderStatus, setSelectedOrderStatus] = useState<string | undefined>();
+  const [, startTransition] = useTransition();
 
-  const [searchText, setSearchText] = useState("");
+  const initialSearch = searchParams.get("search") ?? "";
+  const [searchText, setSearchText] = useState(initialSearch);
+  const debouncedSearch = useDebounce(searchText, 500);
 
-  const debouncedSearch = useDebounce(searchText, 800);
+  const currentStatus = (searchParams.get("status") || status) || "all";
 
-
-
-
-
+  // Trigger search update ONLY when debounced search actually changes from URL
   useEffect(() => {
+    const currentParam = searchParams.get("search") ?? "";
+    if (debouncedSearch === currentParam) return;
+
     startTransition(() => {
-      updateQuery("status", selectedOrderStatus);
+      updateQuery("search", debouncedSearch.trim() ? debouncedSearch.trim() : undefined);
     });
-  }, [selectedOrderStatus]);
+  }, [debouncedSearch, searchParams, updateQuery]);
 
-  useEffect(() => {
+  const handleStatusChange = (newStatus?: string) => {
+    const targetStatus = !newStatus || newStatus === "all" ? undefined : newStatus;
+    const currentParam = searchParams.get("status") ?? undefined;
+    if (targetStatus === currentParam) return;
+
     startTransition(() => {
-      updateQuery("search", debouncedSearch);
+      updateQuery("status", targetStatus);
     });
-  }, [debouncedSearch]);
-
-
-  useEffect(() => {
-    setSelectedOrderStatus(status)
-  }, [status])
-
-  function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
-    setSearchText(e.target.value);
-  }
+  };
 
   return (
     <div className="w-full p-1">
@@ -78,44 +76,39 @@ const OrderClient = ({ order, total, currentPage, pageSize, status }: Props) => 
         </CardHeader>
 
         <CardContent>
-
-
-          <div className="flex gap-3">
-            <div className="w-full max-w-xl">
-              <InputGroup className="flex items-center  bg-white rounded-full   py-2 shadow-none">
+          <div className="flex flex-wrap items-center gap-3 mb-2">
+            <div className="w-full max-w-md">
+              <InputGroup className="flex items-center bg-white rounded-full py-2 shadow-none border border-slate-200">
                 <InputGroupAddon>
-                  <Search className="text-gray-500" />
+                  <Search className="text-gray-500 w-4 h-4 ml-1" />
                 </InputGroupAddon>
 
                 <InputGroupInput
-                  onChange={handleInputChange}
+                  onChange={(e) => setSearchText(e.target.value)}
                   value={searchText}
                   type="text"
-                  placeholder="Search By Order Id"
-                  className="bg-transparent  focus:outline-none w-32 focus:w-56 transition-all duration-200"
+                  placeholder="Search by Order ID, customer, email..."
+                  className="bg-transparent focus:outline-none w-full text-sm"
                 />
               </InputGroup>
             </div>
 
-            <Select
-              placeholder="Order Status"
-              label="Order Status"
-              selectItems={ORDER_STATUS_ITEMS}
-              value={selectedOrderStatus}
-              onValueChange={setSelectedOrderStatus}
-            />
+            <div className="min-w-[170px]">
+              <Select
+                placeholder="Filter by Status"
+                label="Order Status"
+                selectItems={filterStatusItems}
+                value={currentStatus}
+                onValueChange={handleStatusChange}
+              />
+            </div>
           </div>
 
-          {/* URL-driven pagination */}
+          {/* Table Container */}
           <div className="relative">
-            {isPending && (
-              <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60 backdrop-blur-[1px]">
-                <Loader2 className="animate-spin w-6 h-6 text-primary" />
-              </div>
-            )}
-
             <OrderTable page={currentPage} orders={order} pageSize={pageSize} />
           </div>
+
           <ProductPagination currentPage={currentPage} totalPages={total} />
         </CardContent>
       </Card>

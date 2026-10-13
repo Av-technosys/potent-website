@@ -9,12 +9,14 @@ interface User {
   fullName: string;
   phone: string;
   email: string;
+  birthday?: string;
 }
 
 interface FormProps {
   isEditing: boolean;
   isSaving: boolean;
   user: User;
+  birthdayLocked?: boolean;
   onChange: (field: keyof User, value: string) => void;
   onSubmit: () => void;
   onCancel: () => void;
@@ -24,13 +26,14 @@ export const EditAddressForm = ({
   isEditing,
   isSaving,
   user,
+  birthdayLocked,
   onChange,
   onSubmit,
   onCancel,
 }: FormProps) => (
   <Card className="p-8 border-none shadow-sm bg-white rounded-[20px]">
     <h3 className="text-[14px] font-bold text-[#2D3748] mb-8 uppercase tracking-[0.1em]">
-      Edit Address
+      Personal Details
     </h3>
 
     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 mb-8">
@@ -56,7 +59,7 @@ export const EditAddressForm = ({
           className="border-gray-200 rounded-xl h-12 px-4 focus-visible:ring-1 focus-visible:ring-[#1B8392] disabled:opacity-100 disabled:cursor-default"
         />
       </div>
-      <div className="md:col-span-2 space-y-3">
+      <div className="space-y-3">
         <Label className="text-[12px] font-bold text-gray-400 uppercase ml-1">
           Email Address
         </Label>
@@ -64,6 +67,23 @@ export const EditAddressForm = ({
           disabled
           value={user.email}
           className="border-gray-200 rounded-xl h-12 px-4 bg-gray-50 focus-visible:ring-0 disabled:opacity-100 disabled:cursor-default"
+        />
+      </div>
+      <div className="space-y-3">
+        <Label className="text-[12px] font-bold text-gray-400 uppercase ml-1">
+          {birthdayLocked
+            ? "Birthday (Locked — Set Once)"
+            : "Birthday (Earn ₹100 Birthday Credit)"}
+        </Label>
+        <Input
+          type="date"
+          disabled={!isEditing || isSaving || Boolean(birthdayLocked)}
+          value={user.birthday || ""}
+          max={new Date().toISOString().split("T")[0]}
+          onChange={(e) => onChange("birthday", e.target.value)}
+          className={`border-gray-200 rounded-xl h-12 px-4 focus-visible:ring-1 focus-visible:ring-[#1B8392] disabled:opacity-100 disabled:cursor-default ${
+            birthdayLocked ? "bg-gray-50" : ""
+          }`}
         />
       </div>
     </div>

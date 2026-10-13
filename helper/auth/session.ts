@@ -6,10 +6,12 @@ import jwt from "jsonwebtoken";
 import { cookies } from "next/headers";
 import type { ResponseCookie } from "next/dist/compiled/@edge-runtime/cookies";
 
-type AuthUser = {
+export type AuthUser = {
   userId?: string;
   email?: string;
   username?: string;
+  groups?: string[];
+  role?: string | null;
 };
 
 export type AuthSession = {
@@ -46,11 +48,73 @@ export function decodeAuthUser(idToken?: string): AuthUser | null {
   const decoded = jwt.decode(idToken) as any;
   if (!decoded) return null;
 
+  const rawGroups = decoded["cognito:groups"];
+  const groups: string[] = Array.isArray(rawGroups)
+    ? rawGroups
+    : typeof rawGroups === "string"
+    ? [rawGroups]
+    : [];
+
   return {
     userId: decoded["custom:user_id"],
     email: decoded.email,
     username: decoded["cognito:username"] || decoded.email,
+    groups,
+    role: decoded["custom:role"] || decoded.role || null,
   };
+}
+
+export function isAdminUser(user?: AuthUser | null): boolean {
+  if (!user || !user.email) return false;
+
+  // 1. Check Cognito groups
+  if (user.groups && user.groups.length > 0) {
+    const hasAdminGroup = user.groups.some((group) => {
+      const g = group.toLowerCase();
+      return (
+        g === "admin" ||
+        g === "admins" ||
+        g === "superadmin" ||
+        g === "superadmins" ||
+        g === "administrator" ||
+        g === "administrators" ||
+        g === "staff"
+      );
+    });
+    if (hasAdminGroup) return true;
+  }
+
+  // 2. Check role attribute
+  if (user.role && user.role.toLowerCase() === "admin") {
+    return true;
+  }
+
+  const emailLower = user.email.toLowerCase().trim();
+
+  // 3. Check environment admin emails if configured
+  const envAdminEmails = (process.env.ADMIN_EMAILS || process.env.ADMIN_EMAIL || "")
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+
+  if (envAdminEmails.includes(emailLower)) {
+    return true;
+  }
+
+  // 4. Default admin accounts & domain matching
+  const knownAdminEmails = [
+    "care@potenthygiene.com",
+    "nikhilkumawat002@gmail.com",
+  ];
+  if (knownAdminEmails.includes(emailLower)) {
+    return true;
+  }
+
+  if (emailLower.endsWith("@potenthygiene.com") || emailLower.startsWith("admin@")) {
+    return true;
+  }
+
+  return false;
 }
 
 function parseStoredAuthUser(value?: string): AuthUser | null {
@@ -110,6 +174,17 @@ export async function clearAuthCookies() {
   }
 }
 
+function isTokenExpired(token?: string): boolean {
+  if (!token) return true;
+  try {
+    const decoded = jwt.decode(token) as any;
+    if (!decoded || !decoded.exp) return true;
+    return decoded.exp * 1000 <= Date.now();
+  } catch {
+    return true;
+  }
+}
+
 async function verifyTokenPair(accessToken: string, idToken: string) {
   await Promise.all([
     accessTokenVerifier.verify(accessToken),
@@ -128,7 +203,12 @@ export async function getAuthSession(options?: {
   const accessToken = cookieStore.get("accessToken")?.value;
   const idToken = cookieStore.get("idToken")?.value;
 
-  if (accessToken && idToken) {
+  if (
+    accessToken &&
+    idToken &&
+    !isTokenExpired(accessToken) &&
+    !isTokenExpired(idToken)
+  ) {
     try {
       await verifyTokenPair(accessToken, idToken);
       return {

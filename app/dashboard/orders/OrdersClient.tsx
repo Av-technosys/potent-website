@@ -1,23 +1,28 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { OrderCard } from "@/app/components/common/dashboard-orders/OrderCard";
 import { OrderHistoryHeader } from "@/app/components/common/dashboard-orders/OrderHistoryHeader";
 import { OrderReview } from "./OrderReview";
 
 export function OrdersClient({ initialOrders }: { initialOrders: any[] }) {
-  const [ordersData] = useState<any[]>(initialOrders || []);
+  const [ordersData, setOrdersData] = useState<any[]>(initialOrders || []);
   const [orderReview, setOrderReview] = useState(false);
   const [singleOrderData, setSingleOrderData] = useState<any>(null);
   const router = useRouter();
+
+  useEffect(() => {
+    setOrdersData(initialOrders || []);
+  }, [initialOrders]);
 
   if (orderReview) {
     return (
       <OrderReview
         orderDetails={singleOrderData}
         setOrderReview={setOrderReview}
+        onBack={() => setOrderReview(false)}
         onClick={() => router.back()}
       />
     );

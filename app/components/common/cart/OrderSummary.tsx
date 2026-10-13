@@ -1,19 +1,38 @@
 "use client";
 
-import { ShieldCheck, Truck } from "lucide-react";
+import { useState, useEffect } from "react";
+import { ShieldCheck, Truck, Tag, Gift } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useRouter } from "next/navigation";
 import { useCartStore } from "@/store/cartStore";
 import {
   calculateShippingFee,
   FREE_SHIPPING_THRESHOLD,
 } from "@/lib/shippingConfig";
+import { validateCartCoupon } from "@/helper";
+import { toast } from "sonner";
 
 export function OrderSummary() {
   const router = useRouter();
 
   // ✅ Zustand state
   const items = useCartStore((state) => state.items);
+  const appliedCoupon = useCartStore((state) => state.appliedCoupon);
+  const setAppliedCoupon = useCartStore((state) => state.setAppliedCoupon);
+  const isGift = useCartStore((state) => state.isGift);
+  const giftNote = useCartStore((state) => state.giftNote);
+  const setIsGift = useCartStore((state) => state.setIsGift);
+  const setGiftNote = useCartStore((state) => state.setGiftNote);
+
+  const [couponInput, setCouponInput] = useState(appliedCoupon?.code || "");
+  const [couponLoading, setCouponLoading] = useState(false);
+
+  useEffect(() => {
+    if (appliedCoupon?.code) {
+      setCouponInput(appliedCoupon.code);
+    }
+  }, [appliedCoupon]);
 
   // ✅ Derived calculations
   const subtotal = items.reduce(
@@ -26,14 +45,70 @@ export function OrderSummary() {
     0,
   );
 
-  const shipping = items.length === 0 ? 0 : calculateShippingFee(subtotal);
-  const final = items.length === 0 ? 0 : subtotal + shipping;
+  let discount = 0;
+  if (appliedCoupon && subtotal > 0) {
+    if (
+      appliedCoupon.minimumOrderValue &&
+      subtotal < appliedCoupon.minimumOrderValue
+    ) {
+      discount = 0;
+    } else {
+      if (appliedCoupon.isDiscountPercentage) {
+        discount = subtotal * ((appliedCoupon.discountPercentage ?? 0) / 100);
+      } else {
+        discount = appliedCoupon.discountFixedAmount ?? 0;
+      }
+      if (
+        appliedCoupon.maximumDiscountAmount &&
+        appliedCoupon.maximumDiscountAmount > 0
+      ) {
+        discount = Math.min(discount, appliedCoupon.maximumDiscountAmount);
+      }
+      discount = Math.round(Math.min(discount, subtotal) * 100) / 100;
+    }
+  }
+
+  const discountedSubtotal = Math.max(0, subtotal - discount);
+  const shipping =
+    items.length === 0 ? 0 : calculateShippingFee(discountedSubtotal);
+  const final = items.length === 0 ? 0 : discountedSubtotal + shipping;
 
   if (items.length === 0) {
     return null;
   }
 
-  const freeShippingDiff = FREE_SHIPPING_THRESHOLD - subtotal;
+  const freeShippingDiff = FREE_SHIPPING_THRESHOLD - discountedSubtotal;
+
+  const handleApplyCoupon = async () => {
+    const code = couponInput.trim().toUpperCase();
+    if (!code) {
+      toast.error("Please enter a coupon code");
+      return;
+    }
+    setCouponLoading(true);
+    try {
+      const res = await validateCartCoupon({ code, items });
+      if (!res.success || !res.coupon) {
+        toast.error(res.message || "Invalid coupon code");
+        return;
+      }
+      setAppliedCoupon({
+        ...res.coupon,
+        discount: res.discount,
+      });
+      toast.success(res.message || `Coupon ${res.coupon.code} applied!`);
+    } catch {
+      toast.error("Failed to apply coupon");
+    } finally {
+      setCouponLoading(false);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setCouponInput("");
+    setAppliedCoupon(null);
+    toast.success("Coupon removed");
+  };
 
   return (
     <div className="rounded-xl border border-gray-200/90 bg-white p-5 sm:p-6 shadow-sm">
@@ -45,7 +120,7 @@ export function OrderSummary() {
       </div>
 
       {/* Free delivery callout */}
-      {subtotal < FREE_SHIPPING_THRESHOLD ? (
+      {discountedSubtotal < FREE_SHIPPING_THRESHOLD ? (
         <div className="mb-5 rounded-xl border border-[#016271]/20 bg-[#E2F4F7]/40 p-3 text-xs sm:text-sm text-[#016271]">
           <div className="flex items-center justify-between font-semibold">
             <span className="flex items-center gap-1.5">
@@ -57,7 +132,7 @@ export function OrderSummary() {
             <div
               className="h-full rounded-full bg-[#016271] transition-all duration-300"
               style={{
-                width: `${Math.min(100, Math.round((subtotal / FREE_SHIPPING_THRESHOLD) * 100))}%`,
+                width: `${Math.min(100, Math.round((discountedSubtotal / FREE_SHIPPING_THRESHOLD) * 100))}%`,
               }}
             />
           </div>
@@ -69,6 +144,103 @@ export function OrderSummary() {
         </div>
       )}
 
+      {/* 🎟️ Coupon Box in Cart */}
+      <div className="mb-5 space-y-2">
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Tag className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              value={couponInput}
+              onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  if (!appliedCoupon) handleApplyCoupon();
+                }
+              }}
+              placeholder="Enter coupon code"
+              className="h-10 pl-9 uppercase font-mono tracking-wider text-xs sm:text-sm"
+              disabled={couponLoading || Boolean(appliedCoupon)}
+            />
+          </div>
+
+          {appliedCoupon ? (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleRemoveCoupon}
+              disabled={couponLoading}
+              className="h-10 px-3 text-xs font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 border-rose-200"
+            >
+              Remove
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              onClick={handleApplyCoupon}
+              disabled={couponLoading || !couponInput.trim()}
+              className="h-10 px-4 text-xs font-bold bg-[#016271] hover:bg-[#014d59] text-white"
+            >
+              {couponLoading ? "Checking..." : "Apply"}
+            </Button>
+          )}
+        </div>
+
+        {appliedCoupon && discount > 0 && (
+          <div className="rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-2 text-xs text-emerald-800 flex items-center justify-between">
+            <span>
+              Coupon <strong>{appliedCoupon.code}</strong> applied! You saved ₹{discount.toFixed(2)}.
+            </span>
+          </div>
+        )}
+
+        {appliedCoupon &&
+          appliedCoupon.minimumOrderValue &&
+          subtotal < appliedCoupon.minimumOrderValue && (
+            <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-800">
+              Min order value of ₹{appliedCoupon.minimumOrderValue} required for {appliedCoupon.code}.
+            </div>
+          )}
+      </div>
+
+      {/* 🎁 Gift Option in Cart */}
+      <div className="mb-5 rounded-xl border border-[#9A5B90]/30 bg-gradient-to-r from-[#FAF0F6] to-[#F1F8F9] p-3.5 sm:p-4">
+        <label className="flex items-start gap-3 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={isGift}
+            onChange={(e) => setIsGift(e.target.checked)}
+            className="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#9A5B90] accent-[#9A5B90] focus:ring-[#9A5B90]"
+          />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5 font-bold text-xs sm:text-sm text-[#7E4D77]">
+              <Gift className="h-4 w-4 shrink-0 text-[#9A5B90]" />
+              <span>This is a gift</span>
+            </div>
+            <p className="mt-0.5 text-[11px] text-[#7E4D77]/80">
+              Hides price on parcel &amp; slip · Includes your personal note
+            </p>
+          </div>
+        </label>
+
+        {isGift && (
+          <div className="mt-3 pt-3 border-t border-[#9A5B90]/20 space-y-1">
+            <textarea
+              value={giftNote}
+              onChange={(e) => setGiftNote(e.target.value.slice(0, 200))}
+              placeholder="Write a personal note for the recipient (up to 200 characters)..."
+              maxLength={200}
+              rows={2}
+              className="w-full rounded-lg border border-gray-200 bg-white p-2.5 text-xs text-gray-800 placeholder-gray-400 focus:border-[#9A5B90] focus:outline-none focus:ring-1 focus:ring-[#9A5B90]"
+            />
+            <div className="flex justify-between items-center text-[10px] text-gray-400">
+              <span>Prices will be omitted from the parcel &amp; slip</span>
+              <span>{giftNote.length}/200</span>
+            </div>
+          </div>
+        )}
+      </div>
+
       <div className="space-y-3.5 border-b pb-5">
         <div className="flex justify-between text-sm text-[#666666]">
           <span>Subtotal</span>
@@ -76,6 +248,22 @@ export function OrderSummary() {
             ₹{subtotal.toFixed(2)}
           </span>
         </div>
+
+        {appliedCoupon && discount > 0 && (
+          <>
+            <div className="flex justify-between text-sm text-emerald-700">
+              <span>Coupon Discount ({appliedCoupon.code})</span>
+              <span className="font-bold">-₹{discount.toFixed(2)}</span>
+            </div>
+
+            <div className="flex justify-between text-sm text-[#666666]">
+              <span>Discounted Subtotal</span>
+              <span className="font-bold text-[#333333]">
+                ₹{discountedSubtotal.toFixed(2)}
+              </span>
+            </div>
+          </>
+        )}
 
         <div className="flex justify-between text-sm text-[#666666]">
           <span>Shipping</span>

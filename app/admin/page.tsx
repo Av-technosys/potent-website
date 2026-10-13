@@ -1,10 +1,8 @@
-
-import { DashboardCards } from "@/components/admin/dashboardCard"
+import { DashboardCards } from "@/components/admin/dashboardCard";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  // const data = await db.select().from(productTable)
   return (
     <div className="space-y-6 p-3">
       {/* Page Header */}
@@ -35,5 +33,5 @@ export default async function DashboardPage() {
         {/* <OrderStatusChart /> */}
       </div>
     </div>
-  )
+  );
 }

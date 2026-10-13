@@ -58,12 +58,6 @@ const CancelRequestsClient = ({ requests, total, currentPage, pageSize }: Props)
           </div>
 
           <div className="relative">
-            {isPending && (
-              <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60 backdrop-blur-[1px]">
-                <Loader2 className="animate-spin w-6 h-6 text-primary" />
-              </div>
-            )}
-
             <CancelRequestsTable requests={requests} page={currentPage} pageSize={pageSize} />
           </div>
 

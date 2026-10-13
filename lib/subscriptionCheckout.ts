@@ -24,6 +24,10 @@ import {
   STANDARD_SHIPPING_FEE as SHIPPING_FEE,
   calculateShippingFee,
 } from "@/lib/shippingConfig";
+import {
+  MAX_REWARD_REDEEM_PER_ORDER,
+  syncAndGetUserRewards,
+} from "@/lib/rewards";
 
 const RECURRING_TYPES = PDP_SUBSCRIPTION_PLANS.map(
   (plan) => plan.subscriptionType,
@@ -107,7 +111,10 @@ function getBilling(subscriptionType: SubscriptionType, cycleSync: any) {
   };
 }
 
-export async function getSubscriptionCheckoutQuote(item: any) {
+export async function getSubscriptionCheckoutQuote(
+  item: any,
+  userId?: string,
+) {
   item = normalizeSubscriptionCheckoutItem(item);
 
   if (!item?.productId || typeof item.productId !== "string") {
@@ -225,7 +232,23 @@ export async function getSubscriptionCheckoutQuote(item: any) {
     ? discountedUnitPrice
     : discountedUnitPrice * quantity;
   const shipping = calculateShippingFee(discountedSubtotal);
-  const final = discountedSubtotal + shipping;
+  const totalBeforeRewards = discountedSubtotal + shipping;
+  const rewardState = userId
+    ? await syncAndGetUserRewards(userId)
+    : { balance: 0 };
+  const rewardBalance = Math.max(
+    0,
+    Math.round(Number(rewardState.balance || 0)),
+  );
+  const rewardsUsed =
+    totalBeforeRewards > 0
+      ? Math.min(
+          rewardBalance,
+          MAX_REWARD_REDEEM_PER_ORDER,
+          Math.max(0, Math.floor(totalBeforeRewards - 1)),
+        )
+      : 0;
+  const final = Math.max(totalBeforeRewards - rewardsUsed, 0);
   const billing = getBilling(subscriptionType, item?.cycleSync);
   const now = new Date();
   const cycleSchedule =
@@ -284,6 +307,9 @@ export async function getSubscriptionCheckoutQuote(item: any) {
     discountedSubtotal,
     discount: subtotal - discountedSubtotal,
     discountPercentage: Number((discount * 100).toFixed(2)),
+    rewardBalance,
+    rewardsUsed,
+    remainingRewardBalance: Math.max(0, rewardBalance - rewardsUsed),
     final,
     shipping,
     amountPaise: Math.round(final * 100),

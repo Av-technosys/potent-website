@@ -10,21 +10,38 @@ export const useUpdateQuery = () => {
 
   const updateQuery = useCallback(
     (key: string, value?: string) => {
-      const currentQuery = searchParams.toString();
-      const params = new URLSearchParams(currentQuery);
+      const currentParam = searchParams.get(key) ?? "";
+      const trimmedValue = value?.trim() ?? "";
 
-      if (value) {
-        params.set(key, value);
+      // If the parameter is unchanged (e.g. empty to empty on initial mount), do nothing!
+      if (currentParam === trimmedValue) {
+        return;
+      }
+
+      // If neither has a value, do nothing!
+      if (!currentParam && !trimmedValue) {
+        return;
+      }
+
+      const params = new URLSearchParams(searchParams.toString());
+
+      if (trimmedValue) {
+        params.set(key, trimmedValue);
       } else {
         params.delete(key);
       }
 
-      params.set("page", "1");
+      // If changing a search or filter, reset page to 1
+      if (params.has("page") || trimmedValue) {
+        params.set("page", "1");
+      }
 
       const nextQuery = params.toString();
+      const currentQuery = searchParams.toString();
       if (nextQuery === currentQuery) return;
 
-      router.push(`${pathname}?${nextQuery}`);
+      const targetUrl = nextQuery ? `${pathname}?${nextQuery}` : pathname;
+      router.push(targetUrl);
     },
     [pathname, router, searchParams],
   );

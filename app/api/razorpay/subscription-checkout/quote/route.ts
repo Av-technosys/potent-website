@@ -9,10 +9,10 @@ import { requireUserWithRefresh } from "@/helper/user/action";
 
 export async function POST(req: Request) {
   try {
-    await requireUserWithRefresh();
+    const { userId } = await requireUserWithRefresh();
     const body = await req.json();
     const item = normalizeSubscriptionCheckoutItem(body);
-    const quote = await getSubscriptionCheckoutQuote(item);
+    const quote = await getSubscriptionCheckoutQuote(item, userId);
 
     if (!quote.success) {
       return NextResponse.json(quote, { status: 400 });
@@ -51,6 +51,9 @@ export async function POST(req: Request) {
       discount: quote.discount,
       discountAmount: quote.discount,
       discountPercentage: quote.discountPercentage,
+      rewardBalance: quote.rewardBalance ?? 0,
+      rewardsUsed: quote.rewardsUsed ?? 0,
+      remainingRewardBalance: quote.remainingRewardBalance ?? 0,
       final: quote.final,
       shipping: quote.shipping,
       label: quote.label,
