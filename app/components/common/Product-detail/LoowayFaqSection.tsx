@@ -160,7 +160,7 @@ const FAQ_DATA: { left: FaqGroup[]; right: FaqGroup[] } = {
         },
         {
           q: "How does Subscribe & Save work?",
-          a: "Choose Subscribe monthly (15% off) or every 2 months (12% off) at checkout and your bags arrive automatically on that schedule, with the discount applied every time. You can change, pause or cancel any time — it is built for people who want their car and bag always stocked.",
+          a: "Choose Subscribe monthly (15% off) or every 2 months (12% off) at checkout and your bags arrive automatically on that schedule, with the discount applied every time. Pause or cancel in two clicks — it is built for people who want their car and bag always stocked.",
         },
         {
           q: "Do you deliver across India, and how do I pay?",

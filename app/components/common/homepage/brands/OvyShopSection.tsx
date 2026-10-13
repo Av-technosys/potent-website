@@ -711,7 +711,7 @@ export function OvyShopSection({
 
         <p className="mt-3 mb-6 px-2 text-center text-[10px] text-[#7C726D] sm:mt-4 sm:mb-8 sm:text-sm">
           Pads can also come on your cycle: Cycle-Sync delivers about 5 days
-          before your period. Pause, skip or cancel in two clicks.
+          before your period. Pause or cancel in two clicks.
         </p>
       </div>
 

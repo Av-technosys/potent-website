@@ -1,7 +1,7 @@
 const TICKER_ITEMS_DARK = [
   "Rewards Club cash credits",
   "Gift mode hides the price",
-  "Pause, skip or cancel in two clicks",
+  "Pause or cancel in two clicks",
   "Mix Your Box",
   "Subscribe and save",
   "A surprise gift in every third box",
@@ -25,7 +25,7 @@ const WHY_CARDS = [
   {
     title: "Subscribe and save",
     description:
-      "A saving on every order, free delivery over the threshold, and a surprise gift in every third box. Pause, skip or cancel in two clicks.",
+      "A saving on every order, free delivery over the threshold, and a surprise gift in every third box. Pause or cancel in two clicks.",
   },
   {
     title: "Rewards Club",

@@ -30,8 +30,11 @@ export type CartItem = {
   selectedPlan?: any;
   isSubscribed?: boolean;
   cycleSync?: {
-    nextPeriodDate: string;
-    cycleLength: number;
+    lastPeriodDate?: string;
+    nextPeriodDate?: string;
+    cycleLength: number | string;
+    periodLength?: number | string;
+    consentAccepted?: boolean;
   };
   isQuantityChangable?: boolean;
   addedAt: number;

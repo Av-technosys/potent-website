@@ -28,7 +28,7 @@ export function CycleSync({
     },
     {
       title: "You stay in charge",
-      description: "Pause, skip or cancel in two clicks.",
+      description: "Pause or cancel in two clicks.",
     },
     {
       title: "A little extra",

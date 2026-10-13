@@ -272,8 +272,31 @@ export function CheckoutSummary({
       </div>
 
       {isSubscriptionCheckout && subscriptionQuote && (
-        <div className="mb-4 rounded-md bg-blue-50 px-3 py-2 text-xs text-blue-700">
-          {subscriptionQuote.label}
+        <div className="mb-4 rounded-lg border border-blue-200/80 bg-blue-50/90 px-3.5 py-2.5 text-xs text-blue-800 space-y-1">
+          <div className="font-semibold text-blue-900">
+            {subscriptionQuote.label}
+          </div>
+          {subscriptionQuote.firstDeliveryDate && (
+            <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-blue-700 font-medium">
+              <span>
+                First delivery:{" "}
+                <strong className="font-bold text-blue-900">
+                  {new Date(
+                    subscriptionQuote.firstDeliveryDate,
+                  ).toLocaleDateString("en-IN", {
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric",
+                  })}
+                </strong>
+              </span>
+              {subscriptionQuote.billing?.label && (
+                <span>
+                  Renews {subscriptionQuote.billing.label.toLowerCase()}
+                </span>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -297,10 +320,15 @@ export function CheckoutSummary({
           <div className="divide-y divide-gray-200/70 max-h-56 overflow-y-auto pr-1">
             {displayItems.map((item: any, idx: number) => {
               const cleanTitle = getCleanProductTitle(item);
-              const badge = getCartItemVariantBadge(item);
+              const badge = getCartItemVariantBadge(item) || item.variantName;
               const qty = Number(item.quantity || 1);
               const unitPrice = Number(item.price || 0);
               const lineTotal = unitPrice * qty;
+              const itemFirstDelivery =
+                item.firstDeliveryDate ??
+                (isSubscriptionCheckout
+                  ? subscriptionQuote?.firstDeliveryDate
+                  : null);
 
               return (
                 <div
@@ -343,6 +371,20 @@ export function CheckoutSummary({
                     {item.mixBoxRecipe && (
                       <p className="text-[10px] text-gray-500 line-clamp-1 mt-1">
                         Mix: {formatMixBoxRecipe(item.mixBoxRecipe)}
+                      </p>
+                    )}
+
+                    {itemFirstDelivery && (
+                      <p className="text-[10px] font-medium text-[#016271] mt-1">
+                        First delivery:{" "}
+                        {new Date(itemFirstDelivery).toLocaleDateString(
+                          "en-IN",
+                          {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          },
+                        )}
                       </p>
                     )}
                   </div>

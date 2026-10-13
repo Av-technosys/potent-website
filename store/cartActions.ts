@@ -36,8 +36,11 @@ type CartItem = {
   purchaseType?: PurchaseType;
   subscriptionType?: SubscriptionType;
   cycleSync?: {
-    nextPeriodDate: string;
-    cycleLength: number;
+    lastPeriodDate?: string;
+    nextPeriodDate?: string;
+    cycleLength: number | string;
+    periodLength?: number | string;
+    consentAccepted?: boolean;
   };
   isQuantityChangable?: boolean;
   quantity?: number;
@@ -46,6 +49,40 @@ type CartItem = {
 
 // Add to cart
 export const addToCart = async (item: CartItem) => {
+  // Subscriptions never go into the bag — route directly to subscription checkout
+  const isSubscriptionItem =
+    item.purchaseType === "subscription" ||
+    item.isSubscribed === true ||
+    (item.subscriptionType &&
+      String(item.subscriptionType) !== "buy_once" &&
+      String(item.subscriptionType) !== "one_time") ||
+    (item.selectedPlan?.subscriptionType &&
+      String(item.selectedPlan.subscriptionType) !== "buy_once" &&
+      String(item.selectedPlan.subscriptionType) !== "one_time");
+
+  if (isSubscriptionItem) {
+    if (typeof window !== "undefined") {
+      const subType =
+        item.subscriptionType ??
+        item.selectedPlan?.subscriptionType ??
+        "monthly";
+      window.sessionStorage.setItem(
+        "potent-subscription-checkout",
+        JSON.stringify({
+          productId: item.productId,
+          productVariantId: item.productVariantId,
+          quantity: item.quantity || 1,
+          subscriptionType: subType,
+          selectedPlan: item.selectedPlan ?? { subscriptionType: subType },
+          cycleSync: item.cycleSync ?? null,
+          mixBoxRecipe: item.mixBoxRecipe ?? null,
+        }),
+      );
+      window.location.href = "/checkout?mode=subscription";
+    }
+    return false;
+  }
+
   const existingItem = useCartStore
     .getState()
     .items.find(

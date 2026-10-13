@@ -738,8 +738,8 @@ export function LoowayShopSection({
         {/* Subtext below Combo Banner */}
         <p className="mx-auto mt-4 max-w-3xl text-center text-[11px] leading-relaxed text-gray-500">
           Seat covers and bags can also come on a schedule, monthly or every two
-          months: choose Subscribe on each product page. Pause, skip or cancel
-          in two clicks.
+          months: choose Subscribe on each product page. Pause or cancel in two
+          clicks.
         </p>
       </div>
     </section>

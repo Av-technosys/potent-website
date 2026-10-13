@@ -61,6 +61,7 @@ import {
 import {
   calculateCycleSyncSchedule,
   getMinimumCycleSyncPeriodDate,
+  getTodayDateInputValue,
 } from "@/lib/cycleSync";
 import WhatsInside from "./WhatsInside";
 import OvyComparison from "./OvyComparison";
@@ -469,8 +470,10 @@ export default function OvyTeenPageClient({
   }, [similarProducts]);
 
   // Cycle Sync States
-  const [cycleDate, setCycleDate] = useState<string>("");
-  const [cycleLength, setCycleLength] = useState<number>(28);
+  const [lastPeriodDate, setLastPeriodDate] = useState<string>("");
+  const [cycleLength, setCycleLength] = useState<string>("28");
+  const [periodLength, setPeriodLength] = useState<string>("5");
+  const [cycleConsent, setCycleConsent] = useState<boolean>(false);
 
   // Wishlist State & Action
   const wishlistItems = useWishlistStore((state) => state.items);
@@ -516,7 +519,7 @@ export default function OvyTeenPageClient({
   const [trackerPeriodDuration, setTrackerPeriodDuration] = useState<number>(5);
 
   const todayString = useMemo(() => {
-    return new Date().toISOString().split("T")[0];
+    return getTodayDateInputValue();
   }, []);
 
   // Cycle Tracker Calculation Engine
@@ -733,6 +736,19 @@ export default function OvyTeenPageClient({
     return getDbMrpForKitKey(selectedKitKey);
   }, [getDbMrpForKitKey, selectedKitKey]);
 
+  const cycleSyncDiscountPct = useMemo(
+    () => getPdpSubscriptionDiscount("cycle_sync", product),
+    [product],
+  );
+  const monthlyDiscountPct = useMemo(
+    () => getPdpSubscriptionDiscount("monthly", product),
+    [product],
+  );
+  const biMonthlyDiscountPct = useMemo(
+    () => getPdpSubscriptionDiscount("every_2_months", product),
+    [product],
+  );
+
   const modeDiscountPercentage = useMemo(() => {
     const subscriptionType =
       selectedModeId === "cyclesync"
@@ -742,8 +758,8 @@ export default function OvyTeenPageClient({
           : selectedModeId === "sub2"
             ? "every_2_months"
             : null;
-    return getPdpSubscriptionDiscount(subscriptionType) / 100;
-  }, [selectedModeId]);
+    return getPdpSubscriptionDiscount(subscriptionType, product) / 100;
+  }, [selectedModeId, product]);
 
   const unitPrice = Math.round(basePrice * (1 - modeDiscountPercentage));
   const totalPrice = unitPrice * quantity;
@@ -798,12 +814,25 @@ export default function OvyTeenPageClient({
 
   // Calculate Cycle Sync schedule preview
   const cycleSchedule = useMemo(() => {
-    if (selectedModeId !== "cyclesync" || !cycleDate) return null;
+    if (selectedModeId !== "cyclesync") return null;
     return calculateCycleSyncSchedule({
-      nextPeriodDate: cycleDate,
+      lastPeriodDate,
       cycleLength,
+      periodLength,
+      consentAccepted: cycleConsent,
     });
-  }, [selectedModeId, cycleDate, cycleLength]);
+  }, [selectedModeId, lastPeriodDate, cycleLength, periodLength, cycleConsent]);
+
+  const isCycleSyncReady =
+    selectedModeId !== "cyclesync" ||
+    Boolean(cycleSchedule?.valid && cycleConsent);
+
+  const formatCycleDate = (date: Date) =>
+    date.toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
 
   // Scroll to top on mount
   useEffect(() => {
@@ -837,6 +866,10 @@ export default function OvyTeenPageClient({
       toast.error("This item is currently out of stock.");
       return false;
     }
+    if (selectedModeId !== "once") {
+      await handleBuyNow();
+      return false;
+    }
     const pId = product?.id || "dc95ed77-addc-4eae-a7a4-39a9b5275648";
     const variantId =
       currentVariant?.id ||
@@ -866,19 +899,9 @@ export default function OvyTeenPageClient({
         price: unitPrice,
         quantity: quantity,
         isQuantityChangable: true,
-        purchaseType: selectedModeId === "once" ? "one_time" : "subscription",
-        subscriptionType:
-          selectedModeId === "cyclesync"
-            ? "cycle_sync"
-            : selectedModeId === "sub1"
-              ? "monthly"
-              : selectedModeId === "sub2"
-                ? "every_2_months"
-                : null,
-        cycleSync:
-          selectedModeId === "cyclesync" && cycleDate
-            ? { nextPeriodDate: cycleDate, cycleLength: Number(cycleLength) }
-            : undefined,
+        purchaseType: "one_time",
+        subscriptionType: null,
+        isSubscribed: false,
       });
 
       if (success !== false) {
@@ -900,22 +923,24 @@ export default function OvyTeenPageClient({
       toast.error("This item is currently out of stock.");
       return;
     }
+    const pId =
+      product?.id || product?._id || "dc95ed77-addc-4eae-a7a4-39a9b5275648";
+    const variantId =
+      currentVariant?.id ||
+      (selectedKitKey === "PRO"
+        ? "ef7f948f-5e06-4376-ae28-9df4f1d7cb66"
+        : selectedKitKey === "FIRST"
+          ? "423d6467-902b-4a48-b87e-6408b5545dbc"
+          : "1f11c053-1dc4-4b3e-bab9-9af7a2cd6e15");
+    const variantSku =
+      currentVariant?.sku ||
+      (selectedKitKey === "PRO"
+        ? "OVY-TEEN-PRO"
+        : selectedKitKey === "FIRST"
+          ? "OVY-TEEN-FPB"
+          : "OVY-TEEN-START");
+
     if (selectedModeId === "once") {
-      const pId = product?.id || "dc95ed77-addc-4eae-a7a4-39a9b5275648";
-      const variantId =
-        currentVariant?.id ||
-        (selectedKitKey === "PRO"
-          ? "ef7f948f-5e06-4376-ae28-9df4f1d7cb66"
-          : selectedKitKey === "FIRST"
-            ? "423d6467-902b-4a48-b87e-6408b5545dbc"
-            : "1f11c053-1dc4-4b3e-bab9-9af7a2cd6e15");
-      const variantSku =
-        currentVariant?.sku ||
-        (selectedKitKey === "PRO"
-          ? "OVY-TEEN-PRO"
-          : selectedKitKey === "FIRST"
-            ? "OVY-TEEN-FPB"
-            : "OVY-TEEN-START");
       const directItem = {
         productId: pId,
         productVariantId: variantId,
@@ -939,9 +964,17 @@ export default function OvyTeenPageClient({
     }
 
     if (selectedModeId === "cyclesync") {
-      const schedule = cycleSchedule;
-      if (!schedule || !schedule.valid) {
-        toast.error("Select valid Cycle Sync details before continuing.");
+      if (!cycleSchedule || !cycleSchedule.valid) {
+        toast.error(
+          cycleSchedule?.message ||
+            "Select valid Cycle Sync details before continuing.",
+        );
+        return;
+      }
+      if (!cycleConsent) {
+        toast.error(
+          "Please confirm that you are 18 or older, or have a parent or guardian's permission.",
+        );
         return;
       }
     }
@@ -952,27 +985,39 @@ export default function OvyTeenPageClient({
         : selectedModeId === "sub1"
           ? "monthly"
           : "every_2_months";
-    const selectedPlan = getPdpSubscriptionPlans(product).find(
-      (plan) => plan.subscriptionType === subscriptionType,
-    );
-
-    if (!selectedPlan) {
-      toast.error("This subscription plan is not available.");
-      return;
-    }
+    const selectedPlan =
+      getPdpSubscriptionPlans(product).find(
+        (plan) => plan.subscriptionType === subscriptionType,
+      ) || {
+        id: subscriptionType,
+        subscriptionType,
+        label:
+          subscriptionType === "cycle_sync"
+            ? "Cycle Sync"
+            : subscriptionType === "every_2_months"
+              ? "Every 2 Months"
+              : "Monthly",
+        discountPercentage: subscriptionType === "every_2_months" ? 12 : 15,
+      };
 
     window.sessionStorage.setItem(
       "potent-subscription-checkout",
       JSON.stringify({
-        productId: product?.id || product?._id,
-        productVariantId: currentVariant?.id,
+        productId: pId,
+        productVariantId: variantId,
         quantity,
         subscriptionType,
         selectedPlan,
         plan: selectedPlan,
         cycleSync:
-          subscriptionType === "cycle_sync"
-            ? { nextPeriodDate: cycleDate, cycleLength: Number(cycleLength) }
+          subscriptionType === "cycle_sync" && cycleSchedule?.valid
+            ? {
+                lastPeriodDate,
+                nextPeriodDate: cycleSchedule.nextPeriodDateString,
+                cycleLength: cycleSchedule.cycleLength,
+                periodLength: cycleSchedule.periodLength,
+                consentAccepted: cycleConsent,
+              }
             : undefined,
       }),
     );
@@ -1516,6 +1561,7 @@ export default function OvyTeenPageClient({
 
                     {/* Cycle Sync Option (15% OFF) */}
                     <div
+                      id="cycle-sync-purchase-option"
                       className={`border-1.5 rounded-2xl p-4 text-left transition-all ${
                         selectedModeId === "cyclesync"
                           ? "border-[#9A5B90] bg-gradient-to-r from-[#FBF1FB] to-[#EAF1F1] shadow-xs"
@@ -1523,7 +1569,10 @@ export default function OvyTeenPageClient({
                       }`}
                     >
                       <button
-                        onClick={() => setSelectedModeId("cyclesync")}
+                        type="button"
+                        onClick={() => {
+                          setSelectedModeId("cyclesync");
+                        }}
                         className="flex w-full cursor-pointer items-center justify-between text-left"
                       >
                         <div className="flex items-center gap-3">
@@ -1540,7 +1589,7 @@ export default function OvyTeenPageClient({
                                 Cycle Sync Delivery
                               </b>
                               <span className="rounded-full bg-[#9A5B90] px-2 py-0.5 text-[10px] font-bold text-white uppercase">
-                                Save 15%
+                                Save {cycleSyncDiscountPct}%
                               </span>
                             </div>
                             <span className="text-xs text-[#1A150F]/70">
@@ -1550,7 +1599,7 @@ export default function OvyTeenPageClient({
                         </div>
                         <div className="text-right">
                           <b className="font-serif text-lg font-bold text-[#7E4D77]">
-                            ₹{Math.round(basePrice * 0.85)}
+                            ₹{Math.round(basePrice * (1 - cycleSyncDiscountPct / 100))}
                           </b>
                           <s className="block text-xs text-[#1A150F]/40">
                             ₹{basePrice}
@@ -1560,65 +1609,162 @@ export default function OvyTeenPageClient({
 
                       {/* Cycle Sync Date & Length Inputs */}
                       {selectedModeId === "cyclesync" && (
-                        <div className="mt-4 space-y-3 border-t border-[#9A5B90]/20 pt-3">
-                          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div className="mt-4 space-y-3.5 border-t border-[#9A5B90]/20 pt-3.5">
+                          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                             <div>
                               <label className="mb-1 block text-[11px] font-bold tracking-wider text-[#7E4D77] uppercase">
-                                Next Period Date
+                                Date Last Period Started
                               </label>
                               <input
                                 type="date"
-                                min={minCycleDateString}
-                                value={cycleDate}
-                                onChange={(e) => setCycleDate(e.target.value)}
-                                className="w-full rounded-xl border border-[#1A150F]/20 bg-white px-3 py-2 text-xs focus:border-[#9A5B90] focus:outline-none"
+                                max={todayString}
+                                value={lastPeriodDate}
+                                onChange={(e) => setLastPeriodDate(e.target.value)}
+                                className={`w-full rounded-xl border bg-white px-3 py-2 text-xs focus:outline-none ${
+                                  cycleSchedule?.fieldErrors?.lastPeriodDate
+                                    ? "border-rose-400 focus:border-rose-500"
+                                    : "border-[#1A150F]/20 focus:border-[#9A5B90]"
+                                }`}
                               />
+                              {cycleSchedule?.fieldErrors?.lastPeriodDate && (
+                                <p className="mt-1 text-[11px] font-medium text-rose-600">
+                                  {cycleSchedule.fieldErrors.lastPeriodDate}
+                                </p>
+                              )}
                             </div>
                             <div>
                               <label className="mb-1 block text-[11px] font-bold tracking-wider text-[#7E4D77] uppercase">
-                                Cycle Length (Days)
+                                Cycle Length (21 to 45 Days)
                               </label>
                               <input
                                 type="number"
                                 min={21}
                                 max={45}
+                                placeholder="28"
                                 value={cycleLength}
-                                onChange={(e) =>
-                                  setCycleLength(Number(e.target.value))
-                                }
-                                className="w-full rounded-xl border border-[#1A150F]/20 bg-white px-3 py-2 text-xs focus:border-[#9A5B90] focus:outline-none"
+                                onChange={(e) => setCycleLength(e.target.value)}
+                                className={`w-full rounded-xl border bg-white px-3 py-2 text-xs focus:outline-none ${
+                                  cycleSchedule?.fieldErrors?.cycleLength
+                                    ? "border-rose-400 focus:border-rose-500"
+                                    : "border-[#1A150F]/20 focus:border-[#9A5B90]"
+                                }`}
                               />
+                              {cycleSchedule?.fieldErrors?.cycleLength && (
+                                <p className="mt-1 text-[11px] font-medium text-rose-600">
+                                  {cycleSchedule.fieldErrors.cycleLength}
+                                </p>
+                              )}
+                            </div>
+                            <div>
+                              <label className="mb-1 block text-[11px] font-bold tracking-wider text-[#7E4D77] uppercase">
+                                Period Length (2 to 10 Days)
+                              </label>
+                              <input
+                                type="number"
+                                min={2}
+                                max={10}
+                                placeholder="5"
+                                value={periodLength}
+                                onChange={(e) => setPeriodLength(e.target.value)}
+                                className={`w-full rounded-xl border bg-white px-3 py-2 text-xs focus:outline-none ${
+                                  cycleSchedule?.fieldErrors?.periodLength
+                                    ? "border-rose-400 focus:border-rose-500"
+                                    : "border-[#1A150F]/20 focus:border-[#9A5B90]"
+                                }`}
+                              />
+                              {cycleSchedule?.fieldErrors?.periodLength && (
+                                <p className="mt-1 text-[11px] font-medium text-rose-600">
+                                  {cycleSchedule.fieldErrors.periodLength}
+                                </p>
+                              )}
                             </div>
                           </div>
 
-                          {/* Schedule Result Banner */}
-                          {cycleSchedule &&
-                          "valid" in cycleSchedule &&
-                          cycleSchedule.valid ? (
-                            <div className="space-y-1 rounded-xl border border-[#9A5B90]/20 bg-white/80 p-3 text-xs">
-                              <span className="font-bold text-[#7E4D77]">
-                                Delivery Schedule:
-                              </span>
-                              <p className="text-[#1A150F]/80">
-                                Pads arrive around{" "}
-                                <b>
-                                  {cycleSchedule.arrivalDate.toDateString()}
-                                </b>{" "}
-                                (5 days prior to period).
+                          {/* < 7 Days Offer One-Time Order */}
+                          {cycleSchedule?.tooSoonForCycleSync && (
+                            <div className="space-y-2.5 rounded-xl border border-amber-300 bg-amber-50 p-3.5 text-xs text-amber-900">
+                              <p className="font-semibold leading-relaxed">
+                                {cycleSchedule.message}
                               </p>
+                              <button
+                                type="button"
+                                onClick={() => setSelectedModeId("once")}
+                                className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-[#9A5B90] px-3.5 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-[#7E4D77]"
+                              >
+                                Switch to One-Time Order instead →
+                              </button>
                             </div>
-                          ) : (
-                            <span className="block text-[11px] text-[#1A150F]/60">
-                              Please select her next period date (at least 6
-                              days in advance).
-                            </span>
                           )}
+
+                          {/* Next 3 Boxes Schedule (Arrival & Charge Dates) */}
+                          {cycleSchedule?.valid && (
+                            <div className="space-y-2.5 rounded-xl border border-[#9A5B90]/20 bg-white/90 p-3.5 text-xs">
+                              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#1A150F]/10 pb-2">
+                                <span className="font-bold tracking-wider text-[#7E4D77] uppercase">
+                                  Next 3 Boxes Schedule (Arrival &amp; Charge Dates)
+                                </span>
+                                <span className="font-semibold text-[#1A150F]/70">
+                                  Next Period:{" "}
+                                  <b className="text-[#1A150F]">
+                                    {formatCycleDate(cycleSchedule.nextPeriod)}
+                                  </b>
+                                </span>
+                              </div>
+                              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                                {cycleSchedule.upcomingDeliveries
+                                  .slice(0, 3)
+                                  .map((box) => (
+                                    <div
+                                      key={box.boxNumber}
+                                      className="rounded-lg border border-[#F3E6F0] bg-[#FAF9F5] p-2.5"
+                                    >
+                                      <div className="font-bold text-[#7E4D77]">
+                                        Box {box.boxNumber}
+                                      </div>
+                                      <div className="mt-1 text-[11px] text-[#1A150F]/70">
+                                        Arrival:{" "}
+                                        <b className="text-[#1A150F]">
+                                          {formatCycleDate(box.deliveryDate)}
+                                        </b>
+                                      </div>
+                                      <div className="text-[11px] text-[#1A150F]/70">
+                                        Charge:{" "}
+                                        <b className="text-[#1A150F]">
+                                          {formatCycleDate(box.chargeDate)}
+                                        </b>
+                                      </div>
+                                    </div>
+                                  ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Consent Checkbox */}
+                          <div className="pt-1">
+                            <label className="flex cursor-pointer items-start gap-2.5 text-xs text-[#1A150F]">
+                              <input
+                                type="checkbox"
+                                checked={cycleConsent}
+                                onChange={(e) => setCycleConsent(e.target.checked)}
+                                className="mt-0.5 h-4 w-4 rounded border-gray-300 accent-[#9A5B90]"
+                              />
+                              <span className="font-medium leading-snug">
+                                I&apos;m 18 or older, or I have my parent or guardian&apos;s permission
+                              </span>
+                            </label>
+                            {cycleSchedule?.fieldErrors?.consent && (
+                              <p className="mt-1 pl-6 text-[11px] font-medium text-rose-600">
+                                {cycleSchedule.fieldErrors.consent}
+                              </p>
+                            )}
+                          </div>
                         </div>
                       )}
                     </div>
 
                     {/* Subscribe & Save Option */}
                     <button
+                      type="button"
                       onClick={() => setSelectedModeId("sub1")}
                       className={`border-1.5 flex w-full cursor-pointer items-center justify-between rounded-2xl p-4 text-left transition-all ${
                         selectedModeId === "sub1"
@@ -1640,7 +1786,7 @@ export default function OvyTeenPageClient({
                               Subscribe Monthly
                             </b>
                             <span className="rounded-full bg-[#15803D] px-2 py-0.5 text-[10px] font-bold text-white uppercase">
-                              Save 15%
+                              Save {monthlyDiscountPct}%
                             </span>
                           </div>
                           <span className="text-xs text-[#1A150F]/60">
@@ -1650,12 +1796,13 @@ export default function OvyTeenPageClient({
                       </div>
                       <div className="text-right">
                         <b className="font-serif text-lg font-bold text-[#1A150F]">
-                          ₹{Math.round(basePrice * 0.85)}
+                          ₹{Math.round(basePrice * (1 - monthlyDiscountPct / 100))}
                         </b>
                       </div>
                     </button>
 
                     <button
+                      type="button"
                       onClick={() => setSelectedModeId("sub2")}
                       className={`border-1.5 flex w-full cursor-pointer items-center justify-between rounded-2xl p-4 text-left transition-all ${
                         selectedModeId === "sub2"
@@ -1677,7 +1824,7 @@ export default function OvyTeenPageClient({
                               Subscribe Every 2 Months
                             </b>
                             <span className="rounded-full bg-[#15803D] px-2 py-0.5 text-[10px] font-bold text-white uppercase">
-                              Save 12%
+                              Save {biMonthlyDiscountPct}%
                             </span>
                           </div>
                           <span className="text-xs text-[#1A150F]/60">
@@ -1687,7 +1834,7 @@ export default function OvyTeenPageClient({
                       </div>
                       <div className="text-right">
                         <b className="font-serif text-lg font-bold text-[#1A150F]">
-                          ₹{Math.round(basePrice * 0.88)}
+                          ₹{Math.round(basePrice * (1 - biMonthlyDiscountPct / 100))}
                         </b>
                       </div>
                     </button>
@@ -1727,8 +1874,42 @@ export default function OvyTeenPageClient({
                     </div>
                   )}
 
+                  {/* Active Price & Subscriber Savings Summary */}
+                  <div className="mt-6 flex items-center justify-between gap-3 rounded-2xl border border-[#1A150F]/10 bg-[#FAF9F5] px-4 py-3">
+                    <div>
+                      <span className="block text-[10px] font-bold tracking-wider text-[#1A150F]/60 uppercase">
+                        {selectedModeId === "once"
+                          ? "One-Time Price"
+                          : selectedModeId === "cyclesync"
+                            ? "Cycle Sync Subscriber Price"
+                            : "Subscriber Price"}
+                      </span>
+                      <div className="flex items-baseline gap-2">
+                        <b className="font-serif text-2xl font-bold text-[#1A150F]">
+                          ₹{totalPrice}
+                        </b>
+                        {(selectedModeId !== "once"
+                          ? basePrice * quantity
+                          : totalMrp) > totalPrice && (
+                          <s className="text-xs text-[#1A150F]/40">
+                            ₹
+                            {selectedModeId !== "once"
+                              ? basePrice * quantity
+                              : totalMrp}
+                          </s>
+                        )}
+                      </div>
+                    </div>
+                    {selectedModeId !== "once" && (
+                      <span className="rounded-full bg-[#E6F4EA] px-3 py-1 text-xs font-bold text-[#15803D]">
+                        Save {Math.round(modeDiscountPercentage * 100)}% (₹
+                        {basePrice * quantity - totalPrice})
+                      </span>
+                    )}
+                  </div>
+
                   {/* Quantity Selector & Pricing Total */}
-                  <div className="mt-6 flex items-center justify-between gap-4 border-t border-[#1A150F]/10 pt-4">
+                  <div className="mt-4 flex items-center justify-between gap-4 border-t border-[#1A150F]/10 pt-4">
                     <div className="flex flex-col">
                       <span className="text-xs font-bold tracking-wider text-[#1A150F]/60 uppercase">
                         Quantity
@@ -1739,6 +1920,7 @@ export default function OvyTeenPageClient({
                     </div>
                     <div className="flex items-center gap-3 rounded-full border border-[#1A150F]/10 bg-[#FAF9F5] px-3 py-1">
                       <button
+                        type="button"
                         onClick={() =>
                           setQuantity((prev) => Math.max(1, prev - 1))
                         }
@@ -1751,6 +1933,7 @@ export default function OvyTeenPageClient({
                         {quantity}
                       </span>
                       <button
+                        type="button"
                         onClick={() => {
                           if (quantity >= maxQuantity) {
                             toast.info(getMaxQuantityMessage(maxQuantity));
@@ -1779,6 +1962,7 @@ export default function OvyTeenPageClient({
                     ) : selectedModeId === "once" ? (
                       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                         <button
+                          type="button"
                           onClick={handleAddToCart}
                           disabled={adding}
                           className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-[#9A5B90] px-6 py-3.5 text-sm font-bold text-white shadow-md transition-all hover:bg-[#7E4D77] active:scale-[0.98] disabled:opacity-50"
@@ -1788,6 +1972,7 @@ export default function OvyTeenPageClient({
                         </button>
 
                         <button
+                          type="button"
                           onClick={handleBuyNow}
                           disabled={adding}
                           className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-[#141413] px-6 py-3.5 text-sm font-bold text-white shadow-md transition-all hover:bg-black active:scale-[0.98] disabled:opacity-50"
@@ -1798,9 +1983,10 @@ export default function OvyTeenPageClient({
                       </div>
                     ) : (
                       <button
+                        type="button"
                         onClick={handleBuyNow}
-                        disabled={adding}
-                        className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-[#141413] px-6 py-3.5 text-sm font-bold text-white shadow-md transition-all hover:bg-black active:scale-[0.98] disabled:opacity-50"
+                        disabled={adding || !isCycleSyncReady}
+                        className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-[#141413] px-6 py-3.5 text-sm font-bold text-white shadow-md transition-all hover:bg-black active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         <span>Checkout Subscription</span>
                         <ArrowRight className="h-4 w-4" />
@@ -2057,20 +2243,18 @@ export default function OvyTeenPageClient({
 
                       {/* Action Button to sync with Cycle Sync delivery */}
                       <button
+                        type="button"
                         onClick={() => {
                           if (!trackerLastDate || trackerLastDate > todayString) {
                             toast.error("Please enter a valid past period date first.");
                             return;
                           }
-                          const nextPredicted = calculatedCycleWindows?.firstWindowStart
-                            ? calculatedCycleWindows.firstWindowStart
-                                .toISOString()
-                                .split("T")[0]
-                            : trackerLastDate;
-                          setCycleDate(nextPredicted);
-                          setCycleLength(trackerCycleLength);
+                          setSelectedModeId("cyclesync");
+                          setLastPeriodDate(trackerLastDate);
+                          setCycleLength(String(trackerCycleLength));
+                          setPeriodLength(String(trackerPeriodDuration));
                           toast.success(
-                            "Synced predicted next period date & cycle length to your Cycle Sync delivery!",
+                            "Synced your last period date, cycle length, and period length to Cycle Sync!",
                           );
                           const elem = document.getElementById(
                             "cycle-sync-purchase-option",
@@ -2763,8 +2947,8 @@ export default function OvyTeenPageClient({
               ) : selectedModeId !== "once" ? (
                 <button
                   onClick={handleBuyNow}
-                  disabled={adding}
-                  className="cursor-pointer rounded-full bg-[#141413] px-4 py-2 text-xs font-bold text-white shadow-md transition-all hover:bg-black disabled:opacity-50"
+                  disabled={adding || !isCycleSyncReady}
+                  className="cursor-pointer rounded-full bg-[#141413] px-4 py-2 text-xs font-bold text-white shadow-md transition-all hover:bg-black disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Checkout Subscription →
                 </button>

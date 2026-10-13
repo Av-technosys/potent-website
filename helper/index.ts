@@ -118,4 +118,12 @@ export {
 } from "./emailTemplates/action";
 
 
-export {createSubscription,createPaymentGatewayPlan, CreatePaymentGatewaySubscription} from "./subscription/action"
+export {
+  createSubscription,
+  createPaymentGatewayPlan,
+  CreatePaymentGatewaySubscription,
+  getUserSubscriptions,
+  pauseUserSubscription,
+  resumeUserSubscription,
+  cancelUserSubscription,
+} from "./subscription/action";

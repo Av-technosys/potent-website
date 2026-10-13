@@ -24,13 +24,22 @@ export async function POST(req: Request) {
         {
           productId: quote.product.id,
           productVariantId: quote.variant.id,
+          slug: quote.product.slug,
           title: quote.product.name,
-          variantName: quote.variant.name,
+          variantName: quote.variantLabel || quote.variant.name,
           sku: quote.variant.sku,
           image: quote.variant.bannerImage ?? quote.product.bannerImage,
-          price: quote.final,
+          price: Math.round(
+            quote.discountedSubtotal / Math.max(1, Number(quote.quantity || 1)),
+          ),
+          originalPrice: Math.round(
+            quote.subtotal / Math.max(1, Number(quote.quantity || 1)),
+          ),
           quantity: quote.quantity,
           subscriptionType: quote.subscriptionType,
+          firstDeliveryDate: quote.firstDeliveryDate,
+          nextOrderDate: quote.nextOrderDate,
+          nextChargeDate: quote.nextChargeDate,
           mixBoxRecipe: quote.mixBoxRecipe,
           totalPads: quote.totalPads,
           boxCount: quote.boxCount,
@@ -45,6 +54,10 @@ export async function POST(req: Request) {
       final: quote.final,
       shipping: quote.shipping,
       label: quote.label,
+      variantLabel: quote.variantLabel,
+      firstDeliveryDate: quote.firstDeliveryDate,
+      nextOrderDate: quote.nextOrderDate,
+      nextChargeDate: quote.nextChargeDate,
       billing: quote.billing,
     });
   } catch (error) {

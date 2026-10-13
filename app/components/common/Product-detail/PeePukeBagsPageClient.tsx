@@ -331,9 +331,21 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
     selectedPack?.mrp ||
     Number(product?.mrp) ||
     Math.round(packBasePrice * 1.25);
-  const unitPrice = packBasePrice;
+  const monthlyDiscountPct = getPdpSubscriptionDiscount("monthly", product);
+  const biMonthlyDiscountPct = getPdpSubscriptionDiscount(
+    "every_2_months",
+    product,
+  );
+  const subDiscountPct =
+    selectedModeId === "sub1"
+      ? monthlyDiscountPct
+      : selectedModeId === "sub2"
+        ? biMonthlyDiscountPct
+        : 0;
+  const unitPrice = Math.round(packBasePrice * (1 - subDiscountPct / 100));
   const totalPrice = unitPrice * quantity;
-  const totalMrp = mrpPrice * quantity;
+  const totalMrp =
+    (selectedModeId !== "once" ? packBasePrice : mrpPrice) * quantity;
   const totalSavings = totalMrp - totalPrice;
   const perBagPrice = (unitPrice / (selectedPack?.bags || 10)).toFixed(1);
 
@@ -351,21 +363,40 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
   );
 
   const getSubscriptionDiscount = (plan: any) => {
-    return getPdpSubscriptionDiscount(plan.subscriptionType);
+    return getPdpSubscriptionDiscount(plan.subscriptionType, product);
   };
 
   const handleSubscribeNow = () => {
-    const selectedPlan =
-      selectedSubscriptionPlan || getPdpSubscriptionPlans(product)[0];
-    const subscriptionType = selectedPlan?.subscriptionType;
-
-    if (!subscriptionType || subscriptionType === "buy_once") {
-      toast.error("Please select a subscription plan");
+    if (isOutOfStock) {
+      toast.error("This item is currently out of stock.");
       return;
     }
 
+    const subscriptionType =
+      selectedModeId === "sub2"
+        ? "every_2_months"
+        : selectedModeId === "sub1"
+          ? "monthly"
+          : selectedSubscriptionPlan?.subscriptionType || "monthly";
+
+    const selectedPlan =
+      availableSubscriptionPlans.find(
+        (p: any) => p.subscriptionType === subscriptionType,
+      ) ||
+      selectedSubscriptionPlan ||
+      getPdpSubscriptionPlans(product)[0];
+
     const pId = product?._id || product?.id || "looway-pee-puke";
-    const vId = selectedPack?.variantId || product?.productVariants?.[0]?.id;
+    const vId =
+      selectedPack?.variantId ||
+      product?.productVariants?.find(
+        (v: any) =>
+          v.name
+            ?.toLowerCase()
+            .includes(selectedPack?.name?.toLowerCase() || "") ||
+          v.name?.includes(String(selectedPack?.bags || "")),
+      )?.id ||
+      product?.productVariants?.[0]?.id;
 
     window.sessionStorage.setItem(
       "potent-subscription-checkout",
@@ -615,6 +646,10 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
   const handleAddToCart = async () => {
     if (isOutOfStock) {
       toast.error("This item is currently out of stock.");
+      return;
+    }
+    if (selectedModeId !== "once") {
+      handleSubscribeNow();
       return;
     }
     const variantId =
@@ -1055,6 +1090,93 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
               {/* BUY BOX: PRICE, QUANTITY & ADD TO BAG CTA                              */}
               {/* ======================================================================= */}
               <div className="mt-6 rounded-2xl border border-[#E4DED0] bg-white p-5 shadow-md">
+                {/* Purchase Mode Selector (Buy once vs Subscribe) */}
+                {availableSubscriptionPlans.length > 0 && (
+                  <div className="mb-4 rounded-2xl border border-[#0E5C3A]/20 bg-[#F1F7F3]/70 p-3.5">
+                    <div className="mb-2.5 flex items-center justify-between">
+                      <span className="text-xs font-extrabold tracking-wider text-[#0A4A2E] uppercase">
+                        Purchase Mode
+                      </span>
+                      <span className="rounded-full bg-[#F4C430] px-2.5 py-0.5 text-[10px] font-bold text-[#0A4A2E]">
+                        Subscribe &amp; Save up to{" "}
+                        {Math.max(monthlyDiscountPct, biMonthlyDiscountPct)}%
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                      {[
+                        {
+                          id: "once",
+                          label: "Buy once",
+                          sub: "Standard one-time order",
+                          discount: 0,
+                          plan: null,
+                        },
+                        {
+                          id: "sub1",
+                          label: "Monthly",
+                          sub: `Every 30 days · Save ${monthlyDiscountPct}%`,
+                          discount: monthlyDiscountPct,
+                          plan: availableSubscriptionPlans.find(
+                            (p: any) => p.subscriptionType === "monthly",
+                          ),
+                        },
+                        {
+                          id: "sub2",
+                          label: "Every 2 Months",
+                          sub: `Every 60 days · Save ${biMonthlyDiscountPct}%`,
+                          discount: biMonthlyDiscountPct,
+                          plan: availableSubscriptionPlans.find(
+                            (p: any) => p.subscriptionType === "every_2_months",
+                          ),
+                        },
+                      ].map((mode) => {
+                        const isSelected = selectedModeId === mode.id;
+                        const modeUnitPrice = Math.round(
+                          packBasePrice * (1 - mode.discount / 100),
+                        );
+                        return (
+                          <button
+                            key={mode.id}
+                            type="button"
+                            aria-pressed={isSelected}
+                            onClick={() => {
+                              setSelectedModeId(mode.id);
+                              if (mode.plan) {
+                                setSelectedSubscriptionPlan(mode.plan);
+                              }
+                            }}
+                            className={`cursor-pointer rounded-xl border-2 p-2.5 text-left transition-all ${
+                              isSelected
+                                ? "border-[#0E5C3A] bg-white shadow-xs"
+                                : "border-[#E4DED0] bg-white/70 hover:border-[#0E5C3A]/60"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-1">
+                              <span className="text-xs font-bold text-[#0A4A2E]">
+                                {mode.label}
+                              </span>
+                              {mode.discount > 0 && (
+                                <span className="rounded-full bg-[#E6F4EA] px-1.5 py-0.5 text-[9px] font-extrabold text-[#15803D]">
+                                  -{mode.discount}%
+                                </span>
+                              )}
+                            </div>
+                            <p className="mt-1 text-sm font-extrabold text-[#0E5C3A]">
+                              ₹{modeUnitPrice}
+                              <span className="ml-1 text-[10px] font-normal text-gray-500">
+                                / pack
+                              </span>
+                            </p>
+                            <p className="mt-0.5 text-[10px] text-gray-500">
+                              {mode.sub}
+                            </p>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 {/* Price Display */}
                 <div className="flex items-baseline justify-between">
                   <div className="flex items-baseline gap-2">
@@ -1069,7 +1191,9 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
                   </div>
                   {totalSavings > 0 && (
                     <span className="rounded-full bg-[#E6F4EA] px-3 py-1 text-xs font-bold text-[#15803D]">
-                      Save ₹{totalSavings}
+                      {selectedModeId !== "once"
+                        ? `Subscriber Price · Save ${subDiscountPct}% (₹${totalSavings})`
+                        : `Save ₹${totalSavings}`}
                     </span>
                   )}
                 </div>
@@ -1139,7 +1263,7 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
                   </div>
                 </div>
 
-                {/* Add to Cart & Buy Now Buttons or Out of Stock */}
+                {/* Add to Cart & Buy Now Buttons or Checkout Subscription */}
                 <div className="mt-4">
                   {isOutOfStock ? (
                     <button
@@ -1149,7 +1273,7 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
                     >
                       Out of stock
                     </button>
-                  ) : (
+                  ) : selectedModeId === "once" ? (
                     <div className="grid grid-cols-12 gap-2.5">
                       <button
                         onClick={handleAddToCart}
@@ -1171,97 +1295,21 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
                         <span>Buy Now</span>
                       </button>
                     </div>
-                  )}
-                </div>
-
-                {/* ======================================================================= */}
-                {/* SUBSCRIBE & SAVE SECTION (Matching Menstrual Cup PDP structure)         */}
-                {/* ======================================================================= */}
-                {availableSubscriptionPlans.length > 0 && (
-                  <div className="mt-6 rounded-2xl border border-[#0E5C3A]/20 bg-[#F1F7F3] p-4 shadow-2xs sm:p-5">
-                    <div className="mb-4 flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-xs font-extrabold tracking-wider text-[#0E5C3A] uppercase">
-                          Subscribe &amp; save
-                        </p>
-                        <h4 className="mt-1 font-serif text-base font-bold text-[#0A4A2E]">
-                          Never run out of travel essentials
-                        </h4>
-                        <p className="mt-1 text-xs leading-relaxed text-[#17271E]/70">
-                          Choose a delivery rhythm. Billing and auto-delivery
-                          occur per your schedule. Pause or cancel anytime in 2
-                          clicks.
-                        </p>
-                      </div>
-                      <span className="shrink-0 rounded-full bg-[#F4C430] px-2.5 py-1 text-[10px] font-bold text-[#0A4A2E]">
-                        UP TO 15% OFF
-                      </span>
-                    </div>
-
-                    <div className="grid gap-2.5 sm:grid-cols-3">
-                      {availableSubscriptionPlans.map((plan: any) => {
-                        const isSelected =
-                          selectedSubscriptionPlan?.id === plan.id;
-                        const discount = getSubscriptionDiscount(plan);
-                        const subscriptionPrice = Math.round(
-                          packBasePrice * (1 - discount / 100),
-                        );
-                        const billingLabel =
-                          plan.subscriptionType === "every_2_months"
-                            ? "Every 60 days"
-                            : "Every 30 days";
-
-                        return (
-                          <button
-                            key={plan.id}
-                            type="button"
-                            aria-pressed={isSelected}
-                            onClick={() => setSelectedSubscriptionPlan(plan)}
-                            className={`cursor-pointer rounded-xl border-2 p-3 text-left transition-all ${
-                              isSelected
-                                ? "border-[#0E5C3A] bg-white shadow-sm"
-                                : "border-[#E4DED0] bg-white/70 hover:border-[#0E5C3A]"
-                            }`}
-                          >
-                            <div className="flex items-start justify-between gap-2">
-                              <span className="text-xs font-bold text-[#0A4A2E]">
-                                {plan.label}
-                              </span>
-                              {isSelected && (
-                                <CheckCircle2 className="h-4 w-4 shrink-0 text-[#0E5C3A]" />
-                              )}
-                            </div>
-                            <p className="mt-2 text-base font-bold text-[#0E5C3A]">
-                              ₹{subscriptionPrice}
-                              <span className="ml-1 text-[10px] font-normal text-gray-500">
-                                / pack
-                              </span>
-                            </p>
-                            <p className="mt-1 text-[11px] text-gray-500">
-                              {billingLabel} · Save {discount}%
-                            </p>
-                          </button>
-                        );
-                      })}
-                    </div>
-
+                  ) : (
                     <button
                       type="button"
                       onClick={handleSubscribeNow}
-                      className="mt-4 flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#0E5C3A] px-4 py-3.5 text-sm font-bold text-white shadow-sm transition-all hover:bg-[#0A4A2E] active:scale-[0.99]"
+                      disabled={adding}
+                      className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#0E5C3A] px-4 py-3.5 text-sm font-bold text-white shadow-md transition-all hover:bg-[#0A4A2E] active:scale-[0.99] disabled:opacity-60"
                     >
+                      <ShoppingBag className="h-4 w-4" />
                       <span>
-                        Subscribe with{" "}
-                        {selectedSubscriptionPlan?.label || "selected plan"}
+                        {adding ? "Processing..." : "Checkout Subscription"}
                       </span>
                       <ArrowRight className="h-4 w-4" />
                     </button>
-                    <p className="mt-2 text-center text-[11px] text-gray-500">
-                      Pause or cancel from your account anytime · Secure
-                      recurring payments
-                    </p>
-                  </div>
-                )}
+                  )}
+                </div>
 
                 {/* Save to Wishlist Button */}
                 <button

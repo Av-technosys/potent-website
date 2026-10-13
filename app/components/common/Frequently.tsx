@@ -180,7 +180,7 @@ All variants contain the same liner (190mm, 1mm thickness). Pack size only deter
       {
         question: "Can I subscribe to receive panty liners automatically?",
         answer:
-          "Yes — subscribe to the 80-pack for up to 15% off, delivered every 1, 2, or 3 months. Never run out mid-cycle again. All subscription orders include free shipping. Cancel, skip, or pause anytime from your account page.",
+          "Yes — subscribe to the 80-pack for up to 15% off, delivered every 1 or 2 months. Never run out mid-cycle again. Pause or cancel in two clicks from your account page.",
       },
     ],
   },
@@ -244,7 +244,7 @@ Cruelty-free, vegan-friendly, and toxin-free.
       {
         question: "Can I subscribe to receive Ovy XL pads monthly?",
         answer:
-          "Yes — subscribe to receive one or more boxes every 1, 2, or 3 months at up to 15% off. Never do an emergency pharmacy run again. All subscription orders include free shipping. Skip, pause, or cancel anytime from your account page with no fees.",
+          "Yes — subscribe to receive one or more boxes every 1 or 2 months at up to 15% off. Never do an emergency pharmacy run again. Pause or cancel in two clicks from your account page with no fees.",
       },
     ],
   },
@@ -302,7 +302,7 @@ Free from: Synthetic plastics, chlorine bleach, artificial fragrances, and dyes.
       {
         question: "Can I subscribe to the Ovy XL+ pads?",
         answer:
-          "Yes — subscribe for up to 15% off per box, delivered monthly, every 2 months, or every 3 months. Free shipping on all subscription orders. Pause, skip, or cancel anytime from your account page. No fees, no commitment.",
+          "Yes — subscribe for up to 15% off per box, delivered monthly or every 2 months. Pause or cancel in two clicks from your account page. No fees, no commitment.",
       },
     ],
   },

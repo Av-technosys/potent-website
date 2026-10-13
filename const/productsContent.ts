@@ -1823,7 +1823,7 @@ export const loowayPeePuke: Record<string, any> = {
         ],
         [
           "How does Subscribe & Save work?",
-          "Choose Subscribe monthly (15% off) or every 2 months (12% off) at checkout and your bags arrive automatically on that schedule, with the discount applied every time. You can change, pause or cancel any time — it is built for people who want their car and bag always stocked.",
+          "Choose Subscribe monthly (15% off) or every 2 months (12% off) at checkout and your bags arrive automatically on that schedule, with the discount applied every time. Pause or cancel in two clicks — it is built for people who want their car and bag always stocked.",
         ],
         [
           "Do you deliver across India, and how do I pay?",
@@ -2998,7 +2998,7 @@ export const loowayToiletSeatCovers: Record<string, any> = {
         ],
         [
           "How does Subscribe & Save work?",
-          "Choose Subscribe when you buy: monthly saves 15%, every 2 months saves 12%, with delivery on autopilot. Pause, skip or cancel whenever you like — you're never locked in.",
+          "Choose Subscribe when you buy: monthly saves 15%, every 2 months saves 12%, with delivery on autopilot. Pause or cancel in two clicks — you're never locked in.",
         ],
         [
           "Do you deliver across India, and how do I pay?",
@@ -4832,8 +4832,8 @@ export const ovyLiners: Record<string, any> = {
           "Match it to how much you actually use. If you wear a liner most days, monthly (with the 60 or 80 pack) keeps you stocked without stockpiling. If you use them mainly around your period or occasionally, every 2 months is usually plenty.",
         ],
         [
-          "Can I change my pack, skip a delivery or cancel?",
-          "Yes — anytime, with no lock-in and no cancellation fee. You can switch pack size, change frequency, skip a delivery or cancel from your account.",
+          "Can I pause or cancel my subscription?",
+          "Yes — pause or cancel in two clicks from your account, with no lock-in and no cancellation fee. To change your plan, size or quantity, cancel your current subscription and start a new one.",
         ],
       ],
     ],
@@ -5405,11 +5405,11 @@ export const ovyPads: Record<string, any> = {
       [
         [
           "How do subscriptions work?",
-          "Choose Subscribe & Save or Cycle Sync with your size or your mix, and the same box repeats each delivery. You can change your size, skip, pause or cancel anytime from your account — there is no minimum and no lock-in.",
+          "Choose Subscribe & Save or Cycle Sync with your size or your mix, and the same box repeats each delivery. Pause or cancel in two clicks from your account — there is no minimum and no lock-in.",
         ],
         [
           "What is Cycle Sync, and how does the timing work?",
-          "Cycle Sync is a recurring plan timed to your body. You tell us your last period date, your usual cycle length and how long your period lasts, and we schedule each box to arrive about 5 days before your next expected period, repeating on that rhythm. Pause or cancel anytime.",
+          "Cycle Sync is a recurring plan timed to your body. You tell us your last period date, your usual cycle length and how long your period lasts, and we schedule each box to arrive about 5 days before your next expected period, repeating on that rhythm. Pause or cancel in two clicks.",
         ],
         [
           "Do you ship in plain, unbranded packaging?",
@@ -6547,7 +6547,7 @@ export const ovyPanty: Record<string, any> = {
       [
         [
           "How do subscriptions and Cycle Sync work?",
-          "Choose Subscribe & Save or Cycle Sync with your size, and the same pack repeats each delivery — Cycle Sync times it to arrive about 5 days before your period. Change your size, skip, pause or cancel anytime; there is no minimum and no lock-in.",
+          "Choose Subscribe & Save or Cycle Sync with your size, and the same pack repeats each delivery — Cycle Sync times it to arrive about 5 days before your period. Pause or cancel in two clicks; there is no minimum and no lock-in.",
         ],
         [
           "How long does delivery take, and what does shipping cost?",
@@ -7494,8 +7494,8 @@ export const ovyTeen: Record<string, any> = {
           'If your next period is <b>less than 7 days away</b>, there is not enough time to schedule a synced box, so we place a <b>one-time order now</b> instead and you can start Cycle Sync again after your period. The button changes to "Add to Cart" automatically in that case.',
         ],
         [
-          "Can I change quantity, pause, skip or cancel?",
-          "Yes. Set how many kits per delivery, and pause, skip or cancel anytime from your account — no minimum, no lock-in.",
+          "Can I pause or cancel my subscription?",
+          "Yes. Pause or cancel in two clicks from your account — no minimum, no lock-in. To change your plan, size or quantity, cancel and start a new subscription.",
         ],
         [
           "What payment methods do you accept?",
@@ -7884,7 +7884,7 @@ export const ovyTeen: Record<string, any> = {
       plan: "Starter Pack · subscription",
       stars: 4,
       quote:
-        "The subscription is handy, though with my daughter’s irregular early cycle I sometimes have to skip or bring a delivery forward. Easy enough to do, it just took some getting used to.",
+        "The subscription is handy, though with my daughter’s irregular early cycle I sometimes have to pause and resume a delivery. Easy enough to do, it just took some getting used to.",
     },
     {
       name: "Bhoomi, 16",

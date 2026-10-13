@@ -478,8 +478,16 @@ export default function AddProductForm() {
                       checked={productDetails.allowSubscription}
                       onCheckedChange={(checked) => {
                         updateProductDetails("allowSubscription", checked);
-                        if (!checked)
+                        if (checked) {
+                          if (!productDetails.subscribeMonthlyDiscount) {
+                            updateProductDetails("subscribeMonthlyDiscount", 15);
+                          }
+                          if (!productDetails.subscribeBiMontlyDiscount) {
+                            updateProductDetails("subscribeBiMontlyDiscount", 12);
+                          }
+                        } else {
                           updateProductDetails("allowCycleSync", false);
+                        }
                       }}
                     />
                   </div>
@@ -489,8 +497,18 @@ export default function AddProductForm() {
                       checked={productDetails.allowCycleSync}
                       onCheckedChange={(checked) => {
                         updateProductDetails("allowCycleSync", checked);
-                        if (checked)
+                        if (checked) {
                           updateProductDetails("allowSubscription", true);
+                          if (!productDetails.subscribeMonthlyDiscount) {
+                            updateProductDetails("subscribeMonthlyDiscount", 15);
+                          }
+                          if (!productDetails.subscribeBiMontlyDiscount) {
+                            updateProductDetails("subscribeBiMontlyDiscount", 12);
+                          }
+                          if (!productDetails.cycleSyncDiscount) {
+                            updateProductDetails("cycleSyncDiscount", 15);
+                          }
+                        }
                       }}
                     />
                   </div>

@@ -210,6 +210,7 @@ async function handler(req: Request) {
     .where(
       and(
         eq(subscriptions.isActive, true),
+        eq(subscriptions.isPaused, false),
         lte(subscriptions.nextOrderDate, today),
       ),
     );

@@ -529,8 +529,16 @@ export default function EditProduct({ productDetails }: any) {
                       checked={productDetailsForm.allowSubscription}
                       onCheckedChange={(checked) => {
                         updateProductDetails("allowSubscription", checked);
-                        if (!checked)
+                        if (checked) {
+                          if (!productDetailsForm.subscribeMonthlyDiscount) {
+                            updateProductDetails("subscribeMonthlyDiscount", 15);
+                          }
+                          if (!productDetailsForm.subscribeBiMontlyDiscount) {
+                            updateProductDetails("subscribeBiMontlyDiscount", 12);
+                          }
+                        } else {
                           updateProductDetails("allowCycleSync", false);
+                        }
                       }}
                     />
                   </div>
@@ -540,8 +548,18 @@ export default function EditProduct({ productDetails }: any) {
                       checked={productDetailsForm.allowCycleSync}
                       onCheckedChange={(checked) => {
                         updateProductDetails("allowCycleSync", checked);
-                        if (checked)
+                        if (checked) {
                           updateProductDetails("allowSubscription", true);
+                          if (!productDetailsForm.subscribeMonthlyDiscount) {
+                            updateProductDetails("subscribeMonthlyDiscount", 15);
+                          }
+                          if (!productDetailsForm.subscribeBiMontlyDiscount) {
+                            updateProductDetails("subscribeBiMontlyDiscount", 12);
+                          }
+                          if (!productDetailsForm.cycleSyncDiscount) {
+                            updateProductDetails("cycleSyncDiscount", 15);
+                          }
+                        }
                       }}
                     />
                   </div>

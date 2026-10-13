@@ -56,6 +56,7 @@ import {
 import {
   calculateCycleSyncSchedule,
   getMinimumCycleSyncPeriodDate,
+  getTodayDateInputValue,
 } from "@/lib/cycleSync";
 import {
   applyDiscounts,
@@ -130,8 +131,10 @@ export default function ProductDetailPage({
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<any>(BUY_ONCE_PLAN);
   const [cycleSync, setCycleSync] = useState({
-    nextPeriodDate: "",
-    cycleLength: 28,
+    lastPeriodDate: "",
+    cycleLength: "28",
+    periodLength: "5",
+    consentAccepted: false,
   });
   const [activeVariant, setActiveVariant] = useState(defaultVariant);
   const initialImage = isPanty
@@ -304,9 +307,10 @@ export default function ProductDetailPage({
   const availableSubscriptionPlans = isOutOfStock
     ? []
     : getPdpSubscriptionPlans(productInfo);
-  const shownSubscriptionPlans = isOutOfStock
-    ? []
-    : [BUY_ONCE_PLAN, ...availableSubscriptionPlans];
+  const shownSubscriptionPlans =
+    isOutOfStock || availableSubscriptionPlans.length === 0
+      ? []
+      : [BUY_ONCE_PLAN, ...availableSubscriptionPlans];
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -375,9 +379,17 @@ export default function ProductDetailPage({
       .filter(Boolean) as MixBoxSelection[],
   );
   const cycleSyncSchedule =
-    subscriptionType === "cycle_sync" && cycleSync.nextPeriodDate
-      ? calculateCycleSyncSchedule(cycleSync)
+    subscriptionType === "cycle_sync"
+      ? calculateCycleSyncSchedule({
+          lastPeriodDate: cycleSync.lastPeriodDate,
+          cycleLength: cycleSync.cycleLength,
+          periodLength: cycleSync.periodLength,
+          consentAccepted: cycleSync.consentAccepted,
+        })
       : null;
+  const isCycleSyncReady =
+    subscriptionType !== "cycle_sync" ||
+    Boolean(cycleSyncSchedule?.valid && cycleSync.consentAccepted);
 
   const effectivePurchaseType = purchaseType;
   const effectiveSubscriptionType =
@@ -395,7 +407,7 @@ export default function ProductDetailPage({
     : null;
 
   const subscriptionDiscount = effectiveSubscriptionType
-    ? getPdpSubscriptionDiscount(effectiveSubscriptionType) / 100
+    ? getPdpSubscriptionDiscount(effectiveSubscriptionType, productInfo) / 100
     : 0;
   const volumeDiscount = isMixBoxCheckout
     ? 0
@@ -575,20 +587,16 @@ export default function ProductDetailPage({
       return false;
     }
 
+    if (effectivePurchaseType === "subscription") {
+      await handleBuyNow();
+      return false;
+    }
+
     if (isMixBoxCheckout) {
       if (!mixBoxPricing?.valid) {
         toast.error(
           mixBoxPricing?.message ??
             "Complete your box before adding it to cart.",
-        );
-        return;
-      }
-    }
-
-    if (subscriptionType === "cycle_sync") {
-      if (!cycleSyncSchedule?.valid) {
-        toast.error(
-          cycleSyncSchedule?.message ?? "Enter valid Cycle Sync details.",
         );
         return;
       }
@@ -603,7 +611,7 @@ export default function ProductDetailPage({
       variantName: activeVariant?.name || (selectedSize ? `Size: ${selectedSize}` : undefined),
       price: typeof effectiveUnitPrice === "number" ? effectiveUnitPrice : 349,
       selectedPlan: selectedPlan,
-      isSubscribed: effectivePurchaseType === "subscription",
+      isSubscribed: false,
       image:
         activeVariant?.bannerImage ||
         activeVariant?.image ||
@@ -624,10 +632,8 @@ export default function ProductDetailPage({
         isMixBoxCheckout && mixBoxPricing?.valid
           ? mixBoxPricing.freeLiners
           : undefined,
-      purchaseType: effectivePurchaseType,
-      subscriptionType: effectiveSubscriptionType,
-      cycleSync:
-        effectiveSubscriptionType === "cycle_sync" ? cycleSync : undefined,
+      purchaseType: "one_time",
+      subscriptionType: null,
       isQuantityChangable: isQuantityChangable,
       quantity: isMixBoxCheckout ? 1 : quantity,
       ...(isMixBoxCheckout ? { uuid: crypto.randomUUID() } : {}),
@@ -702,10 +708,12 @@ export default function ProductDetailPage({
 
     if (
       effectiveSubscriptionType === "cycle_sync" &&
-      !cycleSyncSchedule?.valid
+      (!cycleSyncSchedule?.valid || !cycleSync.consentAccepted)
     ) {
       toast.error(
-        cycleSyncSchedule?.message ?? "Enter valid Cycle Sync details.",
+        !cycleSyncSchedule?.valid
+          ? cycleSyncSchedule?.message ?? "Enter valid Cycle Sync details."
+          : "Please confirm you are 18 or older, or have a parent or guardian's permission.",
       );
       return;
     }
@@ -733,7 +741,15 @@ export default function ProductDetailPage({
             ? mixBoxPricing.freeLiners
             : undefined,
         cycleSync:
-          effectiveSubscriptionType === "cycle_sync" ? cycleSync : undefined,
+          effectiveSubscriptionType === "cycle_sync" && cycleSyncSchedule?.valid
+            ? {
+                lastPeriodDate: cycleSync.lastPeriodDate,
+                nextPeriodDate: cycleSyncSchedule.nextPeriodDateString,
+                cycleLength: cycleSyncSchedule.cycleLength,
+                periodLength: cycleSyncSchedule.periodLength,
+                consentAccepted: cycleSync.consentAccepted,
+              }
+            : undefined,
       }),
     );
 
@@ -838,6 +854,7 @@ export default function ProductDetailPage({
   const minimumCycleSyncPeriodDate = formatDateInputValue(
     getMinimumCycleSyncPeriodDate(),
   );
+  const todayDateInputValue = getTodayDateInputValue();
 
   // Gallery Prev / Next navigation
   const [isZoomOpen, setIsZoomOpen] = useState(false);
@@ -1510,133 +1527,260 @@ export default function ProductDetailPage({
 
           {/* BUY BOX CONTAINER */}
           <div className="space-y-4 sm:space-y-5 rounded-2xl sm:rounded-3xl border border-gray-200/80 bg-white p-4 sm:p-7 shadow-sm">
-            {/* Plan Selection Header */}
-            <div className="text-[11px] sm:text-xs font-bold tracking-wider uppercase text-gray-500">SELECT ORDER TYPE & FREQUENCY</div>
+            {shownSubscriptionPlans.length > 0 && (
+              <>
+                {/* Plan Selection Header */}
+                <div className="text-[11px] sm:text-xs font-bold tracking-wider uppercase text-gray-500">SELECT ORDER TYPE &amp; FREQUENCY</div>
 
-            {/* Plan Cards Stack */}
-            <div className="grid grid-cols-1 gap-2 sm:gap-2.5">
-              {shownSubscriptionPlans.map((plan: any) => {
-                const isSelected = selectedPlan?.id === plan.id;
-                const discountPercentage =
-                  plan.id === "buy_once"
-                    ? 0
-                    : getPdpSubscriptionDiscount(plan.subscriptionType);
-                const discountedPrice = discountPercentage > 0
-                  ? baseOrderValueForPlan - baseOrderValueForPlan * (discountPercentage / 100)
-                  : baseOrderValueForPlan;
+                {/* Plan Cards Stack */}
+                <div className="grid grid-cols-1 gap-2 sm:gap-2.5">
+                  {shownSubscriptionPlans.map((plan: any) => {
+                    const isSelected = selectedPlan?.id === plan.id;
+                    const discountPercentage =
+                      plan.id === "buy_once"
+                        ? 0
+                        : getPdpSubscriptionDiscount(
+                            plan.subscriptionType,
+                            productInfo,
+                          );
+                    const discountedUnitForPlan =
+                      discountPercentage > 0
+                        ? applyDiscounts(
+                            isMixBoxCheckout
+                              ? baseOrderValueForPlan
+                              : applyDiscounts(baseVariantPrice, volumeDiscount),
+                            discountPercentage / 100,
+                          )
+                        : isMixBoxCheckout
+                          ? baseOrderValueForPlan
+                          : applyDiscounts(baseVariantPrice, volumeDiscount);
+                    const discountedPrice = isMixBoxCheckout
+                      ? discountedUnitForPlan
+                      : discountedUnitForPlan * quantity;
 
-                return (
-                  <button
-                    key={plan.id}
-                    type="button"
-                    aria-selected={isSelected}
-                    onClick={() => subscribeToCart(plan)}
-                    className={`relative flex w-full cursor-pointer items-center gap-3 sm:gap-3.5 rounded-xl sm:rounded-2xl border-2 p-3 sm:p-4 text-left transition-all ${
-                      isSelected
-                        ? "border-[#9A5B90] bg-[#F3E6F0] shadow-xs"
-                        : "border-gray-200/80 bg-white hover:border-[#9A5B90]"
-                    }`}
-                  >
-                    <div
-                      className={`relative h-4.5 w-4.5 flex-none rounded-full border-2 transition-all ${
-                        isSelected ? "border-[#9A5B90] bg-[#9A5B90]" : "border-gray-300"
-                      }`}
-                    >
-                      {isSelected && (
-                        <div className="absolute inset-1 rounded-full bg-white" />
-                      )}
-                    </div>
+                    return (
+                      <button
+                        key={plan.id}
+                        type="button"
+                        aria-selected={isSelected}
+                        onClick={() => subscribeToCart(plan)}
+                        className={`relative flex w-full cursor-pointer items-center gap-3 sm:gap-3.5 rounded-xl sm:rounded-2xl border-2 p-3 sm:p-4 text-left transition-all ${
+                          isSelected
+                            ? "border-[#9A5B90] bg-[#F3E6F0] shadow-xs"
+                            : "border-gray-200/80 bg-white hover:border-[#9A5B90]"
+                        }`}
+                      >
+                        <div
+                          className={`relative h-4.5 w-4.5 flex-none rounded-full border-2 transition-all ${
+                            isSelected ? "border-[#9A5B90] bg-[#9A5B90]" : "border-gray-300"
+                          }`}
+                        >
+                          {isSelected && (
+                            <div className="absolute inset-1 rounded-full bg-white" />
+                          )}
+                        </div>
 
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap text-sm font-semibold text-[#1A150F]">
-                        <span>{plan.label}</span>
-                        {discountPercentage > 0 && (
-                          <span className="rounded-full bg-[#9A5B90] px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-white">
-                            SAVE {discountPercentage}%
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap text-sm font-semibold text-[#1A150F]">
+                            <span>{plan.label}</span>
+                            {discountPercentage > 0 && (
+                              <span className="rounded-full bg-[#9A5B90] px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-white">
+                                SAVE {discountPercentage}%
+                              </span>
+                            )}
+                            {plan.subscriptionType === "cycle_sync" && (
+                              <span className="rounded-full bg-emerald-700 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-white">
+                                CYCLE SYNCED
+                              </span>
+                            )}
+                          </div>
+                          <span className="mt-0.5 block text-xs text-gray-500">
+                            {plan.id === "buy_once"
+                              ? "Single box order, no commitment"
+                              : plan.subscriptionType === "cycle_sync"
+                                ? "Delivered 5 days before every period"
+                                : `Delivered & billed automatically every ${plan.subscriptionType === "every_2_months" ? "60" : "30"} days. Pause/cancel anytime.`}
                           </span>
-                        )}
-                        {plan.subscriptionType === "cycle_sync" && (
-                          <span className="rounded-full bg-emerald-700 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-white">
-                            CYCLE SYNCED
-                          </span>
-                        )}
-                      </div>
-                      <span className="mt-0.5 block text-xs text-gray-500">
-                        {plan.id === "buy_once"
-                          ? "Single box order, no commitment"
-                          : plan.subscriptionType === "cycle_sync"
-                            ? "Delivered 5 days before every period"
-                            : `Delivered & billed automatically every ${plan.subscriptionType === "every_2_months" ? "60" : "30"} days. Pause/cancel anytime.`}
-                      </span>
-                    </div>
+                        </div>
 
-                    <div className="flex-none text-right whitespace-nowrap">
-                      <b className="font-serif text-lg font-semibold text-[#1A150F]">₹{Math.round(discountedPrice)}</b>
-                      {discountPercentage > 0 && (
-                        <s className="mt-0.5 block text-xs text-gray-400">₹{Math.round(baseOrderValueForPlan)}</s>
-                      )}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+                        <div className="flex-none text-right whitespace-nowrap">
+                          <b className="font-serif text-lg font-semibold text-[#1A150F]">₹{Math.round(discountedPrice)}</b>
+                          {discountPercentage > 0 && (
+                            <s className="mt-0.5 block text-xs text-gray-400">₹{Math.round(baseOrderValueForPlan)}</s>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
 
             {/* Cycle Sync Inputs when Cycle Sync Plan Selected */}
             {subscriptionType === "cycle_sync" && (
-              <div className="my-4 space-y-3 rounded-2xl border border-[#F3E6F0] bg-[#FAF9F5] p-4 sm:p-5">
+              <div className="my-4 space-y-3.5 rounded-2xl border border-[#F3E6F0] bg-[#FAF9F5] p-4 sm:p-5">
                 <div className="flex items-center gap-3 rounded-xl border border-[#F3E6F0] bg-gradient-to-r from-[#F5E7F1] to-[#E4F1F1] p-3.5">
                   <div className="flex h-9 w-9 flex-none items-center justify-center rounded-xl bg-white text-[#7E4D77]">
                     <RotateCcw className="h-5 w-5" />
                   </div>
                   <div className="flex-1 text-xs sm:text-sm leading-snug text-gray-600">
                     <b className="font-bold text-[#1A150F]">Cycle Sync Rhythm</b>
-                    <div>We deliver your box ~5 days before your expected period date.</div>
+                    <div>We calculate your schedule and deliver your box 5 days before every expected period.</div>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                   <div>
                     <label className="text-xs font-bold uppercase tracking-wider text-gray-700">
-                      Next Period Date
+                      Date Last Period Started
                     </label>
                     <input
                       type="date"
-                      min={minimumCycleSyncPeriodDate}
-                      value={cycleSync.nextPeriodDate}
+                      max={todayDateInputValue}
+                      value={cycleSync.lastPeriodDate}
                       onChange={(e) =>
                         setCycleSync((cur) => ({
                           ...cur,
-                          nextPeriodDate: e.target.value,
+                          lastPeriodDate: e.target.value,
                         }))
                       }
-                      className="mt-1 w-full rounded-xl border border-gray-300 bg-white p-2.5 text-sm font-medium"
+                      className={`mt-1 w-full rounded-xl border bg-white p-2.5 text-sm font-medium ${
+                        cycleSyncSchedule?.fieldErrors?.lastPeriodDate
+                          ? "border-rose-400 focus:border-rose-500"
+                          : "border-gray-300"
+                      }`}
                     />
+                    {cycleSyncSchedule?.fieldErrors?.lastPeriodDate && (
+                      <p className="mt-1 text-xs font-medium text-rose-600">
+                        {cycleSyncSchedule.fieldErrors.lastPeriodDate}
+                      </p>
+                    )}
                   </div>
                   <div>
                     <label className="text-xs font-bold uppercase tracking-wider text-gray-700">
-                      Cycle Length (Days)
+                      Cycle Length (21 to 45 Days)
                     </label>
                     <input
                       type="number"
                       min={21}
                       max={45}
+                      placeholder="28"
                       value={cycleSync.cycleLength}
                       onChange={(e) =>
                         setCycleSync((cur) => ({
                           ...cur,
-                          cycleLength: Number(e.target.value),
+                          cycleLength: e.target.value,
                         }))
                       }
-                      className="mt-1 w-full rounded-xl border border-gray-300 bg-white p-2.5 text-sm font-medium"
+                      className={`mt-1 w-full rounded-xl border bg-white p-2.5 text-sm font-medium ${
+                        cycleSyncSchedule?.fieldErrors?.cycleLength
+                          ? "border-rose-400 focus:border-rose-500"
+                          : "border-gray-300"
+                      }`}
                     />
+                    {cycleSyncSchedule?.fieldErrors?.cycleLength && (
+                      <p className="mt-1 text-xs font-medium text-rose-600">
+                        {cycleSyncSchedule.fieldErrors.cycleLength}
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold uppercase tracking-wider text-gray-700">
+                      Period Length (2 to 10 Days)
+                    </label>
+                    <input
+                      type="number"
+                      min={2}
+                      max={10}
+                      placeholder="5"
+                      value={cycleSync.periodLength}
+                      onChange={(e) =>
+                        setCycleSync((cur) => ({
+                          ...cur,
+                          periodLength: e.target.value,
+                        }))
+                      }
+                      className={`mt-1 w-full rounded-xl border bg-white p-2.5 text-sm font-medium ${
+                        cycleSyncSchedule?.fieldErrors?.periodLength
+                          ? "border-rose-400 focus:border-rose-500"
+                          : "border-gray-300"
+                      }`}
+                    />
+                    {cycleSyncSchedule?.fieldErrors?.periodLength && (
+                      <p className="mt-1 text-xs font-medium text-rose-600">
+                        {cycleSyncSchedule.fieldErrors.periodLength}
+                      </p>
+                    )}
                   </div>
                 </div>
 
-                {cycleSyncSchedule?.valid && (
-                  <div className="rounded-xl border border-[#E4F1F1] bg-[#E4F1F1]/50 p-3 text-xs text-[#1A8D91]">
-                    <b>Expected Arrival:</b> {formatCycleDate(cycleSyncSchedule.arrivalDate)}
+                {cycleSyncSchedule?.tooSoonForCycleSync && (
+                  <div className="rounded-xl border border-amber-300 bg-amber-50 p-3.5 text-xs text-amber-900 space-y-2.5">
+                    <p className="font-semibold leading-relaxed">
+                      {cycleSyncSchedule.message}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => subscribeToCart(BUY_ONCE_PLAN)}
+                      className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-[#9A5B90] px-3.5 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-[#7E4D77]"
+                    >
+                      Switch to One-Time Order instead →
+                    </button>
                   </div>
                 )}
+
+                {cycleSyncSchedule?.valid && (
+                  <div className="space-y-2.5 rounded-xl border border-[#E4F1F1] bg-white p-3.5 text-xs">
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 pb-2">
+                      <span className="font-bold uppercase tracking-wider text-[#1A8D91]">
+                        Next 3 Boxes Schedule (Arrival &amp; Charge Dates)
+                      </span>
+                      <span className="font-semibold text-gray-600">
+                        Next Period: <b className="text-[#1A150F]">{formatCycleDate(cycleSyncSchedule.nextPeriod)}</b>
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                      {cycleSyncSchedule.upcomingDeliveries.slice(0, 3).map((box) => (
+                        <div
+                          key={box.boxNumber}
+                          className="rounded-lg border border-[#F3E6F0] bg-[#FAF9F5] p-2.5"
+                        >
+                          <div className="font-bold text-[#7E4D77]">Box {box.boxNumber}</div>
+                          <div className="mt-1 text-[11px] text-gray-600">
+                            Arrival: <b className="text-[#1A150F]">{formatCycleDate(box.deliveryDate)}</b>
+                          </div>
+                          <div className="text-[11px] text-gray-600">
+                            Charge: <b className="text-[#1A150F]">{formatCycleDate(box.chargeDate)}</b>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="pt-1">
+                  <label className="flex cursor-pointer items-start gap-2.5 text-xs text-gray-700">
+                    <input
+                      type="checkbox"
+                      checked={cycleSync.consentAccepted}
+                      onChange={(e) =>
+                        setCycleSync((cur) => ({
+                          ...cur,
+                          consentAccepted: e.target.checked,
+                        }))
+                      }
+                      className="mt-0.5 h-4 w-4 rounded border-gray-300 accent-[#9A5B90]"
+                    />
+                    <span className="font-medium leading-snug text-[#1A150F]">
+                      I&apos;m 18 or older, or I have my parent or guardian&apos;s permission
+                    </span>
+                  </label>
+                  {cycleSyncSchedule?.fieldErrors?.consent && (
+                    <p className="mt-1 pl-6 text-xs font-medium text-rose-600">
+                      {cycleSyncSchedule.fieldErrors.consent}
+                    </p>
+                  )}
+                </div>
               </div>
             )}
 
@@ -1700,7 +1844,7 @@ export default function ProductDetailPage({
                     <span className="min-w-12 text-center text-sm font-semibold text-[#1A150F]">
                       {quantity}
                       <small className="block text-[10px] font-normal text-gray-500">
-                        {isLiners || isPanty ? `pack${quantity > 1 ? "s" : ""}` : `box${quantity > 1 ? "es" : ""}`}
+                        {isLiners || isPanty ? `pack${quantity > 1 ? "s" : ""}` : `box${quantity > 1 ? "s" : ""}`}
                       </small>
                     </span>
                     <button
@@ -1789,7 +1933,7 @@ export default function ProductDetailPage({
                   <button
                     type="button"
                     onClick={handleBuyNow}
-                    disabled={Boolean(isMixBoxCheckout && !mixBoxPricing?.valid)}
+                    disabled={Boolean((isMixBoxCheckout && !mixBoxPricing?.valid) || !isCycleSyncReady)}
                     className="w-full cursor-pointer border-none rounded-2xl bg-[#141413] p-4 text-base font-semibold text-white transition-all hover:bg-[#2a2a28] disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {effectivePurchaseType === "subscription"
@@ -2228,8 +2372,8 @@ export default function ProductDetailPage({
           <button
             type="button"
             onClick={handleBuyNow}
-            disabled={Boolean(isMixBoxCheckout && !mixBoxPricing?.valid)}
-            className="flex-1 max-w-[280px] cursor-pointer rounded-2xl bg-[#141413] p-3.5 text-sm font-semibold text-white shadow-md transition hover:bg-[#2a2a28] disabled:opacity-50"
+            disabled={Boolean((isMixBoxCheckout && !mixBoxPricing?.valid) || !isCycleSyncReady)}
+            className="flex-1 max-w-[280px] cursor-pointer rounded-2xl bg-[#141413] p-3.5 text-sm font-semibold text-white shadow-md transition hover:bg-[#2a2a28] disabled:cursor-not-allowed disabled:opacity-50"
           >
             Checkout Subscription →
           </button>

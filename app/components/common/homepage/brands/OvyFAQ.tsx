@@ -38,7 +38,7 @@ const OVY_FAQS: FAQItem[] = [
     id: 5,
     question: "How does Cycle-Sync subscription delivery work?",
     answer:
-      "You enter three period dates once during checkout. Our algorithm predicts your next cycle and delivers your fresh box about 5 days before your period is due. You can pause, skip, or cancel your subscription anytime.",
+      "You enter three period dates once during checkout. Our algorithm predicts your next cycle and delivers your fresh box about 5 days before your period is due. Pause or cancel in two clicks.",
   },
   {
     id: 6,

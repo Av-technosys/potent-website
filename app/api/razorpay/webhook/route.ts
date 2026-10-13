@@ -534,11 +534,31 @@ async function handleSubscriptionCharged(eventPayload: any) {
     .orderBy(desc(payment.createdAt))
     .limit(1);
   const pendingPayment = pendingPaymentRows[0] ?? null;
-  const frequencyInDays = Number(subscriptionRow.subscription.frequencyInDays || 30);
-  const nextOrderDate = getNextDueDate(
-    subscriptionRow.subscription.nextOrderDate,
-    frequencyInDays,
+  const frequencyInDays = Number(
+    subscriptionRow.subscription.frequencyInDays ||
+      (subscriptionRow.subscription.subscriptionType === "cycle_sync"
+        ? 28
+        : subscriptionRow.subscription.subscriptionType === "every_2_months"
+          ? 60
+          : 30),
   );
+  const existingNextOrder = subscriptionRow.subscription.nextOrderDate
+    ? new Date(subscriptionRow.subscription.nextOrderDate)
+    : null;
+  const nextOrderDate =
+    existingPendingOrder &&
+    existingNextOrder &&
+    !Number.isNaN(existingNextOrder.getTime()) &&
+    existingNextOrder > new Date()
+      ? existingNextOrder
+      : getNextDueDate(
+          subscriptionRow.subscription.nextOrderDate,
+          frequencyInDays,
+        );
+  const nextChargeDate =
+    subscriptionRow.subscription.subscriptionType === "cycle_sync"
+      ? addDays(nextOrderDate, frequencyInDays - 5)
+      : nextOrderDate;
   const isFirstPaidOrder = subscriptionRow.user?.id
     ? !(await userHasPaidOrder(subscriptionRow.user.id, existingPendingOrder?.order?.id))
     : false;
@@ -664,7 +684,7 @@ async function handleSubscriptionCharged(eventPayload: any) {
       .update(subscriptions)
       .set({
         orderId: paidOrderId,
-        chargeDate: new Date(),
+        chargeDate: nextChargeDate,
         nextOrderDate,
         isActive: true,
       })

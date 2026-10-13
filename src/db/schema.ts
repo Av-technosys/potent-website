@@ -250,6 +250,9 @@ export const subscriptions = pgTable("subscriptions", {
 
   chargeDate: timestamp("charge_date"),
   isActive: boolean("is_active").default(true),
+  isPaused: boolean("is_paused").default(false),
+  pausedAt: timestamp("paused_at"),
+  cancelReason: text("cancel_reason"),
 });
 
 // ================= CART =================

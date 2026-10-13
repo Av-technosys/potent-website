@@ -248,11 +248,16 @@ export default function SeatCoversPageClient({ product, content }: Props) {
   const selectedPack = packs[selectedPackId] ||
     Object.values(packs)[0] || { price: 399, mrp: 499, name: "2-Pack" };
 
+  const monthlyDiscountPct = getPdpSubscriptionDiscount("monthly", product);
+  const biMonthlyDiscountPct = getPdpSubscriptionDiscount(
+    "every_2_months",
+    product,
+  );
   const modeDiscount =
     selectedModeId === "sub1"
-      ? getPdpSubscriptionDiscount("monthly") / 100
+      ? monthlyDiscountPct / 100
       : selectedModeId === "sub2"
-        ? getPdpSubscriptionDiscount("every_2_months") / 100
+        ? biMonthlyDiscountPct / 100
         : 0;
 
   const basePrice = selectedPack.price || Number(product?.price) || 399;
@@ -415,6 +420,11 @@ export default function SeatCoversPageClient({ product, content }: Props) {
   const handleAddToCart = async () => {
     if (isOutOfStock) {
       toast.error("This item is currently out of stock.");
+      return;
+    }
+
+    if (selectedModeId !== "once") {
+      await handlePrimaryAction();
       return;
     }
 
@@ -795,13 +805,13 @@ export default function SeatCoversPageClient({ product, content }: Props) {
                       id: "sub1",
                       label: "Subscribe monthly",
                       desc: "Delivered every month",
-                      badge: "Save 15%",
+                      badge: `Save ${monthlyDiscountPct}%`,
                     },
                     {
                       id: "sub2",
                       label: "Subscribe every 2 months",
                       desc: "Delivered bimonthly",
-                      badge: "Save 12%",
+                      badge: `Save ${biMonthlyDiscountPct}%`,
                     },
                   ].map((mode) => {
                     const isSelected = selectedModeId === mode.id;
@@ -943,7 +953,7 @@ export default function SeatCoversPageClient({ product, content }: Props) {
                     className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-2xl bg-[#0F6DA6] py-4 text-base font-bold text-white shadow-md transition-all hover:bg-[#0B4E78] disabled:opacity-50"
                   >
                     <ShoppingBag className="h-5 w-5" />
-                    {adding ? "Processing..." : "Subscribe & Checkout"}
+                    {adding ? "Processing..." : "Checkout Subscription"}
                   </button>
                 )}
               </div>

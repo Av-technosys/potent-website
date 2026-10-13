@@ -106,7 +106,7 @@ export async function POST(req: Request) {
           frequencyInDays: quote.billing.frequencyInDays,
           nextOrderDate: quote.nextOrderDate,
           subscriptionType: quote.subscriptionType,
-          chargeDate: null,
+          chargeDate: quote.nextChargeDate ?? null,
           isActive: false,
         })
         .returning({ id: subscriptions.id });

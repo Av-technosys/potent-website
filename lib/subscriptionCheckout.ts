@@ -5,9 +5,14 @@ import { db } from "@/src/db";
 import { product, productVariant } from "@/src/db/schema";
 import {
   calculateMixBoxPricing,
+  formatMixBoxRecipe,
   type MixBoxRecipe,
   type SubscriptionType,
 } from "@/lib/mixYourBox";
+import {
+  getCleanProductTitle,
+  getCartItemVariantBadge,
+} from "@/lib/cartItemDisplay";
 import { calculateCycleSyncSchedule, clampCycleLength } from "@/lib/cycleSync";
 import {
   PDP_SUBSCRIPTION_PLANS,
@@ -38,13 +43,14 @@ function addDays(date: Date, days: number) {
 }
 
 function getProductDiscount(
-  _productInfo: any,
+  productInfo: any,
   subscriptionType: SubscriptionType,
 ) {
   return (
     Number(
-      DEFAULT_SUBSCRIPTION_DISCOUNTS[subscriptionType] ??
-        getPdpSubscriptionDiscount(subscriptionType),
+      getPdpSubscriptionDiscount(subscriptionType, productInfo) ||
+        DEFAULT_SUBSCRIPTION_DISCOUNTS[subscriptionType] ||
+        0,
     ) / 100
   );
 }
@@ -142,10 +148,20 @@ export async function getSubscriptionCheckoutQuote(item: any) {
     return { success: false, error: "Product or variant not found" };
   }
 
-  if (row.variant.isInStock === false) {
+  if (row.variant.isInStock === false || row.productInfo.isInStock === false) {
     return {
       success: false,
       error: "This item is currently out of stock.",
+    };
+  }
+
+  if (
+    String(row.variant.sku || "").toUpperCase() === "OVY-TEEN-FPB" ||
+    /first period box/i.test(String(row.variant.name || ""))
+  ) {
+    return {
+      success: false,
+      error: "This item is coming soon and not available for purchase yet.",
     };
   }
 
@@ -157,11 +173,16 @@ export async function getSubscriptionCheckoutQuote(item: any) {
   }
 
   if (subscriptionType === "cycle_sync") {
-    if (item?.cycleSync?.nextPeriodDate) {
+    if (item?.cycleSync?.lastPeriodDate || item?.cycleSync?.nextPeriodDate) {
       const schedule = calculateCycleSyncSchedule(item.cycleSync);
       if (!schedule.valid) {
         return { success: false, error: schedule.message };
       }
+    } else {
+      return {
+        success: false,
+        error: "Please complete your Cycle Sync details before checkout.",
+      };
     }
   }
 
@@ -197,20 +218,65 @@ export async function getSubscriptionCheckoutQuote(item: any) {
     subtotal = mixPricing.price;
   }
 
-  const discountedSubtotal = Math.round(subtotal * (1 - discount));
+  const discountedUnitPrice = mixPricing
+    ? Math.round(subtotal * (1 - discount))
+    : Math.round(baseVariantPrice * (1 - discount));
+  const discountedSubtotal = mixPricing
+    ? discountedUnitPrice
+    : discountedUnitPrice * quantity;
   const shipping = calculateShippingFee(discountedSubtotal);
   const final = discountedSubtotal + shipping;
   const billing = getBilling(subscriptionType, item?.cycleSync);
   const now = new Date();
   const cycleSchedule =
-    subscriptionType === "cycle_sync" && item?.cycleSync?.nextPeriodDate
+    subscriptionType === "cycle_sync" &&
+    (item?.cycleSync?.lastPeriodDate || item?.cycleSync?.nextPeriodDate)
       ? calculateCycleSyncSchedule(item.cycleSync)
       : null;
+
+  const cleanTitle = getCleanProductTitle({
+    title: row.productInfo.name,
+    slug: row.productInfo.slug,
+  });
+  const variantLabel =
+    mixPricing && item?.mixBoxRecipe
+      ? `Mix Box (${formatMixBoxRecipe(item.mixBoxRecipe as MixBoxRecipe)})`
+      : getCartItemVariantBadge({
+          title: row.productInfo.name,
+          slug: row.productInfo.slug,
+          sku: row.variant.sku,
+          variantName: row.variant.name || row.variant.size,
+        }) ||
+        row.variant.name ||
+        row.variant.size ||
+        "";
+
+  const firstDeliveryDate = cycleSchedule?.valid
+    ? cycleSchedule.arrivalDate
+    : addDays(now, 5);
+  const nextOrderDate = cycleSchedule?.valid
+    ? cycleSchedule.upcomingDeliveries[0].deliveryDate
+    : addDays(now, billing.frequencyInDays);
+  const nextChargeDate = cycleSchedule?.valid
+    ? cycleSchedule.upcomingDeliveries[1]?.chargeDate ??
+      addDays(
+        cycleSchedule.upcomingDeliveries[0].deliveryDate,
+        billing.frequencyInDays - 5,
+      )
+    : subscriptionType === "cycle_sync"
+      ? addDays(nextOrderDate, billing.frequencyInDays - 5)
+      : addDays(now, billing.frequencyInDays);
+
+  const planLabel =
+    subscriptionType === "cycle_sync"
+      ? `Cycle Sync (${billing.label})`
+      : `${billing.label} Subscription`;
 
   return {
     success: true,
     product: row.productInfo,
     variant: row.variant,
+    variantLabel,
     quantity,
     subscriptionType,
     billing,
@@ -221,10 +287,12 @@ export async function getSubscriptionCheckoutQuote(item: any) {
     final,
     shipping,
     amountPaise: Math.round(final * 100),
-    label: `${row.productInfo.name} - ${billing.label} Subscription`,
-    nextOrderDate: cycleSchedule?.valid
-      ? cycleSchedule.upcomingDeliveries[0].deliveryDate
-      : addDays(now, billing.frequencyInDays),
+    label: variantLabel
+      ? `${cleanTitle} (${variantLabel}) - ${planLabel}`
+      : `${cleanTitle} - ${planLabel}`,
+    firstDeliveryDate,
+    nextOrderDate,
+    nextChargeDate,
     mixBoxRecipe: mixPricing ? item.mixBoxRecipe : null,
     totalPads: mixPricing?.totalPads ?? null,
     boxCount: mixPricing?.boxCount ?? null,

@@ -123,8 +123,8 @@ export function Navbar() {
       {showBanner && (
         <div className="relative flex w-full items-center justify-center border-b border-[#004851]/10 bg-[#E2F4F7] px-4 py-2 text-xs font-medium text-[#004851] sm:text-sm">
           <p className="pr-6 text-center font-medium tracking-tight">
-            Subscribe to pads, liners, seat covers and bags. Pause, skip or
-            cancel in two clicks.
+            Subscribe to pads, liners, seat covers and bags. Pause or cancel in
+            two clicks.
           </p>
           <button
             type="button"
