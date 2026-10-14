@@ -168,7 +168,7 @@ export function OvySizedToFlow() {
                 Suggested mix: 6 L · 9 XL · 6 XL+
               </div>
               <Link
-                href="/product-detail/ovy-pads?plan=mixYourBox#mix-your-box"
+                href="/product-detail/ovy-pads#mix"
                 className="inline-flex items-center gap-1 text-[10.5px] sm:text-xs font-bold text-white hover:underline mt-2 sm:mt-3"
               >
                 <span>Build your box</span>

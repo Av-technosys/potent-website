@@ -8,9 +8,24 @@ import {
 } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
 import { requireUserWithRefresh } from "../user/action";
+import { isUUID } from "@/const/globalconst";
 
 export async function addToWishlistDB(productId: string) {
   const { userId } = await requireUserWithRefresh();
+
+  let actualProductId = productId;
+  if (!isUUID(productId)) {
+    const [prod] = await db
+      .select({ id: product.id })
+      .from(product)
+      .where(eq(product.slug, productId))
+      .limit(1);
+    if (prod) {
+      actualProductId = prod.id;
+    } else {
+      return;
+    }
+  }
 
   const userWishlist = await db
     .select()
@@ -37,7 +52,7 @@ export async function addToWishlistDB(productId: string) {
     .where(
       and(
         eq(wishlistItem.wishlistId, wishlistId),
-        eq(wishlistItem.productId, productId)
+        eq(wishlistItem.productId, actualProductId)
       )
     );
 
@@ -45,12 +60,26 @@ export async function addToWishlistDB(productId: string) {
 
   await db.insert(wishlistItem).values({
     wishlistId,
-    productId,
+    productId: actualProductId,
   });
 }
 
 export async function removeFromWishlistDB(productId: string) {
   const { userId } = await requireUserWithRefresh();
+
+  let actualProductId = productId;
+  if (!isUUID(productId)) {
+    const [prod] = await db
+      .select({ id: product.id })
+      .from(product)
+      .where(eq(product.slug, productId))
+      .limit(1);
+    if (prod) {
+      actualProductId = prod.id;
+    } else {
+      return;
+    }
+  }
 
   const userWishlist = await db
     .select()
@@ -65,7 +94,7 @@ export async function removeFromWishlistDB(productId: string) {
     .where(
       and(
         eq(wishlistItem.wishlistId, userWishlist[0].id),
-        eq(wishlistItem.productId, productId)
+        eq(wishlistItem.productId, actualProductId)
       )
     );
 }

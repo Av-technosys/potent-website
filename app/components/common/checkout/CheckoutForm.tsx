@@ -272,9 +272,9 @@ const CheckoutForm = ({ selected, setSelected, address, setAddress }: any) => {
 
                       <Label
                         htmlFor={addressId}
-                        className="flex flex-col gap-1.5 cursor-pointer w-full text-left"
+                        className="flex flex-col items-start justify-start gap-1.5 cursor-pointer w-full text-left"
                       >
-                        <div className="flex flex-wrap items-center gap-2">
+                        <div className="flex flex-wrap items-center justify-start gap-2 text-left">
                           <span className="flex items-center gap-1.5 font-bold text-gray-900 text-base">
                             <User className="h-4 w-4 text-gray-500" />
                             {recipientName}
@@ -288,13 +288,13 @@ const CheckoutForm = ({ selected, setSelected, address, setAddress }: any) => {
                         </div>
 
                         {recipientPhone && (
-                          <div className="flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-gray-700">
+                          <div className="flex items-center justify-start gap-1.5 text-xs sm:text-sm font-semibold text-gray-700 text-left">
                             <Phone className="h-3.5 w-3.5 text-gray-400" />
                             <span>Courier Contact: +91 {recipientPhone}</span>
                           </div>
                         )}
 
-                        <div className="flex items-start gap-1.5 text-xs sm:text-sm text-gray-600">
+                        <div className="flex items-start justify-start gap-1.5 text-xs sm:text-sm text-gray-600 text-left">
                           <MapPin className="h-3.5 w-3.5 text-gray-400 shrink-0 mt-0.5" />
                           <span>
                             {streetLine}

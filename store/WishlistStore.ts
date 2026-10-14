@@ -32,6 +32,7 @@ type WishlistState = {
   setWishlist: (items: WishlistItem[]) => void;
   addItem: (item: WishlistItem) => void;
   removeItem: (productId: string) => void;
+  clearWishlist: () => void;
   totalItems: () => number;
 };
 
@@ -159,6 +160,7 @@ export const useWishlistStore = create<WishlistState>()(
             (item) => item.productId !== productId && item.slug !== productId,
           ),
         })),
+      clearWishlist: () => set({ items: [] }),
       totalItems: () => get().items.length,
     }),
     {

@@ -71,7 +71,7 @@ const Page = () => {
       });
 
       try {
-        await Promise.all([syncWishlistFromDB(), syncCartFromDB()]);
+        await Promise.all([syncWishlistFromDB(true), syncCartFromDB(true)]);
       } catch (syncErr) {
         console.error("Post-login sync error:", syncErr);
       }

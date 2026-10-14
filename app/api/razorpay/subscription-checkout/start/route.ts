@@ -20,6 +20,7 @@ import {
   normalizeSubscriptionCheckoutItem,
 } from "@/lib/subscriptionCheckout";
 import { ORDER_STATUS } from "@/const/globalconst";
+import { formatMixBoxRecipe } from "@/lib/mixYourBox";
 
 function fromUnix(seconds?: number | null) {
   return seconds ? new Date(seconds * 1000) : null;
@@ -134,7 +135,7 @@ export async function POST(req: Request) {
         boxCount: quote.boxCount,
         freeLiners: quote.freeLiners,
         productVarientName: quote.mixBoxRecipe
-          ? `${quote.product.name} Mix Box`
+          ? formatMixBoxRecipe(quote.mixBoxRecipe, (quote.boxCount || quote.quantity || 1) * 4)
           : quote.variant.name ?? quote.product.name,
         productVarientSlug: quote.product.slug,
         productVarientImage: quote.variant.bannerImage ?? quote.product.bannerImage,

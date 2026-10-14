@@ -4,6 +4,7 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import type { CartItem, CartCoupon } from "./cartTypes";
 import { getMixBoxCartKey } from "@/lib/mixYourBox";
+import { getYatraKitCartKey } from "@/lib/yatraKit";
 import { getProductMaxQuantity } from "@/lib/productQuantityLimits";
 
 type CartState = {
@@ -24,6 +25,7 @@ type CartState = {
     quantity: number,
     sku?: string,
     productVariantId?: string,
+    uuid?: string,
   ) => void;
   clearCart: () => void;
   setCart: (items: CartItem[]) => void;
@@ -46,8 +48,13 @@ const getItemKey = (item: {
   mixBoxRecipe?: CartItem["mixBoxRecipe"];
   purchaseType?: CartItem["purchaseType"];
   subscriptionType?: CartItem["subscriptionType"];
+  yatraKit?: CartItem["yatraKit"];
 }) => {
-  if (item.mixBoxRecipe) {
+  if (item.yatraKit) {
+    return getYatraKitCartKey(item.yatraKit) + (item.uuid ? `-${item.uuid}` : "");
+  }
+
+  if (item.mixBoxRecipe && (item.mixBoxRecipe as any).type !== "yatraKit") {
     return getMixBoxCartKey({
       productId: item.productId,
       recipe: item.mixBoxRecipe,
@@ -81,10 +88,43 @@ export const useCartStore = create<CartState>()(
           if (existing && item.isQuantityChangable == true) {
             const maxQty = getProductMaxQuantity(existing);
             const targetQty = Math.min(maxQty, existing.quantity + (item.quantity || 1));
+            const hasLiners = Boolean(
+              item.freeLiners ||
+              existing.freeLiners ||
+              item.slug === "ovy-pads" ||
+              existing.slug === "ovy-pads" ||
+              item.sku?.includes("OVY-PAD") ||
+              existing.sku?.includes("OVY-PAD")
+            );
             return {
               items: state.items.map((i:any) =>
                 getItemKey(i) === getItemKey(item)
-                  ? { ...i, quantity: targetQty }
+                  ? {
+                      ...i,
+                      quantity: targetQty,
+                      ...(hasLiners
+                        ? {
+                            boxCount: targetQty,
+                            totalPads: targetQty * 21,
+                            freeLiners: targetQty * 4,
+                          }
+                        : {}),
+                    }
+                  : i
+              ),
+            };
+          }
+
+          if (existing && item.yatraKit) {
+            const maxQty = getProductMaxQuantity(existing);
+            const targetQty = Math.min(maxQty, existing.quantity + (item.quantity || 1));
+            return {
+              items: state.items.map((i: any) =>
+                getItemKey(i) === getItemKey(item)
+                  ? {
+                      ...i,
+                      quantity: targetQty,
+                    }
                   : i
               ),
             };
@@ -92,23 +132,43 @@ export const useCartStore = create<CartState>()(
 
           if (existing && item.mixBoxRecipe) {
             const maxQty = getProductMaxQuantity(existing);
-            const targetQty = Math.min(maxQty, existing.quantity + 1);
+            const targetQty = Math.min(maxQty, existing.quantity + (item.quantity || 1));
             return {
-              items: state.items.map((i:any) =>
+              items: state.items.map((i: any) =>
                 getItemKey(i) === getItemKey(item)
-                  ? { ...i, quantity: targetQty }
+                  ? {
+                      ...i,
+                      quantity: targetQty,
+                      boxCount: targetQty,
+                      totalPads: targetQty * 21,
+                      freeLiners: targetQty * 4,
+                    }
                   : i
               ),
             };
           }
 
           const maxQty = getProductMaxQuantity(item);
+          const finalQty = Math.min(maxQty, item.quantity || 1);
+          const hasLiners = Boolean(
+            item.freeLiners ||
+            item.mixBoxRecipe ||
+            item.slug === "ovy-pads" ||
+            item.sku?.includes("OVY-PAD")
+          );
           return {
             items: [
               ...state.items,
               {
                 ...item,
-                quantity: Math.min(maxQty, item.quantity || 1),
+                quantity: finalQty,
+                ...(hasLiners
+                  ? {
+                      boxCount: item.boxCount || finalQty,
+                      totalPads: item.totalPads || finalQty * 21,
+                      freeLiners: item.freeLiners || finalQty * 4,
+                    }
+                  : {}),
                 addedAt: Date.now(),
               },
             ],
@@ -148,20 +208,38 @@ export const useCartStore = create<CartState>()(
           }),
         })),
 
-      updateQuantity: (productId, quantity, sku, productVariantId) =>
+      updateQuantity: (productId, quantity, sku, productVariantId, uuid) =>
         set((state) => ({
           items: state.items
             .map((i) => {
-              const isMatch =
-                i.productId === productId &&
-                (productVariantId
-                  ? i.productVariantId === productVariantId
-                  : sku
-                    ? i.sku === sku
-                    : true);
+              const isMatch = uuid
+                ? i.uuid === uuid
+                : i.productId === productId &&
+                  (productVariantId
+                    ? i.productVariantId === productVariantId
+                    : sku
+                      ? i.sku === sku
+                      : true);
               if (isMatch) {
                 const maxQty = getProductMaxQuantity(i);
-                return { ...i, quantity: Math.min(maxQty, quantity) };
+                const targetQty = Math.min(maxQty, quantity);
+                const hasLiners = Boolean(
+                  i.freeLiners ||
+                  i.mixBoxRecipe ||
+                  i.slug === "ovy-pads" ||
+                  i.sku?.includes("OVY-PAD")
+                );
+                return {
+                  ...i,
+                  quantity: targetQty,
+                  ...(hasLiners
+                    ? {
+                        boxCount: targetQty,
+                        totalPads: targetQty * 21,
+                        freeLiners: targetQty * 4,
+                      }
+                    : {}),
+                };
               }
               return i;
             })

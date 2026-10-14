@@ -13,7 +13,8 @@ import { requireUserWithRefresh } from "../user/action";
 import { calculateCheckoutPricingForUser } from "../checkout/action";
 import { ORDER_STATUS, ORDER_STATUS_ITEMS } from "@/const/globalconst";
 import { getImageKey } from "@/lib/imageUrl";
-import { calculateMixBoxPricing, type MixBoxRecipe } from "@/lib/mixYourBox";
+import { calculateMixBoxPricing, formatMixBoxRecipe, type MixBoxRecipe } from "@/lib/mixYourBox";
+import { formatYatraKitSummary } from "@/lib/yatraKit";
 import {
   sendDeliveryConfirmationEmail,
   sendOrderStatusUpdateEmail,
@@ -730,7 +731,11 @@ export async function createPendingCheckoutOrder({
         const p = productMap.get(item.productId);
         const v = item.productVariantId ? variantMap.get(item.productVariantId) : null;
         const itemPrice = v?.price ?? 0;
-        const mixPricing = item.mixBoxRecipe
+        const isYatraKit = Boolean(
+          item.yatraKit || (item.mixBoxRecipe && (item.mixBoxRecipe as any).type === "yatraKit"),
+        );
+        const yatraKitData = isYatraKit ? (item.yatraKit || item.mixBoxRecipe) : null;
+        const mixPricing = item.mixBoxRecipe && !isYatraKit
           ? calculateMixBoxPricing({
               recipe: item.mixBoxRecipe as MixBoxRecipe,
               setPrice: itemPrice,
@@ -743,20 +748,32 @@ export async function createPendingCheckoutOrder({
           throw new Error("Invalid product data");
         }
 
+        const yatraSummary = isYatraKit ? formatYatraKitSummary(yatraKitData) : null;
+        const yatraPrice = Number(item.price || itemPrice);
+
         return {
           orderId,
           productVariantId: v?.id ?? null,
           quantity: item.quantity,
-          mixBoxRecipe: item.mixBoxRecipe,
+          mixBoxRecipe: isYatraKit ? { type: "yatraKit", ...yatraKitData } : item.mixBoxRecipe,
           totalPads: item.totalPads ?? mixPricing?.totalPads ?? null,
           boxCount: item.boxCount ?? mixPricing?.boxCount ?? null,
           freeLiners: item.freeLiners ?? mixPricing?.freeLiners ?? null,
-          productVarientName: item.mixBoxRecipe ? `${p.name} Mix Box` : v?.name ?? p.name,
-          productVarientSlug: p.slug,
-          productVarientImage: v?.bannerImage ?? p.bannerImage ?? null,
-          productVarientSKU: item.mixBoxRecipe ? "MIX-BOX" : v?.sku ?? null,
-          productVarientPrice:
-            item.mixBoxRecipe && mixPricing?.valid
+          productVarientName: isYatraKit
+            ? yatraSummary
+            : item.mixBoxRecipe
+              ? formatMixBoxRecipe(item.mixBoxRecipe, (item.boxCount || item.quantity || 1) * 4)
+              : v?.name ?? p.name,
+          productVarientSlug: isYatraKit ? "looway-yatra-kit" : p.slug,
+          productVarientImage: isYatraKit ? "/looway/yatra-kit-thumb-v2.png" : v?.bannerImage ?? p.bannerImage ?? null,
+          productVarientSKU: isYatraKit
+            ? `YATRA-KIT-${(yatraKitData?.kitId || "CUSTOM").toUpperCase()}`
+            : item.mixBoxRecipe
+              ? "MIX-BOX"
+              : v?.sku ?? null,
+          productVarientPrice: isYatraKit
+            ? yatraPrice
+            : item.mixBoxRecipe && mixPricing?.valid
               ? mixPricing.price
               : itemPrice,
         };

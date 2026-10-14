@@ -43,6 +43,7 @@ interface TripTabContent {
   image: string;
   items: TripIncludedItem[];
   totalPrice: number;
+  kitId: string;
   builderLinkText: string;
 }
 
@@ -78,6 +79,7 @@ const TRIP_DATA: TripTabContent[] = [
       },
     ],
     totalPrice: 1397,
+    kitId: "teerth",
     builderLinkText: "Or start from the Teerth Yatra kit in the builder →",
   },
   {
@@ -102,16 +104,10 @@ const TRIP_DATA: TripTabContent[] = [
         image: "/products/funnel.jpg",
         bgClass: "bg-[#FDEBF3]",
       },
-      {
-        title: "Pee and Puke Bags",
-        subtitle: "Pack of 10",
-        price: 549,
-        image: "/products/pukebags.jpg",
-        bgClass: "bg-[#EAF3EE]",
-      },
     ],
-    totalPrice: 1397,
-    builderLinkText: "Or start from the Road Trip kit in the builder →",
+    totalPrice: 848,
+    kitId: "weekender",
+    builderLinkText: "Or start from the Weekender kit in the builder →",
   },
   {
     tabKey: "train",
@@ -144,7 +140,8 @@ const TRIP_DATA: TripTabContent[] = [
       },
     ],
     totalPrice: 1397,
-    builderLinkText: "Or start from the Train & Bus kit in the builder →",
+    kitId: "complete",
+    builderLinkText: "Or start from the Complete kit in the builder →",
   },
   {
     tabKey: "trek",
@@ -168,16 +165,10 @@ const TRIP_DATA: TripTabContent[] = [
         image: "/products/pukebags.jpg",
         bgClass: "bg-[#EAF3EE]",
       },
-      {
-        title: "Disposable Toilet Seat Covers",
-        subtitle: "2-pack, 50 covers",
-        price: 549,
-        image: "/products/seatcovers.jpg",
-        bgClass: "bg-[#E8F5FD]",
-      },
     ],
-    totalPrice: 1397,
-    builderLinkText: "Or start from the Trek & Camp kit in the builder →",
+    totalPrice: 848,
+    kitId: "sports",
+    builderLinkText: "Or start from the Sports & Adventure kit in the builder →",
   },
   {
     tabKey: "pregnancy",
@@ -188,18 +179,18 @@ const TRIP_DATA: TripTabContent[] = [
     image: "/looway/scen-bags-preg.jpg",
     items: [
       {
-        title: "Pee Funnel",
-        subtitle: "Pack of 1",
-        price: 299,
-        image: "/products/funnel.jpg",
-        bgClass: "bg-[#FDEBF3]",
-      },
-      {
         title: "Disposable Toilet Seat Covers",
         subtitle: "2-pack, 50 covers",
         price: 549,
         image: "/products/seatcovers.jpg",
         bgClass: "bg-[#E8F5FD]",
+      },
+      {
+        title: "Pee Funnel",
+        subtitle: "Pack of 1",
+        price: 299,
+        image: "/products/funnel.jpg",
+        bgClass: "bg-[#FDEBF3]",
       },
       {
         title: "Pee and Puke Bags",
@@ -210,7 +201,8 @@ const TRIP_DATA: TripTabContent[] = [
       },
     ],
     totalPrice: 1397,
-    builderLinkText: "Or start from the Pregnancy Care kit in the builder →",
+    kitId: "preg",
+    builderLinkText: "Or start from the Pregnancy Travel kit in the builder →",
   },
   {
     tabKey: "kids",
@@ -234,16 +226,10 @@ const TRIP_DATA: TripTabContent[] = [
         image: "/products/pukebags.jpg",
         bgClass: "bg-[#EAF3EE]",
       },
-      {
-        title: "Pee Funnel",
-        subtitle: "Pack of 1",
-        price: 299,
-        image: "/products/funnel.jpg",
-        bgClass: "bg-[#FDEBF3]",
-      },
     ],
-    totalPrice: 1397,
-    builderLinkText: "Or start from the Kids & Family kit in the builder →",
+    totalPrice: 1098,
+    kitId: "toddler",
+    builderLinkText: "Or start from the Toddler Travel kit in the builder →",
   },
   {
     tabKey: "parents",
@@ -276,7 +262,8 @@ const TRIP_DATA: TripTabContent[] = [
       },
     ],
     totalPrice: 1397,
-    builderLinkText: "Or start from the Parents Travel kit in the builder →",
+    kitId: "family",
+    builderLinkText: "Or start from the Family kit in the builder →",
   },
   {
     tabKey: "daily",
@@ -293,23 +280,10 @@ const TRIP_DATA: TripTabContent[] = [
         image: "/products/seatcovers.jpg",
         bgClass: "bg-[#E8F5FD]",
       },
-      {
-        title: "Pee Funnel",
-        subtitle: "Pack of 1",
-        price: 299,
-        image: "/products/funnel.jpg",
-        bgClass: "bg-[#FDEBF3]",
-      },
-      {
-        title: "Pee and Puke Bags",
-        subtitle: "Pack of 10",
-        price: 549,
-        image: "/products/pukebags.jpg",
-        bgClass: "bg-[#EAF3EE]",
-      },
     ],
-    totalPrice: 1397,
-    builderLinkText: "Or start from the Daily Essential kit in the builder →",
+    totalPrice: 549,
+    kitId: "working",
+    builderLinkText: "Or start from the Working Woman kit in the builder →",
   },
 ];
 
@@ -535,19 +509,7 @@ export function LoowayShopByTrip({
                   </button>
 
                   <Link
-                    href={`/looway-yatra-kit?kit=${
-                      currentTrip.tabKey === "teerth"
-                        ? "teerth"
-                        : currentTrip.tabKey === "pregnancy"
-                        ? "preg"
-                        : currentTrip.tabKey === "toddler"
-                        ? "toddler"
-                        : currentTrip.tabKey === "girls"
-                        ? "girls"
-                        : currentTrip.tabKey === "boys"
-                        ? "boys"
-                        : "solo"
-                    }#choose-kit`}
+                    href={`/looway-yatra-kit?kit=${currentTrip.kitId}#choose-kit`}
                     className="inline-flex items-center gap-1 text-xs font-semibold text-[#0B6E7D] hover:underline"
                   >
                     <span>{currentTrip.builderLinkText}</span>

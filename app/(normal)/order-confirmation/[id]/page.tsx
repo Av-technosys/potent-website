@@ -11,6 +11,8 @@ import { getOrderConfirmationById } from "@/helper/order/action";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatMixBoxRecipe } from "@/lib/mixYourBox";
+import { formatYatraKitContents } from "@/lib/yatraKit";
+import { isOvyPadItem, getFreeLinersCount } from "@/lib/cartItemDisplay";
 
 export const dynamic = "force-dynamic";
 
@@ -130,17 +132,31 @@ export default async function OrderConfirmationPage({ params }: any) {
                       {item.productSKU ? `SKU: ${item.productSKU}` : ""}
                       {item.quantity ? ` | Qty: ${item.quantity}` : ""}
                     </p>
-                    {item.mixBoxRecipe && (
-                      <div className="mt-2 rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-600">
-                        <p>Mix: {formatMixBoxRecipe(item.mixBoxRecipe)}</p>
-                        <p>
-                          {item.totalPads ?? 0} pads, {item.boxCount ?? 0} box
-                          {Number(item.boxCount ?? 0) === 1 ? "" : "es"},{" "}
-                          {item.freeLiners ?? Number(item.boxCount ?? 0) * 4}{" "}
-                          free liners
+                    {Boolean(item.yatraKit || (item.mixBoxRecipe && item.mixBoxRecipe.type === "yatraKit")) ? (
+                      <div className="mt-2 rounded-lg bg-[#EAF6F4] px-3 py-2 text-sm text-[#116B66] font-medium space-y-1 border border-[#116B66]/20">
+                        <p>{formatYatraKitContents(item.yatraKit || item.mixBoxRecipe)}</p>
+                        <p className="text-xs font-bold text-[#15803D]">
+                          ✓ Free Intimate Wipes ({(item.yatraKit || item.mixBoxRecipe)?.freeWipesCount || 10} wipes) included
                         </p>
                       </div>
-                    )}
+                    ) : item.mixBoxRecipe ? (
+                      <div className="mt-2 space-y-1.5">
+                        <div className="rounded-lg bg-gray-50 px-3 py-2 text-sm text-[#7E4D77] font-medium">
+                          <p>{formatMixBoxRecipe(item.mixBoxRecipe)}</p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="inline-flex items-center gap-1 rounded bg-[#E6F4EA] px-2 py-0.5 text-xs font-bold text-[#15803D] border border-[#BFE3CA]">
+                            🎁 +{getFreeLinersCount(item)} Free Liners
+                          </span>
+                        </div>
+                      </div>
+                    ) : isOvyPadItem(item) ? (
+                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                        <span className="inline-flex items-center gap-1 rounded bg-[#E6F4EA] px-2 py-0.5 text-xs font-bold text-[#15803D] border border-[#BFE3CA]">
+                          🎁 +{getFreeLinersCount(item)} Free Liners
+                        </span>
+                      </div>
+                    ) : null}
                   </div>
                   <p className="shrink-0 text-sm font-bold text-gray-950">
                     {formatMoney(

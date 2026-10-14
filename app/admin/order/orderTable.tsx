@@ -16,6 +16,8 @@ import { Select } from "@/components/select";
 import { updateOrderStatus } from "@/helper/index";
 import { ORDER_STATUS_ITEMS } from "@/const/globalconst";
 import { toast } from "sonner";
+import { formatMixBoxRecipe } from "@/lib/mixYourBox";
+import { formatYatraKitContents } from "@/lib/yatraKit";
 
 interface OrderTableProps {
   page: number;
@@ -42,16 +44,18 @@ function formatOrderDate(dateVal: any) {
 
 function renderMixBoxRecipe(recipe: any) {
   if (!recipe) return null;
-  const pads = recipe.pads || {};
-  const breakdown = Object.entries(pads)
-    .filter(([_, count]) => Number(count) > 0)
-    .map(([size, count]) => `${size}: ${count}`)
-    .join(" • ");
-
-  if (!breakdown) return null;
+  if (recipe.type === "yatraKit" || recipe.kitId) {
+    return (
+      <div className="mt-0.5 text-[11px] font-semibold text-[#116B66] bg-[#EAF6F4] rounded px-1.5 py-0.5 inline-block">
+        {formatYatraKitContents(recipe)} · Free Wipes ({recipe.freeWipesCount || 10})
+      </div>
+    );
+  }
+  const line = formatMixBoxRecipe(recipe);
+  if (!line) return null;
   return (
-    <div className="mt-0.5 text-[11px] font-medium text-amber-800 bg-amber-50 rounded px-1.5 py-0.5 inline-block">
-      Box mix: {breakdown}
+    <div className="mt-0.5 text-[11px] font-semibold text-[#7E4D77] bg-[#F3E6F0] rounded px-1.5 py-0.5 inline-block">
+      {line}
     </div>
   );
 }

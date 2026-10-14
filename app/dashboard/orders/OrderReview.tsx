@@ -11,6 +11,7 @@ import { on } from "events";
 import { createReview } from "@/helper";
 import { getImageUrl } from "@/lib/imageUrl";
 import { formatMixBoxRecipe } from "@/lib/mixYourBox";
+import { formatYatraKitContents } from "@/lib/yatraKit";
 import {
   Card,
   CardContent,
@@ -245,11 +246,20 @@ export const OrderReview = ({
                               <p className="text-sm text-muted-foreground">
                                 Quantity : {item.quantity}
                               </p>
-                              {item.mixBoxRecipe && (
-                                <p className="mt-1 text-xs text-muted-foreground">
-                                  Mix: {formatMixBoxRecipe(item.mixBoxRecipe)}
+                              {Boolean(item.yatraKit || (item.mixBoxRecipe && item.mixBoxRecipe.type === "yatraKit")) ? (
+                                <div className="mt-1 space-y-0.5">
+                                  <p className="text-xs font-semibold text-[#116B66]">
+                                    {formatYatraKitContents(item.yatraKit || item.mixBoxRecipe)}
+                                  </p>
+                                  <p className="text-[11px] font-bold text-[#15803D]">
+                                    ✓ Free Intimate Wipes ({(item.yatraKit || item.mixBoxRecipe)?.freeWipesCount || 10} wipes) included
+                                  </p>
+                                </div>
+                              ) : item.mixBoxRecipe ? (
+                                <p className="mt-1 text-xs font-semibold text-[#7E4D77]">
+                                  {formatMixBoxRecipe(item.mixBoxRecipe, (item.boxCount || item.quantity || 1) * 4)}
                                 </p>
-                              )}
+                              ) : null}
                             </div>
                           </div>
                           <p className="text-lg font-bold">

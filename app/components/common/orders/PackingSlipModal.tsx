@@ -11,6 +11,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { formatMixBoxRecipe } from "@/lib/mixYourBox";
+import { formatYatraKitContents } from "@/lib/yatraKit";
 
 interface PackingSlipModalProps {
   order: any;
@@ -247,11 +249,20 @@ export function PackingSlipModal({
                               SKU: {item.productSKU}
                             </p>
                           )}
-                          {item.mixBoxRecipe && (
-                            <p className="text-[10px] text-teal-700 mt-0.5">
-                              Custom Mix Box Pack
+                          {Boolean(item.yatraKit || (item.mixBoxRecipe && item.mixBoxRecipe.type === "yatraKit")) ? (
+                            <div className="mt-1 space-y-0.5">
+                              <p className="text-[11px] font-medium text-[#116B66]">
+                                {formatYatraKitContents(item.yatraKit || item.mixBoxRecipe)}
+                              </p>
+                              <p className="text-[10px] font-bold text-[#15803D]">
+                                ✓ Free Intimate Wipes ({(item.yatraKit || item.mixBoxRecipe)?.freeWipesCount || 10} wipes) included
+                              </p>
+                            </div>
+                          ) : item.mixBoxRecipe ? (
+                            <p className="text-[11px] font-semibold text-[#7E4D77] mt-0.5">
+                              {formatMixBoxRecipe(item.mixBoxRecipe, (item.boxCount || item.quantity || qty || 1) * 4)}
                             </p>
-                          )}
+                          ) : null}
                         </td>
                         <td className="py-3 px-3 text-center font-bold text-gray-900">
                           {qty} {qty === 1 ? "unit" : "units"}

@@ -3,6 +3,7 @@ import type {
   PurchaseType,
   SubscriptionType,
 } from "@/lib/mixYourBox";
+import type { YatraKitCartItem } from "@/lib/yatraKit";
 
 export type CartAttribute = {
   attribute: string; 
@@ -25,6 +26,7 @@ export type CartItem = {
   totalPads?: number;
   boxCount?: number;
   freeLiners?: number;
+  yatraKit?: YatraKitCartItem;
   purchaseType?: PurchaseType;
   subscriptionType?: SubscriptionType;
   selectedPlan?: any;

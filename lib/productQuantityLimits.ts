@@ -31,6 +31,11 @@ export function getProductMaxQuantity(productOrItem?: {
     return 3;
   }
 
+  // Yatra Kit: up to 3 kits
+  if ((productOrItem as any)?.yatraKit || slug.includes("yatra")) {
+    return 3;
+  }
+
   const adminLimit = Number(
     productOrItem.maxQuantityPurchase || productOrItem.max_quantity_purchase
   );
@@ -52,5 +57,9 @@ export function getProductMaxQuantity(productOrItem?: {
 
 export function getMaxQuantityMessage(max: number): string {
   return `Maximum ${max} per order`;
+}
+
+export function getMixBoxLimitMessage(): string {
+  return "Need more? Write to care@potenthygiene.com";
 }
 

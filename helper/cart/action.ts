@@ -31,6 +31,7 @@ export async function getCart() {
 
     const itemsWithDetails = await db
       .select({
+        cartItemId: cartItem.id,
         productId: cartItem.productId,
         productVariantId: cartItem.productVariantId,
         quantity: cartItem.quantity,
@@ -52,7 +53,51 @@ export async function getCart() {
       .leftJoin(productVariant, eq(cartItem.productVariantId, productVariant.id))
       .where(eq(cartItem.cartId, userCart.id));
 
-    return { success: true, items: itemsWithDetails };
+    const mappedItems = itemsWithDetails.map((item) => {
+      const isYatra = Boolean(
+        item.mixBoxRecipe && (item.mixBoxRecipe as any).type === "yatraKit",
+      );
+      if (isYatra) {
+        const yatraData = item.mixBoxRecipe as any;
+        const yatraPrice =
+          yatraData?.items?.reduce(
+            (sum: number, it: any) => sum + Number(it.price || 0) * Number(it.qty || 0),
+            0,
+          ) || Number(item.price || 0);
+
+        return {
+          ...item,
+          uuid: item.cartItemId || (item as any).id,
+          title: "Looway Yatra Kit",
+          variantName: yatraData.kitName || item.variantName,
+          image: "/looway/yatra-kit-thumb-v2.png",
+          price: yatraPrice,
+          yatraKit: yatraData,
+          mixBoxRecipe: undefined,
+          isQuantityChangable: false,
+        };
+      }
+      const isPad = Boolean(
+        item.slug === "ovy-pads" ||
+        item.sku?.includes("OVY-PAD") ||
+        item.mixBoxRecipe ||
+        item.title?.toLowerCase().includes("sanitary pad")
+      );
+      const qty = Number(item.quantity || 1);
+      return {
+        ...item,
+        uuid: item.cartItemId || (item as any).id,
+        ...(isPad
+          ? {
+              boxCount: item.boxCount || qty,
+              totalPads: item.totalPads || qty * 21,
+              freeLiners: item.freeLiners || qty * 4,
+            }
+          : {}),
+      };
+    });
+
+    return { success: true, items: mappedItems };
   } catch (error) {
     console.error("Error fetching cart:", error);
     return { success: false, error: "Failed to fetch cart" };
@@ -69,6 +114,7 @@ export async function addToCart(
   uuid?: any,
   metadata?: {
     mixBoxRecipe?: any;
+    yatraKit?: any;
   }
 ) {
   try {
@@ -168,6 +214,29 @@ export async function addToCart(
       await tx.execute(
         sql`SELECT id FROM cart WHERE id = ${existingCart.id} FOR UPDATE`,
       );
+
+      if (metadata?.yatraKit) {
+        const [mixVariant] = await tx
+          .select({ id: productVariant.id })
+          .from(productVariant)
+          .where(eq(productVariant.productId, actualProductId))
+          .limit(1);
+
+        await tx.insert(cartItem).values({
+          id: uuidv4(),
+          cartId: existingCart.id,
+          productId: actualProductId,
+          productVariantId: resolvedVariantId || mixVariant?.id || null,
+          quantity: quantity || 1,
+          mixBoxRecipe: { type: "yatraKit", ...metadata.yatraKit },
+        });
+
+        return {
+          success: true,
+          action: "added",
+          quantity: quantity || 1,
+        };
+      }
 
       if (!cartSizes || cartSizes.length === 0) {
         // Check if item already exists
@@ -303,20 +372,48 @@ export async function removeFromCart(
         sql`SELECT id FROM cart WHERE id = ${userCart.id} FOR UPDATE`,
       );
 
-      if (!cartSizes || cartSizes.length === 0) {
+      // 1. If uuid is provided and is a valid UUID, delete directly by cartItem.id
+      if (uuid && isUUID(uuid)) {
         await tx.delete(cartItem).where(
           and(
             eq(cartItem.cartId, userCart.id),
-            eq(cartItem.productId, productId),
-            productVariantId ? eq(cartItem.productVariantId, productVariantId) : sql`TRUE`
+            eq(cartItem.id, uuid),
           ),
         );
-      } else {
+        return { success: true };
+      }
+
+      // 2. Resolve actualProductId if passed as slug or non-UUID
+      let actualProductId = productId;
+      if (productId && !isUUID(productId)) {
+        const [prod] = await tx
+          .select({ id: product.id })
+          .from(product)
+          .where(eq(product.slug, productId))
+          .limit(1);
+        if (prod) {
+          actualProductId = prod.id;
+        }
+      }
+
+      let validVariantId = productVariantId && isUUID(productVariantId) ? productVariantId : null;
+      if (productVariantId && !validVariantId) {
+        const [v] = await tx
+          .select({ id: productVariant.id })
+          .from(productVariant)
+          .where(eq(productVariant.sku, productVariantId))
+          .limit(1);
+        if (v) {
+          validVariantId = v.id;
+        }
+      }
+
+      if (isUUID(actualProductId)) {
         await tx.delete(cartItem).where(
           and(
             eq(cartItem.cartId, userCart.id),
-            eq(cartItem.productId, productId),
-            productVariantId ? eq(cartItem.productVariantId, productVariantId) : sql`TRUE`,
+            eq(cartItem.productId, actualProductId),
+            validVariantId ? eq(cartItem.productVariantId, validVariantId) : sql`TRUE`
           ),
         );
       }
@@ -336,6 +433,7 @@ export async function updateCartItemQuantity(
   productId: string,
   quantity: number,
   productVariantId?: string,
+  uuid?: string,
 ) {
   try {
     const { userId } = await requireUserWithRefresh();
@@ -359,14 +457,67 @@ export async function updateCartItemQuantity(
         sql`SELECT id FROM cart WHERE id = ${userCart.id} FOR UPDATE`,
       );
 
+      // 1. If uuid is a valid UUID, update/delete directly by cartItem.id
+      if (uuid && isUUID(uuid)) {
+        if (quantity === 0) {
+          await tx
+            .delete(cartItem)
+            .where(
+              and(
+                eq(cartItem.cartId, userCart.id),
+                eq(cartItem.id, uuid),
+              ),
+            );
+        } else {
+          await tx
+            .update(cartItem)
+            .set({ quantity })
+            .where(
+              and(
+                eq(cartItem.cartId, userCart.id),
+                eq(cartItem.id, uuid),
+              ),
+            );
+        }
+        return { success: true };
+      }
+
+      let actualProductId = productId;
+      if (productId && !isUUID(productId)) {
+        const [prod] = await tx
+          .select({ id: product.id })
+          .from(product)
+          .where(eq(product.slug, productId))
+          .limit(1);
+        if (prod) {
+          actualProductId = prod.id;
+        }
+      }
+
+      let validVariantId = productVariantId && isUUID(productVariantId) ? productVariantId : null;
+      if (productVariantId && !validVariantId) {
+        const [v] = await tx
+          .select({ id: productVariant.id })
+          .from(productVariant)
+          .where(eq(productVariant.sku, productVariantId))
+          .limit(1);
+        if (v) {
+          validVariantId = v.id;
+        }
+      }
+
+      if (!isUUID(actualProductId)) {
+        return { success: true };
+      }
+
       if (quantity === 0) {
         await tx
           .delete(cartItem)
           .where(
             and(
               eq(cartItem.cartId, userCart.id),
-              eq(cartItem.productId, productId),
-              productVariantId ? eq(cartItem.productVariantId, productVariantId) : sql`TRUE`
+              eq(cartItem.productId, actualProductId),
+              validVariantId ? eq(cartItem.productVariantId, validVariantId) : sql`TRUE`
             ),
           );
       } else {
@@ -377,7 +528,7 @@ export async function updateCartItemQuantity(
             maxQuantityPurchase: product.maxQuantityPurchase,
           })
           .from(product)
-          .where(eq(product.id, productId))
+          .where(eq(product.id, actualProductId))
           .limit(1);
 
         const maxLimit = getProductMaxQuantity(productRecord);
@@ -389,8 +540,8 @@ export async function updateCartItemQuantity(
           .where(
             and(
               eq(cartItem.cartId, userCart.id),
-              eq(cartItem.productId, productId),
-              productVariantId ? eq(cartItem.productVariantId, productVariantId) : sql`TRUE`
+              eq(cartItem.productId, actualProductId),
+              validVariantId ? eq(cartItem.productVariantId, validVariantId) : sql`TRUE`
             ),
           );
       }

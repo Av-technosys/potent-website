@@ -22,7 +22,7 @@ const KITS_DATA: KitCardData[] = [
     isDark: true,
   },
   {
-    id: "solo",
+    id: "weekender",
     kicker: "SOLO, SHORT TRIP",
     title: "Weekender",
     contents: "Seat covers · Pee and puke bags",

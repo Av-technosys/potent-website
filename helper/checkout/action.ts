@@ -60,11 +60,28 @@ async function getUserCartItems(userId: string) {
     .leftJoin(productVariant, eq(cartItem.productVariantId, productVariant.id))
     .where(eq(cartItem.cartId, userCart.id));
 
-  return items.map((item) => ({
-    ...item,
-    quantity: item.quantity ?? 1,
-    price: item.price ?? 0,
-  }));
+  return items.map((item) => {
+    const isYatra = Boolean(
+      item.mixBoxRecipe && (item.mixBoxRecipe as any).type === "yatraKit",
+    );
+    const yatraData = isYatra ? (item.mixBoxRecipe as any) : null;
+    const yatraPrice =
+      yatraData?.items?.reduce(
+        (sum: number, it: any) => sum + Number(it.price || 0) * Number(it.qty || 0),
+        0,
+      ) || Number(item.price || 0);
+
+    return {
+      ...item,
+      quantity: item.quantity ?? 1,
+      price: isYatra ? yatraPrice : (item.price ?? 0),
+      title: isYatra ? "Looway Yatra Kit" : item.title,
+      variantName: isYatra ? yatraData.kitName : item.variantName,
+      image: isYatra ? "/looway/yatra-kit-thumb-v2.png" : item.image,
+      yatraKit: yatraData,
+      mixBoxRecipe: isYatra ? undefined : item.mixBoxRecipe,
+    };
+  });
 }
 
 async function getValidCoupon({
@@ -130,13 +147,37 @@ export async function calculateCheckoutPricingForUser({
   couponCode?: string | null;
   customItems?: any[];
 }) {
-  const items =
+  const rawItems =
     customItems && customItems.length > 0
       ? customItems
       : await getUserCartItems(userId);
 
+  const items = rawItems.map((item) => {
+    const isYatra = Boolean(
+      item.yatraKit || (item.mixBoxRecipe && (item.mixBoxRecipe as any).type === "yatraKit"),
+    );
+    if (!isYatra) return item;
+    const yatraData = item.yatraKit || (item.mixBoxRecipe as any);
+    const yatraPrice =
+      yatraData?.items?.reduce(
+        (sum: number, it: any) => sum + Number(it.price || 0) * Number(it.qty || 0),
+        0,
+      ) || Number(item.price || 0);
+
+    return {
+      ...item,
+      quantity: item.quantity ?? 1,
+      price: yatraPrice,
+      title: "Looway Yatra Kit",
+      variantName: yatraData.kitName || item.variantName,
+      image: item.image || "/looway/yatra-kit-thumb-v2.png",
+      yatraKit: yatraData,
+      mixBoxRecipe: undefined,
+    };
+  });
+
   for (const item of items) {
-    if (!item.mixBoxRecipe) continue;
+    if (!item.mixBoxRecipe || (item.mixBoxRecipe as any).type === "yatraKit") continue;
 
     const pricing = calculateMixBoxPricing({
       recipe: item.mixBoxRecipe as MixBoxRecipe,
@@ -208,7 +249,11 @@ export async function calculateCheckoutPricingForUser({
     items.reduce((sum, item) => {
       const price = Number(item.price || 0);
 
-      if (item.mixBoxRecipe) {
+      const isYatra = Boolean(
+        item.yatraKit || (item.mixBoxRecipe && (item.mixBoxRecipe as any).type === "yatraKit"),
+      );
+
+      if (item.mixBoxRecipe && !isYatra) {
         const pricing = calculateMixBoxPricing({
           recipe: item.mixBoxRecipe as MixBoxRecipe,
           setPrice: price,

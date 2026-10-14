@@ -31,9 +31,13 @@ import {
 import { toast } from "sonner";
 import { addToCart as addToCartAction } from "@/store/cartActions";
 import {
+  getItemProductGroup,
   getYatraKitDistinctItemCount,
   getYatraKitTotal,
+  MAX_QTY,
   normalizeYatraKitRecipe,
+  YATRA_VARIANT_GROUPS,
+  type YatraKitCartItem,
   type YatraKitItemKey,
   type YatraKitRecipe,
   type YatraMappedProduct,
@@ -116,15 +120,31 @@ function useColumnsCount() {
   return cols;
 }
 
+const STORAGE_KEY_KIT = "looway_yatra_selected_kit";
+const STORAGE_KEY_RECIPES = "looway_yatra_kit_quantities";
+const STORAGE_KEY_NUDGE_DISMISSED = "looway_yatra_nudge_dismissed";
+
 export default function YatraKitPageClient({ content, mappedProducts }: Props) {
   const [selectedKitId, setSelectedKitId] = useState<string>("complete");
 
   const handleSelectKit = (kitId: string) => {
     setSelectedKitId(kitId);
     if (typeof window !== "undefined") {
+      try {
+        window.localStorage.setItem(STORAGE_KEY_KIT, kitId);
+      } catch {}
       const params = new URLSearchParams(window.location.search);
       params.set("kit", kitId);
       window.history.replaceState(null, "", `${window.location.pathname}?${params.toString()}`);
+    }
+  };
+
+  const handleDismissNudge = () => {
+    setShowNudge(false);
+    if (typeof window !== "undefined") {
+      try {
+        window.localStorage.setItem(STORAGE_KEY_NUDGE_DISMISSED, "true");
+      } catch {}
     }
   };
 
@@ -150,11 +170,14 @@ export default function YatraKitPageClient({ content, mappedProducts }: Props) {
 
     const parseUrlKit = () => {
       const searchParams = new URLSearchParams(window.location.search);
-      const kitParam = (
+      let kitParam = (
         searchParams.get("kit") ||
         searchParams.get("tier") ||
         ""
       ).toLowerCase();
+      if (kitParam === "solo") {
+        kitParam = "weekender";
+      }
       const hash = window.location.hash.toLowerCase();
 
       let matchedTierId: string | null = null;
@@ -164,6 +187,7 @@ export default function YatraKitPageClient({ content, mappedProducts }: Props) {
         if (
           kitParam === tierId ||
           (hash.includes(tierId) && tierId !== "solo") ||
+          (hash.includes("solo") && tierId === "weekender") ||
           (kitParam &&
             (tierName.includes(kitParam) || kitParam.includes(tierId)))
         ) {
@@ -172,8 +196,20 @@ export default function YatraKitPageClient({ content, mappedProducts }: Props) {
         }
       }
 
+      if (!matchedTierId && typeof window !== "undefined") {
+        try {
+          const savedKit = window.localStorage.getItem(STORAGE_KEY_KIT);
+          if (savedKit && content.TIERS.some((t: any) => t.id === savedKit)) {
+            matchedTierId = savedKit;
+          }
+        } catch {}
+      }
+
       if (matchedTierId) {
         setSelectedKitId(matchedTierId);
+        try {
+          window.localStorage.setItem(STORAGE_KEY_KIT, matchedTierId);
+        } catch {}
         setTimeout(() => {
           const el = document.getElementById("choose-kit");
           if (el) {
@@ -200,8 +236,16 @@ export default function YatraKitPageClient({ content, mappedProducts }: Props) {
     };
   }, [content?.TIERS]);
 
-  // Point 3: Timed nudge toast popup
+  // Point 3: Timed nudge toast popup (Desktop/laptop only, never if dismissed)
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const dismissed = window.localStorage.getItem(STORAGE_KEY_NUDGE_DISMISSED);
+      if (dismissed || window.innerWidth < 768) return;
+    } catch {
+      return;
+    }
+
     const timer = setTimeout(() => {
       setShowNudge(true);
     }, 3500);
@@ -315,6 +359,38 @@ export default function YatraKitPageClient({ content, mappedProducts }: Props) {
       return initial;
     },
   );
+
+  // Restore saved quantities on mount
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const saved = window.localStorage.getItem(STORAGE_KEY_RECIPES);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === "object") {
+          setQuantities((prev) => {
+            const merged = { ...prev };
+            Object.entries(parsed).forEach(([kitId, rec]) => {
+              merged[kitId] = normalizeYatraKitRecipe(rec as any);
+            });
+            return merged;
+          });
+        }
+      }
+    } catch {}
+  }, []);
+
+  // Save quantities changes to localStorage
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(
+        STORAGE_KEY_RECIPES,
+        JSON.stringify(quantities),
+      );
+    } catch {}
+  }, [quantities]);
+
   const [adding, setAdding] = useState(false);
 
   const cols = useColumnsCount();
@@ -342,13 +418,39 @@ export default function YatraKitPageClient({ content, mappedProducts }: Props) {
       qty: Number(qty),
       product: mappedProducts[key as YatraKitItemKey],
     }));
+
+  const totalItemsInKit = activeContents.reduce((sum, item) => sum + item.qty, 0);
+  const distinctItemCount = getYatraKitDistinctItemCount(activeRecipe);
+  const isKitValid = distinctItemCount >= 2;
   const missingItems = activeContents.filter((item) => !item.product);
 
   const extras = useMemo(() => {
+    if (!activeKit) return [];
     return content.CATALOG.filter((item: any) => {
       if (item.free) return false;
       // Do not offer period panties as an extra in Yatra Kit
       if (item.id === "panty") return false;
+
+      // 1. Exclude items specifically flagged in tier.exclude (e.g. Pregnancy Travel excludes cup)
+      if (Array.isArray(activeKit.exclude) && activeKit.exclude.includes(item.id)) {
+        return false;
+      }
+
+      // 2. For men's trips (e.g. Boys' Trip, aud === "men"), only sensible extras:
+      // Exclude all female hygiene and menstrual products (funnel, pads, liner, cup, panty)
+      if (activeKit.aud === "men" && item.women) {
+        return false;
+      }
+
+      // 3. For Pregnancy Travel, Toddler Travel, or Carekit: exclude cup
+      if (
+        (activeKit.id === "preg" || activeKit.id === "toddler" || activeKit.id === "carekit") &&
+        item.id === "cup"
+      ) {
+        return false;
+      }
+
+      // 4. Do not offer if already in kit in any size/pack variant
       if (item.id === "pads") {
         return (
           !activeRecipe["pads:l"] &&
@@ -356,31 +458,97 @@ export default function YatraKitPageClient({ content, mappedProducts }: Props) {
           !activeRecipe["pads:xlp"]
         );
       }
+      if (item.id === "liner") {
+        return (
+          !activeRecipe["liner"] &&
+          !activeRecipe["liner:40"] &&
+          !activeRecipe["liner:60"] &&
+          !activeRecipe["liner:80"]
+        );
+      }
+      if (item.id === "seat") {
+        return (
+          !activeRecipe["seat"] &&
+          !activeRecipe["seat:p2"] &&
+          !activeRecipe["seat:p4"]
+        );
+      }
+      if (item.id === "pp") {
+        return (
+          !activeRecipe["pp"] &&
+          !activeRecipe["pp:10"] &&
+          !activeRecipe["pp:20"]
+        );
+      }
+      if (item.id === "cup") {
+        return (
+          !activeRecipe["cup"] &&
+          !activeRecipe["cup:xs"] &&
+          !activeRecipe["cup:m"] &&
+          !activeRecipe["cup:l"]
+        );
+      }
+
       return !activeRecipe[item.id as YatraKitItemKey];
     });
-  }, [activeRecipe, content.CATALOG]);
+  }, [activeRecipe, activeKit, content.CATALOG]);
 
   const updateQty = (kitId: string, key: YatraKitItemKey, delta: number) => {
+    const current = quantities[kitId] || {};
+    const currentQty = Number(current[key] || 0);
+    const maxLimit = MAX_QTY[key] || 6;
+
+    if (delta > 0 && currentQty >= maxLimit) {
+      toast.info(`Maximum ${maxLimit} ${maxLimit === 1 ? "unit" : "units"} per kit reached for this item`);
+      return;
+    }
+
     setQuantities((prev) => {
-      const current = prev[kitId] || {};
-      const nextQty = Math.max(0, Number(current[key] || 0) + delta);
+      const curr = prev[kitId] || {};
+      const nextQty = Math.max(0, Number(curr[key] || 0) + delta);
       return {
         ...prev,
         [kitId]: normalizeYatraKitRecipe({
-          ...current,
+          ...curr,
           [key]: nextQty,
         }),
       };
     });
   };
 
+  const switchItemVariant = (oldKey: YatraKitItemKey, newKey: YatraKitItemKey) => {
+    if (oldKey === newKey) return;
+    setQuantities((prev) => {
+      const current = prev[selectedKitId] || {};
+      const qty = Number(current[oldKey] || 1);
+      const updated: Record<string, number> = { ...current };
+      delete updated[oldKey];
+      updated[newKey] = qty;
+      return {
+        ...prev,
+        [selectedKitId]: normalizeYatraKitRecipe(updated),
+      };
+    });
+  };
+
   const resetKit = () => {
     if (!activeKit) return;
-    setQuantities((prev) => ({
-      ...prev,
-      [activeKit.id]: normalizeYatraKitRecipe(activeKit.base),
-    }));
-    toast.success("Kit reset");
+    setQuantities((prev) => {
+      const updated = {
+        ...prev,
+        [activeKit.id]: normalizeYatraKitRecipe(activeKit.base),
+      };
+      if (typeof window !== "undefined") {
+        try {
+          window.localStorage.setItem(
+            STORAGE_KEY_RECIPES,
+            JSON.stringify(updated),
+          );
+        } catch {}
+      }
+      return updated;
+    });
+    toast.success("Kit reset to default");
   };
 
   const addExtra = (item: any) => {
@@ -389,7 +557,15 @@ export default function YatraKitPageClient({ content, mappedProducts }: Props) {
         ? "pads:l"
         : item.id === "panty"
           ? "panty:lxl"
-          : item.id;
+          : item.id === "liner"
+            ? "liner:40"
+            : item.id === "seat"
+              ? "seat:p2"
+              : item.id === "pp"
+                ? "pp:10"
+                : item.id === "cup"
+                  ? "cup:xs"
+                  : item.id;
     updateQty(selectedKitId, key as YatraKitItemKey, 1);
   };
 
@@ -409,28 +585,48 @@ export default function YatraKitPageClient({ content, mappedProducts }: Props) {
 
     setAdding(true);
     try {
-      for (const [key, qty] of Object.entries(recipe)) {
-        const product = mappedProducts[key as YatraKitItemKey];
-        if (!product || !qty) continue;
+      const primaryProduct = activeContents[0]?.product;
+      const kitItems = activeContents.map((c) => ({
+        key: c.key,
+        qty: c.qty,
+        title: c.product?.title || c.key,
+        variantName: c.product?.variantName,
+        price: Number(c.product?.price || 0),
+        productId: c.product?.productId,
+        productVariantId: c.product?.productVariantId,
+        sku: c.product?.sku,
+      }));
 
-        await addToCartAction({
-          productId: product.productId,
-          productVariantId: product.productVariantId,
-          sku: product.sku,
-          slug: product.slug,
-          title: product.title,
-          variantName: product.variantName,
-          image: product.image,
-          price: product.price,
-          quantity: Number(qty),
-          isQuantityChangable: true,
-          purchaseType: "one_time",
-          subscriptionType: null,
-          isSubscribed: false,
-        });
+      const yatraKitData: YatraKitCartItem = {
+        kitId: activeKit.id,
+        kitName: activeKit.name,
+        recipe,
+        items: kitItems,
+        freeWipes: true,
+        freeWipesCount: 10,
+      };
+
+      const result = await addToCartAction({
+        productId: primaryProduct?.productId || "looway-yatra-kit",
+        productVariantId: primaryProduct?.productVariantId,
+        sku: `YATRA-KIT-${activeKit.id.toUpperCase()}`,
+        slug: "looway-yatra-kit",
+        title: "Looway Yatra Kit",
+        variantName: activeKit.name,
+        image: "/looway/yatra-kit-thumb-v2.png",
+        price: activeTotal,
+        quantity: 1,
+        isQuantityChangable: false,
+        purchaseType: "one_time",
+        subscriptionType: null,
+        isSubscribed: false,
+        uuid: crypto.randomUUID(),
+        yatraKit: yatraKitData,
+      });
+
+      if (result !== false) {
+        toast.success(`${activeKit.name} kit added to bag`);
       }
-
-      toast.success(`${activeKit.name} kit products added to cart`);
     } catch (error) {
       console.error(error);
       toast.error("Could not add this kit to cart.");
@@ -440,7 +636,7 @@ export default function YatraKitPageClient({ content, mappedProducts }: Props) {
   };
 
   return (
-    <main className="min-h-screen bg-[#fbf7f0] text-[#2a2420]">
+    <main className="min-h-screen bg-[#fbf7f0] text-[#2a2420] pb-24 md:pb-0">
       {/* Top Strip */}
       <div className="h-3 w-full bg-[repeating-linear-gradient(90deg,#145C58_0px,#145C58_16px,#E8A33D_16px,#E8A33D_32px)]" />
 
@@ -666,7 +862,7 @@ export default function YatraKitPageClient({ content, mappedProducts }: Props) {
                 icon: ShieldCheck,
               },
               {
-                label: "DB product pricing",
+                label: "Kit total pricing",
                 sub: "Pay for what you pack",
                 icon: ShoppingBag,
               },
@@ -783,7 +979,7 @@ export default function YatraKitPageClient({ content, mappedProducts }: Props) {
                       </div>
                       <div className="rounded-2xl border border-[#E5DAC9] bg-white px-5 py-3 text-left shadow-sm md:text-right">
                         <p className="text-[11px] font-bold tracking-wider text-[#168A82] uppercase">
-                          Total DB Price
+                          Kit total
                         </p>
                         <p className="text-2xl font-extrabold text-[#0A3B39] sm:text-3xl">
                           ₹{activeTotal}
@@ -813,63 +1009,136 @@ export default function YatraKitPageClient({ content, mappedProducts }: Props) {
 
                     {/* Product Items List */}
                     <div className="mt-5 space-y-3">
-                      {activeContents.map(({ key, qty, product }) => (
-                        <div
-                          key={key}
-                          className="flex flex-col justify-between gap-3 rounded-xl border border-[#E5DAC9] bg-white p-3.5 shadow-sm sm:flex-row sm:items-center sm:p-4"
-                        >
+                      {activeContents.length === 0 ? (
+                        <div className="rounded-xl border border-dashed border-[#E5DAC9] bg-white/60 p-6 text-center">
+                          <p className="text-sm font-bold text-[#0A3B39]">
+                            Your kit has no items yet
+                          </p>
+                          <p className="mt-1 text-xs text-gray-500">
+                            Choose items from the extras section below to build your customized kit.
+                          </p>
+                        </div>
+                      ) : (
+                        activeContents.map(({ key, qty, product }) => {
+                          const group = getItemProductGroup(key);
+                          const groupVariants = group ? YATRA_VARIANT_GROUPS[group] : null;
+                          const maxLimit = MAX_QTY[key] || 6;
+                          const isAtMax = qty >= maxLimit;
+
+                          return (
+                            <div
+                              key={key}
+                              className="flex flex-col justify-between gap-3 rounded-xl border border-[#E5DAC9] bg-white p-3.5 shadow-sm sm:flex-row sm:items-center sm:p-4"
+                            >
+                              <div>
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <p className="text-sm font-bold text-[#0A3B39] sm:text-base">
+                                    {product?.title || key}
+                                  </p>
+                                  {isAtMax && (
+                                    <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                                      Max {maxLimit} reached
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-xs text-gray-500">
+                                  {product
+                                    ? `${product.variantName} · ₹${product.price} each`
+                                    : "Standard travel pack"}
+                                </p>
+
+                                {/* Size & Pack options selector */}
+                                {groupVariants && groupVariants.options.length > 1 && (
+                                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                                    <span className="text-[10px] font-bold tracking-wider text-gray-400 uppercase">
+                                      {group === "pads"
+                                        ? "Size:"
+                                        : group === "cup"
+                                          ? "Size:"
+                                          : "Pack:"}
+                                    </span>
+                                    {groupVariants.options.map((v) => {
+                                      const isSelected = v.key === key;
+                                      return (
+                                        <button
+                                          key={v.key}
+                                          type="button"
+                                          onClick={() => switchItemVariant(key, v.key)}
+                                          className={`cursor-pointer rounded-md px-2 py-0.5 text-[11px] font-semibold transition-all ${
+                                            isSelected
+                                              ? "bg-[#116B66] text-white shadow-xs"
+                                              : "border border-[#116B66]/30 bg-[#F4FAF9] text-[#116B66] hover:bg-[#116B66]/10"
+                                          }`}
+                                        >
+                                          {v.label}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="flex items-center justify-between gap-4 sm:justify-end">
+                                <span className="text-sm font-extrabold text-[#0A3B39] sm:text-base">
+                                  ₹{Number(product?.price || 0) * qty}
+                                </span>
+                                <div className="flex items-center overflow-hidden rounded-lg border border-[#116B66]/30 bg-[#F4FAF9]">
+                                  <button
+                                    className="cursor-pointer px-3 py-1.5 text-sm font-bold text-[#116B66] transition-colors hover:bg-[#116B66] hover:text-white"
+                                    onClick={() =>
+                                      updateQty(selectedKitId, key, -1)
+                                    }
+                                  >
+                                    <Minus className="h-3.5 w-3.5" />
+                                  </button>
+                                  <span className="w-8 text-center text-sm font-bold text-[#0A3B39]">
+                                    {qty}
+                                  </span>
+                                  <button
+                                    className="cursor-pointer px-3 py-1.5 text-sm font-bold text-[#116B66] transition-colors hover:bg-[#116B66] hover:text-white disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-[#116B66]"
+                                    onClick={() => updateQty(selectedKitId, key, 1)}
+                                    disabled={isAtMax}
+                                    title={isAtMax ? `Max limit (${maxLimit}) reached` : "Add one"}
+                                  >
+                                    <Plus className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+
+                      {/* Free Intimate Wipes Item Line - locked when kit has < 2 items */}
+                      {isKitValid ? (
+                        <div className="flex items-center justify-between rounded-xl border border-[#BFE3CA] bg-[#E6F4EA] p-3.5 sm:p-4">
                           <div>
-                            <p className="text-sm font-bold text-[#0A3B39] sm:text-base">
-                              {product?.title || key}
+                            <p className="text-sm font-bold text-[#15803D]">
+                              Intimate Wipes
+                            </p>
+                            <p className="text-xs text-[#15803D]/80">
+                              10 pH-balanced individually wrapped wipes
+                            </p>
+                          </div>
+                          <span className="rounded-full border border-[#BFE3CA] bg-white px-3 py-1 text-xs font-bold text-[#15803D]">
+                            Complimentary
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between rounded-xl border border-dashed border-gray-300 bg-gray-50/80 p-3.5 sm:p-4 text-gray-500">
+                          <div>
+                            <p className="text-sm font-bold text-gray-700">
+                              Intimate Wipes
                             </p>
                             <p className="text-xs text-gray-500">
-                              {product
-                                ? `${product.variantName} · ₹${product.price} each`
-                                : "Pending DB mapping"}
+                              10 pH-balanced individually wrapped wipes · Unlocks when kit has at least 2 distinct products
                             </p>
                           </div>
-
-                          <div className="flex items-center justify-between gap-4 sm:justify-end">
-                            <span className="text-sm font-extrabold text-[#0A3B39] sm:text-base">
-                              ₹{Number(product?.price || 0) * qty}
-                            </span>
-                            <div className="flex items-center overflow-hidden rounded-lg border border-[#116B66]/30 bg-[#F4FAF9]">
-                              <button
-                                className="cursor-pointer px-3 py-1.5 text-sm font-bold text-[#116B66] transition-colors hover:bg-[#116B66] hover:text-white"
-                                onClick={() =>
-                                  updateQty(selectedKitId, key, -1)
-                                }
-                              >
-                                <Minus className="h-3.5 w-3.5" />
-                              </button>
-                              <span className="w-8 text-center text-sm font-bold text-[#0A3B39]">
-                                {qty}
-                              </span>
-                              <button
-                                className="cursor-pointer px-3 py-1.5 text-sm font-bold text-[#116B66] transition-colors hover:bg-[#116B66] hover:text-white"
-                                onClick={() => updateQty(selectedKitId, key, 1)}
-                              >
-                                <Plus className="h-3.5 w-3.5" />
-                              </button>
-                            </div>
-                          </div>
+                          <span className="rounded-full border border-gray-300 bg-white px-3 py-1 text-xs font-semibold text-gray-500">
+                            Locked (add ≥2 products)
+                          </span>
                         </div>
-                      ))}
-
-                      {/* Free Intimate Wipes Item Line */}
-                      <div className="flex items-center justify-between rounded-xl border border-[#BFE3CA] bg-[#E6F4EA] p-3.5 sm:p-4">
-                        <div>
-                          <p className="text-sm font-bold text-[#15803D]">
-                            Intimate Wipes
-                          </p>
-                          <p className="text-xs text-[#15803D]/80">
-                            10 pH-balanced individually wrapped wipes
-                          </p>
-                        </div>
-                        <span className="rounded-full border border-[#BFE3CA] bg-white px-3 py-1 text-xs font-bold text-[#15803D]">
-                          Complimentary
-                        </span>
-                      </div>
+                      )}
                     </div>
 
                     {/* Add Extras Section */}
@@ -914,13 +1183,17 @@ export default function YatraKitPageClient({ content, mappedProducts }: Props) {
                       </button>
                       <button
                         onClick={addKitToCart}
-                        disabled={adding || missingItems.length > 0}
-                        className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#116B66] px-7 py-3.5 text-xs font-bold text-white shadow-md transition-all hover:bg-[#0E4E4A] disabled:opacity-50 sm:text-sm"
+                        disabled={adding || !isKitValid || missingItems.length > 0}
+                        className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#116B66] px-7 py-3.5 text-xs font-bold text-white shadow-md transition-all hover:bg-[#0E4E4A] disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500 disabled:shadow-none sm:text-sm"
                       >
                         <ShoppingBag className="h-4 w-4" />
                         {adding
                           ? "Adding to Cart..."
-                          : "Add Kit Products to Cart"}
+                          : !isKitValid
+                            ? totalItemsInKit === 0
+                              ? "Kit is empty · Add items"
+                              : "Pick at least 2 products for a kit"
+                            : "Add Kit Products to Cart"}
                       </button>
                     </div>
                   </div>
@@ -1404,7 +1677,7 @@ export default function YatraKitPageClient({ content, mappedProducts }: Props) {
       </section>
 
       {/* Floating Section Quick-Nav Strap (Image 2 Design) */}
-      <div className="no-scrollbar fixed bottom-6 left-1/2 z-40 flex max-w-[94vw] -translate-x-1/2 items-center gap-2 overflow-x-auto rounded-full border border-[#E5DAC9] bg-[#FAF7F2]/95 px-3 py-2 shadow-xl backdrop-blur-md">
+      <div className="no-scrollbar fixed bottom-20 md:bottom-6 left-1/2 z-30 flex max-w-[94vw] -translate-x-1/2 items-center gap-2 overflow-x-auto rounded-full border border-[#E5DAC9] bg-[#FAF7F2]/95 px-3 py-2 shadow-xl backdrop-blur-md">
         {[
           { id: "choose-kit", label: "Choose your kit" },
           { id: "every-toilet", label: "Every toilet" },
@@ -1433,12 +1706,46 @@ export default function YatraKitPageClient({ content, mappedProducts }: Props) {
           );
         })}
       </div>
-      {/* Bottom Left Timed Nudge Card (Point 3: Image Design) */}
+
+      {/* Phone Sticky Bottom Bar with Kit Total & Add Button */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-[#E5DAC9] bg-[#FAF7F2]/98 px-4 py-3 shadow-[0_-4px_20px_rgba(0,0,0,0.12)] backdrop-blur-md md:hidden">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[10px] font-bold tracking-wider text-[#168A82] uppercase">
+              {activeKit?.name || "Yatra Kit"}
+            </p>
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-lg font-extrabold text-[#0A3B39]">
+                ₹{activeTotal}
+              </span>
+              <span className="text-[11px] text-gray-500">
+                · {totalItemsInKit} {totalItemsInKit === 1 ? "item" : "items"}
+              </span>
+            </div>
+          </div>
+          <button
+            onClick={addKitToCart}
+            disabled={adding || !isKitValid || missingItems.length > 0}
+            className="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-[#116B66] px-4 py-2.5 text-xs font-bold text-white shadow-md transition-all hover:bg-[#0E4E4A] disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500 disabled:shadow-none"
+          >
+            <ShoppingBag className="h-4 w-4" />
+            {adding
+              ? "Adding..."
+              : !isKitValid
+                ? totalItemsInKit === 0
+                  ? "Kit is empty"
+                  : "Need ≥2 items"
+                : "Add to Cart"}
+          </button>
+        </div>
+      </div>
+
+      {/* Bottom Left Timed Nudge Card (Desktop/Laptop only, permanently dismissable) */}
       {showNudge && (
-        <div className="animate-in fade-in slide-in-from-bottom-5 fixed bottom-20 left-4 z-50 flex max-w-[340px] items-center gap-3 rounded-2xl border border-[#E5DAC9] bg-white p-3.5 shadow-2xl transition-all duration-300 sm:bottom-6 sm:left-6 sm:max-w-md sm:p-4">
+        <div className="animate-in fade-in slide-in-from-bottom-5 fixed bottom-6 left-6 z-50 hidden md:flex max-w-md items-center gap-3 rounded-2xl border border-[#E5DAC9] bg-white p-4 shadow-2xl transition-all duration-300">
           {/* Dismiss button */}
           <button
-            onClick={() => setShowNudge(false)}
+            onClick={handleDismissNudge}
             className="absolute top-2 right-2 cursor-pointer p-1 text-gray-400 transition-colors hover:text-gray-600"
             aria-label="Close notification"
           >
@@ -1463,7 +1770,7 @@ export default function YatraKitPageClient({ content, mappedProducts }: Props) {
           {/* Action CTA Button */}
           <button
             onClick={() => {
-              setShowNudge(false);
+              handleDismissNudge();
               document
                 .getElementById("every-toilet")
                 ?.scrollIntoView({ behavior: "smooth" });

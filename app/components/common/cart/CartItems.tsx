@@ -1,15 +1,18 @@
 "use client";
 
 import Image from "next/image";
-import { Minus, Plus, ArrowLeft, Trash2 } from "lucide-react";
+import { Minus, Plus, ArrowLeft, Trash2, Luggage } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { useCartStore } from "@/store/cartStore";
 import { getImageUrl } from "@/lib/imageUrl";
 import { formatMixBoxRecipe } from "@/lib/mixYourBox";
+import { formatYatraKitContents, getYatraKitData } from "@/lib/yatraKit";
 import {
   getCleanProductTitle,
   getCartItemVariantBadge,
+  isOvyPadItem,
+  getFreeLinersCount,
 } from "@/lib/cartItemDisplay";
 
 import { toast } from "sonner";
@@ -52,20 +55,24 @@ export function CartItems() {
         <div className="space-y-4">
           {/* Vertical list of items: compact rows on mobile with small thumbnail beside name */}
           <div className="space-y-3 sm:space-y-4">
-            {items.map((item: any) => {
+            {items.map((item: any, idx: number) => {
               const badge = getCartItemVariantBadge(item);
+              const isPad = isOvyPadItem(item);
+              const freeLinersCount = getFreeLinersCount(item);
               const maxQty = getProductMaxQuantity(item);
               const lineTotal = item.price * (item.quantity || 1);
+              const yatraKitData = getYatraKitData(item);
+              const kitContents = formatYatraKitContents(yatraKitData);
 
               return (
                 <div
-                  key={`${item.productId}-${item.productVariantId || item.sku || "default"}-${item.uuid || item.totalPads || "line"}`}
+                  key={`${item.productId}-${item.productVariantId || item.sku || idx}-${item.uuid || idx}`}
                   className="flex items-start gap-3 sm:gap-4 rounded-xl border border-gray-200/90 bg-white p-3 sm:p-4 shadow-2xs transition-shadow hover:shadow-xs"
                 >
                   {/* Small Product Thumbnail beside the name */}
-                  <div className="relative h-16 w-16 sm:h-20 sm:w-20 shrink-0 aspect-square rounded-lg bg-[#FAF8F3]/80 p-1 border border-gray-100/90 overflow-hidden flex items-center justify-center">
+                  <div className="relative h-16 w-16 sm:h-20 sm:w-20 shrink-0 aspect-square rounded-lg bg-white p-1 border border-gray-100/90 overflow-hidden flex items-center justify-center">
                     <Image
-                      src={getImageUrl(item.image)}
+                      src={yatraKitData ? "/looway/yatra-kit-thumb-v2.png" : getImageUrl(item.image)}
                       alt={item.title}
                       width={80}
                       height={80}
@@ -77,27 +84,83 @@ export function CartItems() {
                   <div className="flex flex-1 min-w-0 flex-col gap-2">
                     <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-1">
                       <div className="space-y-1 min-w-0">
-                        <h3 className="font-semibold text-[#333333] text-xs sm:text-base line-clamp-2 leading-snug">
-                          {getCleanProductTitle(item)}
-                        </h3>
+                        {(() => {
+                          return (
+                            <>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <h3 className="font-semibold text-[#333333] text-xs sm:text-base line-clamp-2 leading-snug">
+                                  {yatraKitData
+                                    ? "Looway Yatra Kit"
+                                    : getCleanProductTitle(item)}
+                                </h3>
+                                {yatraKitData && (
+                                  <>
+                                    {yatraKitData.kitName && (
+                                      <span className="inline-flex items-center rounded-md bg-[#F3E6F0] px-2 py-0.5 text-[10.5px] sm:text-xs font-bold text-[#7E4D77] border border-[#9A5B90]/40">
+                                        {yatraKitData.kitName}
+                                      </span>
+                                    )}
+                                    <span className="inline-flex items-center rounded-md bg-[#EAF6F4] px-2 py-0.5 text-[10.5px] sm:text-xs font-bold text-[#116B66] border border-[#116B66]/20">
+                                      Travel Kit
+                                    </span>
+                                  </>
+                                )}
+                              </div>
 
-                        {badge && !item.mixBoxRecipe && (
-                          <div>
-                            <span className="inline-flex items-center rounded-md bg-[#F4EFF3] px-2 py-0.5 text-[10.5px] sm:text-xs font-semibold text-[#7E4D77] border border-[#E9DFE7]">
-                              {badge}
-                            </span>
-                          </div>
-                        )}
+                              {!item.mixBoxRecipe && !yatraKitData && (badge || freeLinersCount > 0) && (
+                                <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                                  {badge && (
+                                    <span className="inline-flex items-center rounded-md bg-[#F4EFF3] px-2 py-0.5 text-[10.5px] sm:text-xs font-semibold text-[#7E4D77] border border-[#E9DFE7]">
+                                      {badge}
+                                    </span>
+                                  )}
+                                  {freeLinersCount > 0 && (
+                                    <span className="inline-flex items-center gap-1 rounded-md bg-[#E6F4EA] px-2 py-0.5 text-[10.5px] sm:text-xs font-bold text-[#15803D] border border-[#BFE3CA] shadow-2xs">
+                                      🎁 +{freeLinersCount} Free Liners
+                                    </span>
+                                  )}
+                                </div>
+                              )}
 
-                        {item.mixBoxRecipe && (
-                          <p className="text-[10.5px] sm:text-xs text-gray-500 line-clamp-2 leading-snug">
-                            Mix: {formatMixBoxRecipe(item.mixBoxRecipe)}
-                            <br />
-                            {item.totalPads} pads, {item.boxCount} box
-                            {item.boxCount === 1 ? "" : "es"},{" "}
-                            {item.freeLiners} free liners
-                          </p>
-                        )}
+                              {!item.mixBoxRecipe && !yatraKitData && isPad && (
+                                <p className="text-[11px] text-gray-500">
+                                  {item.quantity} box{item.quantity === 1 ? "" : "es"} ({item.quantity * 21} pads)
+                                </p>
+                              )}
+
+                              {yatraKitData && (
+                                <div className="space-y-1 pt-0.5">
+                                  {kitContents && (
+                                    <p className="text-xs sm:text-sm font-medium text-[#116B66] leading-snug">
+                                      {kitContents}
+                                    </p>
+                                  )}
+                                  <div>
+                                    <span className="inline-flex items-center gap-1 rounded-md bg-[#E6F4EA] px-2 py-0.5 text-[11px] font-bold text-[#15803D] border border-[#BFE3CA]">
+                                      ✓ Free Intimate Wipes ({yatraKitData.freeWipesCount || 10} wipes) included
+                                    </span>
+                                  </div>
+                                </div>
+                              )}
+
+                              {item.mixBoxRecipe && !yatraKitData && (
+                                <div className="space-y-1 pt-0.5">
+                                  <p className="text-xs sm:text-sm font-semibold text-[#7E4D77] leading-snug">
+                                    {formatMixBoxRecipe(item.mixBoxRecipe)}
+                                  </p>
+                                  <div className="flex flex-wrap items-center gap-1.5">
+                                    <span className="inline-flex items-center gap-1 rounded-md bg-[#E6F4EA] px-2 py-0.5 text-[10.5px] sm:text-xs font-bold text-[#15803D] border border-[#BFE3CA] shadow-2xs">
+                                      🎁 +{(item.boxCount || item.quantity || 1) * 4} Free Liners
+                                    </span>
+                                    <p className="text-[11px] text-gray-500">
+                                      {item.quantity} box{item.quantity === 1 ? "" : "es"} ({item.quantity * 21} pads)
+                                    </p>
+                                  </div>
+                                </div>
+                              )}
+                            </>
+                          );
+                        })()}
                       </div>
 
                       {/* Total per line (Requirement: a total per line) */}
@@ -169,6 +232,7 @@ export function CartItems() {
                                   item.quantity - 1,
                                   item.sku,
                                   item.productVariantId,
+                                  item.uuid,
                                 )
                               }
                               disabled={item.quantity <= 1}
@@ -186,7 +250,11 @@ export function CartItems() {
                               className="h-6 w-6 sm:h-7 sm:w-7 rounded-md hover:bg-gray-100 shrink-0 cursor-pointer"
                               onClick={() => {
                                 if (item.quantity >= maxQty) {
-                                  toast.info(getMaxQuantityMessage(maxQty));
+                                  if (item.mixBoxRecipe || item.yatraKit) {
+                                    toast.info("Need more? Write to care@potenthygiene.com");
+                                  } else {
+                                    toast.info(getMaxQuantityMessage(maxQty));
+                                  }
                                   return;
                                 }
                                 updateCartQuantity(
@@ -194,6 +262,7 @@ export function CartItems() {
                                   item.quantity + 1,
                                   item.sku,
                                   item.productVariantId,
+                                  item.uuid,
                                 );
                               }}
                               disabled={item.quantity >= maxQty}

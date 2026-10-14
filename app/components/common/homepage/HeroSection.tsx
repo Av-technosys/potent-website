@@ -67,7 +67,7 @@ const HERO_SLIDES: HeroSlide[] = [
   {
     hook: "Three sizes. One box. Your mix.",
     sub: "Build a 21-pad box across L, XL and XL+, with 4 liners always in, then let Cycle-Sync land it about 5 days before you are due.",
-    cta: { label: "Build your box", href: "/product-detail/ovy-pads?plan=mixYourBox#mix-your-box" },
+    cta: { label: "Build your box", href: "/product-detail/ovy-pads#mix" },
     cta2: { label: "How Cycle-Sync works", href: "/product-detail/ovy-pads?plan=cycleSync#cycle-sync" },
     image: "/products/pads-l.jpg",
     image2: "/products/pads-xlplus.jpg",

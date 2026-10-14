@@ -700,7 +700,7 @@ export function OvyShopSection({
 
           <div className="flex w-full shrink-0 flex-col items-center gap-3 sm:w-auto sm:flex-row">
             <Link
-              href="/product-detail/ovy-pads?plan=mixYourBox#mix-your-box"
+              href="/product-detail/ovy-pads#mix"
               className="flex w-full items-center justify-center gap-2 rounded-full bg-[#602E55] px-6 py-2.5 text-center text-xs font-semibold text-white shadow-md transition-all hover:bg-[#4E2445] sm:w-auto sm:px-7 sm:py-3"
             >
               <span>Build your box</span>

@@ -13,6 +13,7 @@ import {
 import { isUserLoggedIn } from "@/helper/auth/action";
 import { toast } from "sonner";
 import type { MixBoxRecipe, PurchaseType, SubscriptionType } from "@/lib/mixYourBox";
+import type { YatraKitCartItem } from "@/lib/yatraKit";
 import { getProductMaxQuantity, getMaxQuantityMessage } from "@/lib/productQuantityLimits";
 
 // Types
@@ -33,6 +34,7 @@ type CartItem = {
   totalPads?: number;
   boxCount?: number;
   freeLiners?: number;
+  yatraKit?: YatraKitCartItem;
   purchaseType?: PurchaseType;
   subscriptionType?: SubscriptionType;
   cycleSync?: {
@@ -118,6 +120,7 @@ export const addToCart = async (item: CartItem) => {
     totalPads: item.totalPads,
     boxCount: item.boxCount,
     freeLiners: item.freeLiners,
+    yatraKit: item.yatraKit,
     purchaseType: item.purchaseType,
     subscriptionType: item.subscriptionType,
     cycleSync: item.cycleSync,
@@ -141,6 +144,7 @@ export const addToCart = async (item: CartItem) => {
     // ✅ DB sync
     const result = await addToCartDB(item.productId, item.quantity, item.selectedPlan, item.isSubscribed, item.productVariantId, undefined, undefined, {
       mixBoxRecipe: item.mixBoxRecipe,
+      yatraKit: item.yatraKit,
     }).catch((error) => {
       console.error("Failed to sync with DB:", error);
       return { success: false };
@@ -155,6 +159,7 @@ export const addToCart = async (item: CartItem) => {
     // ✅ DB sync
     const result = await addToCartDB(item.productId, item.quantity, item.selectedPlan, item.isSubscribed, item.productVariantId, item.cartSizes, item.uuid, {
       mixBoxRecipe: item.mixBoxRecipe,
+      yatraKit: item.yatraKit,
     }).catch((error) => {
       console.error("Failed to sync with DB:", error);
       return { success: false };
@@ -226,18 +231,21 @@ export const updateCartQuantity = async (
   productId: string,
   quantity: number,
   sku?: string,
-  productVariantId?: string
+  productVariantId?: string,
+  uuid?: string,
 ) => {
   const currentItem = useCartStore
     .getState()
     .items.find(
       (i: any) =>
-        i.productId === productId &&
-        (productVariantId
-          ? i.productVariantId === productVariantId
-          : sku
-            ? i.sku === sku
-            : true)
+        uuid
+          ? i.uuid === uuid
+          : i.productId === productId &&
+            (productVariantId
+              ? i.productVariantId === productVariantId
+              : sku
+                ? i.sku === sku
+                : true)
     );
   const maxQty = getProductMaxQuantity(currentItem);
   if (quantity > maxQty) {
@@ -245,12 +253,12 @@ export const updateCartQuantity = async (
     return;
   }
 
-  useCartStore.getState().updateQuantity(productId, quantity, sku, productVariantId);
+  useCartStore.getState().updateQuantity(productId, quantity, sku, productVariantId, uuid);
 
   const isAuth = await isUserLoggedIn();
   if (!isAuth) return;
 
-  updateCartItemQuantity(productId, quantity, productVariantId).catch((error) => {
+  updateCartItemQuantity(productId, quantity, productVariantId, uuid).catch((error) => {
     console.error("Failed to update DB:", error);
   });
 };
@@ -272,16 +280,19 @@ export const clearCart = async () => {
 };
 
 // Sync from DB
-export const syncCartFromDB = async () => {
+export const syncCartFromDB = async (isLogin = false) => {
   try {
+    const isAuth = await isUserLoggedIn();
+    if (!isAuth) return;
+
     const localItems = useCartStore.getState().items;
 
     // 1. Fetch initial DB cart
     const result = await getCart();
     const dbItems = result.success && Array.isArray(result.items) ? result.items : [];
 
-    // 2. If guest items exist locally, sync any non-duplicate local items into DB
-    if (localItems.length > 0) {
+    // 2. Only merge guest items into DB when explicitly logging in
+    if (isLogin && localItems.length > 0) {
       for (const item of localItems) {
         const alreadyInDB = dbItems.some(
           (d: any) =>
@@ -300,24 +311,49 @@ export const syncCartFromDB = async () => {
               item.productVariantId,
               item.cartSizes,
               item.uuid,
-              { mixBoxRecipe: item.mixBoxRecipe }
+              { mixBoxRecipe: item.mixBoxRecipe, yatraKit: item.yatraKit }
             );
           } catch (e) {
             console.error("Failed to sync guest cart item to DB:", e);
           }
         }
       }
+      const finalResult = await getCart();
+      if (finalResult.success && finalResult.items) {
+        const formattedItems = finalResult.items.map((item: any) => ({
+          productId: item.productId,
+          productVariantId: item.productVariantId,
+          sku: item.sku || "",
+          slug: item.slug || "",
+          title: item.title || "Product",
+          variantName: item.variantName,
+          image: item.image || "/product.png",
+          price: item.price || 0,
+          originalPrice: item.originalPrice,
+          quantity: item.quantity ?? 0,
+          mixBoxRecipe: item.mixBoxRecipe,
+          totalPads: item.totalPads,
+          boxCount: item.boxCount,
+          freeLiners: item.freeLiners,
+          yatraKit: item.yatraKit,
+          isQuantityChangable: !item.mixBoxRecipe && !item.yatraKit,
+          uuid: item.uuid || item.cartItemId,
+          addedAt: Date.now(),
+        }));
+        useCartStore.getState().setCart(formattedItems);
+      }
+      return;
     }
 
-    // 3. Now fetch the combined cart from DB
-    const finalResult = await getCart();
-    if (finalResult.success && finalResult.items) {
-      const formattedItems = finalResult.items.map((item: any) => ({
+    // On standard page load / refresh: DB is the single source of truth for logged-in user
+    if (result.success && Array.isArray(result.items)) {
+      const formattedItems = result.items.map((item: any) => ({
         productId: item.productId,
         productVariantId: item.productVariantId,
         sku: item.sku || "",
         slug: item.slug || "",
         title: item.title || "Product",
+        variantName: item.variantName,
         image: item.image || "/product.png",
         price: item.price || 0,
         originalPrice: item.originalPrice,
@@ -326,7 +362,9 @@ export const syncCartFromDB = async () => {
         totalPads: item.totalPads,
         boxCount: item.boxCount,
         freeLiners: item.freeLiners,
-        isQuantityChangable: !item.mixBoxRecipe,
+        yatraKit: item.yatraKit,
+        isQuantityChangable: !item.mixBoxRecipe && !item.yatraKit,
+        uuid: item.uuid || item.cartItemId,
         addedAt: Date.now(),
       }));
 

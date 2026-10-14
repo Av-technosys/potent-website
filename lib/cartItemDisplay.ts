@@ -158,3 +158,54 @@ export function getCartItemVariantBadge(item: any): string | null {
 
   return null;
 }
+
+export function isOvyPadItem(item: any): boolean {
+  if (!item) return false;
+  const slug = (item.slug || "").toLowerCase();
+  const sku = (item.sku || "").toUpperCase();
+  const title = (item.title || item.name || item.productName || "").toLowerCase();
+
+  // Yatra kit items are not pad boxes
+  if (item.yatraKit || (item.mixBoxRecipe && (item.mixBoxRecipe as any).type === "yatraKit")) {
+    return false;
+  }
+  // Mix box pad recipe
+  if (item.mixBoxRecipe && (item.mixBoxRecipe as any).type !== "yatraKit") {
+    return true;
+  }
+  // Explicit pad items
+  if (slug === "ovy-pads" || sku.includes("OVY-PAD")) return true;
+  if (typeof item.freeLiners === "number" && item.freeLiners > 0) return true;
+  if (title.includes("sanitary pad") && !slug.includes("teen") && !title.includes("teen")) {
+    return true;
+  }
+
+  return false;
+}
+
+export function getFreeLinersCount(item: any): number {
+  if (!item) return 0;
+  if (item.yatraKit || (item.mixBoxRecipe && (item.mixBoxRecipe as any).type === "yatraKit")) {
+    return 0;
+  }
+  if (typeof item.freeLiners === "number" && item.freeLiners > 0) {
+    return item.freeLiners;
+  }
+  if (isOvyPadItem(item)) {
+    const qty = Number(item.boxCount || item.quantity || 1);
+    return Math.max(0, qty * 4);
+  }
+  return 0;
+}
+
+export function getTotalPadsCount(item: any): number {
+  if (!item) return 0;
+  if (typeof item.totalPads === "number" && item.totalPads > 0) {
+    return item.totalPads;
+  }
+  if (isOvyPadItem(item)) {
+    const qty = Number(item.boxCount || item.quantity || 1);
+    return Math.max(0, qty * 21);
+  }
+  return 0;
+}

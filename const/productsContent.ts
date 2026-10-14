@@ -3609,8 +3609,8 @@ export const loowayYatraKit: Record<string, any> = {
       best: true,
       aud: "all",
       base: {
-        seat: 1,
-        pp: 1,
+        "seat:p2": 1,
+        "pp:10": 1,
         funnel: 1,
       },
     },
@@ -3621,8 +3621,8 @@ export const loowayYatraKit: Record<string, any> = {
       ic: "drive",
       aud: "all",
       base: {
-        seat: 1,
-        pp: 1,
+        "seat:p2": 1,
+        "pp:10": 1,
       },
     },
     {
@@ -3632,8 +3632,8 @@ export const loowayYatraKit: Record<string, any> = {
       ic: "heart",
       aud: "all",
       base: {
-        seat: 2,
-        pp: 2,
+        "seat:p2": 2,
+        "pp:10": 2,
         funnel: 1,
       },
     },
@@ -3644,10 +3644,10 @@ export const loowayYatraKit: Record<string, any> = {
       ic: "girls",
       aud: "women",
       base: {
-        seat: 2,
+        "seat:p2": 2,
         funnel: 1,
         "pads:l": 1,
-        liner: 1,
+        "liner:40": 1,
       },
     },
     {
@@ -3657,8 +3657,8 @@ export const loowayYatraKit: Record<string, any> = {
       ic: "boys",
       aud: "men",
       base: {
-        seat: 1,
-        pp: 2,
+        "seat:p2": 1,
+        "pp:10": 2,
       },
     },
     {
@@ -3668,9 +3668,9 @@ export const loowayYatraKit: Record<string, any> = {
       ic: "temple",
       aud: "all",
       base: {
-        seat: 2,
+        "seat:p2": 2,
         funnel: 1,
-        pp: 1,
+        "pp:10": 1,
       },
     },
     {
@@ -3681,10 +3681,10 @@ export const loowayYatraKit: Record<string, any> = {
       aud: "women",
       exclude: ["cup"],
       base: {
-        seat: 1,
+        "seat:p2": 1,
         funnel: 1,
-        pp: 1,
-        liner: 1,
+        "pp:10": 1,
+        "liner:40": 1,
       },
     },
     {
@@ -3694,8 +3694,8 @@ export const loowayYatraKit: Record<string, any> = {
       ic: "baby",
       aud: "all",
       base: {
-        seat: 2,
-        pp: 1,
+        "seat:p2": 2,
+        "pp:10": 1,
       },
     },
     {
@@ -3705,9 +3705,9 @@ export const loowayYatraKit: Record<string, any> = {
       ic: "access",
       aud: "women",
       base: {
-        seat: 1,
+        "seat:p2": 1,
         "pads:l": 1,
-        liner: 1,
+        "liner:40": 1,
       },
     },
     {
@@ -3717,9 +3717,9 @@ export const loowayYatraKit: Record<string, any> = {
       ic: "mountain",
       aud: "all",
       base: {
-        seat: 1,
+        "seat:p2": 1,
         funnel: 1,
-        pp: 2,
+        "pp:10": 2,
       },
     },
     {
@@ -3729,8 +3729,8 @@ export const loowayYatraKit: Record<string, any> = {
       ic: "cross",
       aud: "all",
       base: {
-        seat: 2,
-        pp: 2,
+        "seat:p2": 2,
+        "pp:10": 2,
       },
     },
   ],

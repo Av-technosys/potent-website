@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { getOrderConfirmationById } from "@/helper/order/action";
 import { getImageUrl } from "@/lib/imageUrl";
 import { formatMixBoxRecipe } from "@/lib/mixYourBox";
+import { formatYatraKitContents } from "@/lib/yatraKit";
 import { PackingSlipModal } from "@/app/components/common/orders/PackingSlipModal";
 
 export const dynamic = "force-dynamic";
@@ -168,17 +169,18 @@ export default async function DashboardOrderDetailsPage({ params }: any) {
                         ? `SKU: ${item.productSKU}`
                         : "SKU not available"}
                     </p>
-                    {item.mixBoxRecipe && (
-                      <div className="mt-2 rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-600">
-                        <p>Mix: {formatMixBoxRecipe(item.mixBoxRecipe)}</p>
-                        <p>
-                          {item.totalPads ?? 0} pads, {item.boxCount ?? 0} box
-                          {Number(item.boxCount ?? 0) === 1 ? "" : "es"},{" "}
-                          {item.freeLiners ?? Number(item.boxCount ?? 0) * 4}{" "}
-                          free liners
+                    {Boolean(item.yatraKit || (item.mixBoxRecipe && item.mixBoxRecipe.type === "yatraKit")) ? (
+                      <div className="mt-2 rounded-lg bg-[#EAF6F4] px-3 py-2 text-sm text-[#116B66] font-medium space-y-1 border border-[#116B66]/20">
+                        <p>{formatYatraKitContents(item.yatraKit || item.mixBoxRecipe)}</p>
+                        <p className="text-xs font-bold text-[#15803D]">
+                          ✓ Free Intimate Wipes ({(item.yatraKit || item.mixBoxRecipe)?.freeWipesCount || 10} wipes) included
                         </p>
                       </div>
-                    )}
+                    ) : item.mixBoxRecipe ? (
+                      <div className="mt-2 rounded-lg bg-gray-50 px-3 py-2 text-sm text-[#7E4D77] font-medium">
+                        <p>{formatMixBoxRecipe(item.mixBoxRecipe, (item.boxCount || item.quantity || 1) * 4)}</p>
+                      </div>
+                    ) : null}
                     <p className="mt-1 text-sm text-gray-500">
                       Quantity: {item.quantity || 1}
                     </p>

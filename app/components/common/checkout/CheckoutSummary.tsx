@@ -3,7 +3,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { ShieldCheck, CreditCard, Smartphone, Building2, Gift } from "lucide-react";
+import { ShieldCheck, CreditCard, Smartphone, Building2, Gift, Luggage } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -20,9 +20,12 @@ import { useCartStore } from "@/store/cartStore";
 import {
   getCleanProductTitle,
   getCartItemVariantBadge,
+  isOvyPadItem,
+  getFreeLinersCount,
 } from "@/lib/cartItemDisplay";
 import { getImageUrl } from "@/lib/imageUrl";
 import { formatMixBoxRecipe } from "@/lib/mixYourBox";
+import { formatYatraKitContents, getYatraKitData } from "@/lib/yatraKit";
 
 export function CheckoutSummary({
   selected,
@@ -377,15 +380,19 @@ export function CheckoutSummary({
                   ? subscriptionQuote?.firstDeliveryDate
                   : null);
 
+              const yatraKitData = getYatraKitData(item);
+              const kitContents = formatYatraKitContents(yatraKitData);
+              const freeLinersCount = getFreeLinersCount(item);
+
               return (
                 <div
                   key={`${item.productId}-${item.productVariantId || item.sku || idx}-${idx}`}
                   className="flex items-start gap-2.5 py-2.5 first:pt-1 last:pb-1"
                 >
                   {/* Thumbnail */}
-                  <div className="relative h-12 w-12 shrink-0 rounded-lg bg-white border border-gray-200 p-0.5 overflow-hidden flex items-center justify-center">
+                  <div className="relative h-12 w-12 shrink-0 rounded-lg bg-white border border-gray-200 p-1 overflow-hidden flex items-center justify-center">
                     <Image
-                      src={getImageUrl(item.image)}
+                      src={yatraKitData ? "/looway/yatra-kit-thumb-v2.png" : getImageUrl(item.image)}
                       alt={cleanTitle}
                       width={48}
                       height={48}
@@ -401,13 +408,30 @@ export function CheckoutSummary({
                   {/* Details: Product, Size, Quantity */}
                   <div className="flex-1 min-w-0">
                     <h4 className="text-xs sm:text-sm font-semibold text-gray-900 line-clamp-1 leading-tight">
-                      {cleanTitle}
+                      {yatraKitData
+                        ? "Looway Yatra Kit"
+                        : cleanTitle}
                     </h4>
 
                     <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                      {badge && !item.mixBoxRecipe && (
+                      {yatraKitData?.kitName && (
+                        <span className="inline-flex items-center rounded bg-[#F3E6F0] px-1.5 py-0.5 text-[10px] font-bold text-[#7E4D77] border border-[#9A5B90]/40">
+                          {yatraKitData.kitName}
+                        </span>
+                      )}
+                      {badge && !item.mixBoxRecipe && !yatraKitData && (
                         <span className="inline-flex items-center rounded bg-[#F4EFF3] px-1.5 py-0.5 text-[10px] font-semibold text-[#7E4D77] border border-[#E9DFE7]">
                           {badge}
+                        </span>
+                      )}
+                      {freeLinersCount > 0 && !yatraKitData && (
+                        <span className="inline-flex items-center gap-1 rounded bg-[#E6F4EA] px-1.5 py-0.5 text-[10px] font-bold text-[#15803D] border border-[#BFE3CA]">
+                          🎁 +{freeLinersCount} Free Liners
+                        </span>
+                      )}
+                      {yatraKitData && (
+                        <span className="inline-flex items-center rounded bg-[#EAF6F4] px-1.5 py-0.5 text-[10px] font-bold text-[#116B66] border border-[#116B66]/20">
+                          Travel Kit
                         </span>
                       )}
                       <span className="text-[11px] font-medium text-gray-600 bg-white px-1.5 py-0.5 rounded border border-gray-200">
@@ -415,9 +439,24 @@ export function CheckoutSummary({
                       </span>
                     </div>
 
-                    {item.mixBoxRecipe && (
-                      <p className="text-[10px] text-gray-500 line-clamp-1 mt-1">
-                        Mix: {formatMixBoxRecipe(item.mixBoxRecipe)}
+                    {yatraKitData && (
+                      <div className="space-y-1 mt-1">
+                        {kitContents && (
+                          <p className="text-[11px] font-medium text-[#116B66] leading-snug">
+                            {kitContents}
+                          </p>
+                        )}
+                        <div>
+                          <span className="inline-flex items-center gap-1 rounded bg-[#E6F4EA] px-1.5 py-0.5 text-[10px] font-bold text-[#15803D] border border-[#BFE3CA]">
+                            ✓ Free Intimate Wipes ({yatraKitData.freeWipesCount || 10} wipes) included
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    {item.mixBoxRecipe && !yatraKitData && (
+                      <p className="text-[11px] font-medium text-[#7E4D77] mt-1">
+                        {formatMixBoxRecipe(item.mixBoxRecipe)}
                       </p>
                     )}
 

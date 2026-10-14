@@ -263,7 +263,7 @@ export async function getSubscriptionCheckoutQuote(
   });
   const variantLabel =
     mixPricing && item?.mixBoxRecipe
-      ? `Mix Box (${formatMixBoxRecipe(item.mixBoxRecipe as MixBoxRecipe)})`
+      ? formatMixBoxRecipe(item.mixBoxRecipe as MixBoxRecipe, (mixPricing.boxCount || 1) * 4)
       : getCartItemVariantBadge({
           title: row.productInfo.name,
           slug: row.productInfo.slug,

@@ -20,7 +20,8 @@ export function CartInitializer({ initialItems }: CartInitializerProps) {
       return;
     }
 
-    const formattedItems = initialItems.map((item: any) => ({
+    const formattedItems = initialItems.map((item: any, idx: number) => ({
+      ...item,
       productId: item.productId,
       productVariantId: item.productVariantId,
       sku: item.sku || '',
@@ -35,8 +36,11 @@ export function CartInitializer({ initialItems }: CartInitializerProps) {
       totalPads: item.totalPads,
       boxCount: item.boxCount,
       freeLiners: item.freeLiners,
-      isQuantityChangable: !item.mixBoxRecipe,
-      addedAt: Date.now(),
+      isQuantityChangable: !item.mixBoxRecipe && !item.yatraKit,
+      yatraKit: item.yatraKit,
+      cartSizes: item.cartSizes,
+      uuid: item.uuid || item.cartItemId || item.id || `cart-item-${idx}`,
+      addedAt: item.addedAt || Date.now(),
     }));
 
     setCart(formattedItems);

@@ -32,6 +32,8 @@ import { PackingSlipModal } from "@/app/components/common/orders/PackingSlipModa
 import { loadRazorpayScript } from "@/lib/razorpay";
 import { getImageUrl } from "@/lib/imageUrl";
 import { formatMixBoxRecipe } from "@/lib/mixYourBox";
+import { formatYatraKitContents } from "@/lib/yatraKit";
+import { isOvyPadItem, getFreeLinersCount } from "@/lib/cartItemDisplay";
 
 export const OrderCard = ({
   order_details,
@@ -252,17 +254,31 @@ export const OrderCard = ({
                   <p className="text-[12px] font-medium text-gray-400">
                     Quantity: {item.quantity}
                   </p>
-                  {item.mixBoxRecipe && (
-                    <div className="mt-2 rounded-lg bg-gray-50 px-3 py-2 text-[12px] font-medium text-gray-600">
-                      <p>Mix: {formatMixBoxRecipe(item.mixBoxRecipe)}</p>
-                      <p>
-                        {item.totalPads ?? 0} pads, {item.boxCount ?? 0} box
-                        {Number(item.boxCount ?? 0) === 1 ? "" : "es"},{" "}
-                        {item.freeLiners ?? Number(item.boxCount ?? 0) * 4} free
-                        liners
+                  {Boolean(item.yatraKit || (item.mixBoxRecipe && item.mixBoxRecipe.type === "yatraKit")) ? (
+                    <div className="mt-2 rounded-lg bg-[#EAF6F4] px-3 py-2 text-[12px] font-semibold text-[#116B66] space-y-0.5 border border-[#116B66]/20">
+                      <p>{formatYatraKitContents(item.yatraKit || item.mixBoxRecipe)}</p>
+                      <p className="text-[11px] font-bold text-[#15803D]">
+                        ✓ Free Intimate Wipes ({(item.yatraKit || item.mixBoxRecipe)?.freeWipesCount || 10} wipes) included
                       </p>
                     </div>
-                  )}
+                  ) : item.mixBoxRecipe ? (
+                    <div className="mt-2 space-y-1.5">
+                      <div className="rounded-lg bg-gray-50 px-3 py-2 text-[12px] font-semibold text-[#7E4D77]">
+                        <p>{formatMixBoxRecipe(item.mixBoxRecipe)}</p>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="inline-flex items-center gap-1 rounded bg-[#E6F4EA] px-2 py-0.5 text-[11px] font-bold text-[#15803D] border border-[#BFE3CA]">
+                          🎁 +{getFreeLinersCount(item)} Free Liners
+                        </span>
+                      </div>
+                    </div>
+                  ) : isOvyPadItem(item) ? (
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                      <span className="inline-flex items-center gap-1 rounded bg-[#E6F4EA] px-2 py-0.5 text-[11px] font-bold text-[#15803D] border border-[#BFE3CA]">
+                        🎁 +{getFreeLinersCount(item)} Free Liners
+                      </span>
+                    </div>
+                  ) : null}
                 </div>
               </div>
               <div className="flex flex-col items-start gap-2 md:items-end">

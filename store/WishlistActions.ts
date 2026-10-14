@@ -52,6 +52,12 @@ export const removeFromWishlist = async (productId: string) => {
   const targetId = targetItem?.productId || productId;
 
   useWishlistStore.getState().removeItem(productId);
+  if (targetItem?.productId && targetItem.productId !== productId) {
+    useWishlistStore.getState().removeItem(targetItem.productId);
+  }
+  if (targetItem?.slug && targetItem.slug !== productId) {
+    useWishlistStore.getState().removeItem(targetItem.slug);
+  }
 
   const isAuth = await isUserLoggedIn();
   if (!isAuth) {
@@ -65,36 +71,38 @@ export const removeFromWishlist = async (productId: string) => {
     return true;
   } catch (error) {
     console.error("Wishlist removal failed:", error);
-    useWishlistStore.getState().setWishlist(previousItems);
-    toast.error("Failed to remove wishlist item. Please try again.");
+    toast.error("Failed to remove wishlist item from server.");
     return false;
   }
 };
 
-export const syncWishlistFromDB = async () => {
+export const syncWishlistFromDB = async (isLogin = false) => {
   try {
+    const isAuth = await isUserLoggedIn();
+    if (!isAuth) return;
+
     const data = await getWishlistDB();
     const localItems = useWishlistStore.getState().items;
 
-    // Sync any guest items from localStorage into DB
-    for (const localItem of localItems) {
-      if (localItem.productId && !data.some((d) => d.productId === localItem.productId)) {
-        try {
-          await addToWishlistDB(localItem.productId);
-        } catch (e) {
-          console.error("Failed to sync guest item to DB:", e);
+    // Only merge guest items from localStorage into DB during explicit login
+    if (isLogin && localItems.length > 0) {
+      for (const localItem of localItems) {
+        if (localItem.productId && !data.some((d) => d.productId === localItem.productId)) {
+          try {
+            await addToWishlistDB(localItem.productId);
+          } catch (e) {
+            console.error("Failed to sync guest item to DB:", e);
+          }
         }
       }
+      const updatedData = await getWishlistDB();
+      const formatted = (updatedData || []).map((item) => normalizeWishlistItem(item));
+      useWishlistStore.getState().setWishlist(formatted);
+      return;
     }
 
-    const updatedData = await getWishlistDB();
-    const localByProductId = new Map(localItems.map((item) => [item.productId, item]));
-    const formatted = updatedData.map((item) => {
-      const localItem = localByProductId.get(item.productId);
-      return localItem
-        ? { ...localItem, name: item.name || localItem.name, slug: item.slug || localItem.slug }
-        : normalizeWishlistItem(item);
-    });
+    // On standard page load / refresh: DB is the single source of truth for logged-in user
+    const formatted = (data || []).map((item) => normalizeWishlistItem(item));
     useWishlistStore.getState().setWishlist(formatted);
   } catch (error) {
     console.error("Failed to sync wishlist:", error);
