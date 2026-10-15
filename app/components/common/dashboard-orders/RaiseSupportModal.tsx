@@ -63,12 +63,14 @@ export const RaiseSupportModal = ({
     };
   });
 
-  // Extract all existing active issue/return requests for this order
+  // Extract all existing issue/return requests for this order (including closed/rejected ones)
   const existingRequests: any[] = Array.isArray(order?.returnRequests)
-    ? order.returnRequests.filter((r: any) => r && r.status !== "cancelled")
-    : order?.returnRequest && order.returnRequest.status !== "cancelled"
+    ? order.returnRequests.filter(Boolean)
+    : order?.returnRequest
       ? [order.returnRequest]
       : [];
+
+  const isAnyPending = existingRequests.some((r) => r && r.status === "pending");
 
   const isProductActive = (prodName: string) => {
     if (existingRequests.length === 0) return false;
@@ -200,12 +202,18 @@ export const RaiseSupportModal = ({
             variant="outline"
             className={`flex h-9 sm:h-11 shrink-0 items-center gap-1.5 sm:gap-2 rounded-xl px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-semibold whitespace-nowrap cursor-pointer sm:shrink sm:flex-1 ${
               allProductsHaveIssues
-                ? "border-amber-300 bg-amber-50/70 text-amber-800 hover:bg-amber-100"
+                ? isAnyPending
+                  ? "border-amber-300 bg-amber-50/70 text-amber-800 hover:bg-amber-100"
+                  : "border-gray-200 bg-gray-100 text-gray-700 hover:bg-gray-200"
                 : "border-[#016271] text-[#016271] hover:bg-cyan-50"
             }`}
           >
             <IconAlertCircle size={16} stroke={2.5} />
-            {allProductsHaveIssues ? "Issue Under Review" : "Raise Issue"}
+            {allProductsHaveIssues
+              ? isAnyPending
+                ? "Issue Under Review"
+                : "Issue Closed"
+              : "Raise Issue"}
           </Button>
         )}
       </DialogTrigger>
@@ -232,36 +240,55 @@ export const RaiseSupportModal = ({
           <div className="py-2 space-y-4">
             <DialogHeader>
               <DialogTitle className="text-[18px] font-bold text-[#2D3748] flex items-center gap-2">
-                <IconAlertCircle className="h-5 w-5 text-amber-600" />
-                <span>Issue Already Active</span>
+                <IconAlertCircle className={`h-5 w-5 ${isAnyPending ? "text-amber-600" : "text-gray-600"}`} />
+                <span>{isAnyPending ? "Issue Under Review" : "Issue Closed"}</span>
               </DialogTitle>
             </DialogHeader>
 
-            <div className="rounded-xl border border-amber-200 bg-amber-50/90 p-4 space-y-3">
+            <div className={`rounded-xl border p-4 space-y-3 ${isAnyPending ? "border-amber-200 bg-amber-50/90" : "border-gray-200 bg-gray-50/90"}`}>
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-amber-900">
+                <span className="text-xs font-bold text-gray-900">
                   Order #{order.id}
                 </span>
-                <Badge className="bg-amber-200 text-amber-900 border-amber-300 capitalize text-xs">
-                  {existingRequests[0]?.status || "pending"}
+                <Badge className={`${
+                  existingRequests[0]?.status === "pending"
+                    ? "bg-amber-200 text-amber-900 border-amber-300"
+                    : existingRequests[0]?.status === "cancelled" || existingRequests[0]?.status === "rejected"
+                      ? "bg-red-100 text-red-800 border-red-200"
+                      : "bg-emerald-100 text-emerald-800 border-emerald-200"
+                } capitalize text-xs`}>
+                  {existingRequests[0]?.status === "cancelled" ? "Closed / Rejected" : existingRequests[0]?.status || "pending"}
                 </Badge>
               </div>
 
               <p className="text-xs text-slate-700 leading-relaxed">
-                An issue has already been raised for this order/product. Each product can only have 1 active issue ticket at a time. Our support team is actively reviewing it.
+                {isAnyPending
+                  ? "An issue has already been raised for this order/product. Our care team is actively reviewing it."
+                  : "An issue for this order/product has already been processed and closed by our care team. Under company policy, an issue can only be submitted once per product."}
               </p>
 
               {existingRequests.map((req, idx) => (
                 <div
                   key={req.id || idx}
-                  className="rounded-lg bg-white p-3 border border-amber-200/80 text-xs text-slate-800 space-y-1"
+                  className="rounded-lg bg-white p-3 border border-gray-200 text-xs text-slate-800 space-y-1.5"
                 >
-                  <span className="font-semibold text-slate-500 block text-[11px]">
-                    Submitted Details:
-                  </span>
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-slate-500 block text-[11px]">
+                      Submitted Details:
+                    </span>
+                    <Badge variant="outline" className="text-[10px] capitalize">
+                      {req.status === "cancelled" ? "Closed" : req.status}
+                    </Badge>
+                  </div>
                   <p className="font-medium whitespace-pre-wrap">
                     {req.userReason || "Issue raised by customer"}
                   </p>
+                  {req.adminReason && (
+                    <div className="mt-1.5 pt-1.5 border-t border-gray-100 text-[11px] text-gray-600">
+                      <span className="font-semibold text-gray-700">Team Note: </span>
+                      <span>{req.adminReason}</span>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

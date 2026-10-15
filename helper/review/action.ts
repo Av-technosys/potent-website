@@ -40,8 +40,15 @@ export async function createReview(reviewData: any) {
           .where(and(eq(orderItem.id, orderItemId), eq(order.userId, userId)))
           .limit(1);
 
-        if (!itemRow || itemRow.orderStatus === ORDER_STATUS.CANCELED) {
-          throw new Error("Order item not found or order was cancelled");
+        if (!itemRow) {
+          throw new Error("Order item not found or you do not own this order");
+        }
+
+        if (
+          itemRow.orderStatus !== ORDER_STATUS.DELIVERED &&
+          itemRow.orderStatus !== ORDER_STATUS.COMPLETED
+        ) {
+          throw new Error("Reviews can only be submitted for delivered orders");
         }
 
         resolvedProductId = itemRow.productId ?? null;
