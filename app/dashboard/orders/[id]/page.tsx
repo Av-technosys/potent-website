@@ -64,6 +64,7 @@ export default async function DashboardOrderDetailsPage({ params }: any) {
 
   const isDelivered = order.status === "delivered" || order.status === "completed";
   const isCanceled = order.status === "canceled" || order.status === "cancelled";
+  const isReturned = order.status === "returned" || order.returnRequest?.status === "approved";
 
   const paymentMeta: any =
     typeof order.payment?.paymentMeta === "object"
@@ -174,7 +175,7 @@ export default async function DashboardOrderDetailsPage({ params }: any) {
               }
             />
 
-            {canTrack && <TrackOrderModal order={order} />}
+            {(canTrack || isReturned) && <TrackOrderModal order={order} />}
 
             {canCancel && <CancelRequestDialog orderId={order.id} />}
 
@@ -187,7 +188,7 @@ export default async function DashboardOrderDetailsPage({ params }: any) {
               </Button>
             )}
 
-            {isDelivered && <RaiseSupportModal order={order} />}
+            {isDelivered && !isCanceled && !isReturned && <RaiseSupportModal order={order} />}
           </div>
         </div>
 
@@ -348,6 +349,14 @@ export default async function DashboardOrderDetailsPage({ params }: any) {
                     </span>
                     <span className="font-semibold">
                       -{formatPrice(order.pricingBreakdown.discount)}
+                    </span>
+                  </div>
+                )}
+                {order.pricingBreakdown?.rewardsUsed > 0 && (
+                  <div className="flex justify-between text-[#016271]">
+                    <span>Rewards Credit Applied</span>
+                    <span className="font-semibold">
+                      -{formatPrice(order.pricingBreakdown.rewardsUsed)}
                     </span>
                   </div>
                 )}

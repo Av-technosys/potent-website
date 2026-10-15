@@ -47,6 +47,7 @@ export function CheckoutSummary({
   const [final, setFinal] = useState(0);
   const [couponInput, setCouponInput] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
+  const [savingsNotice, setSavingsNotice] = useState<string | null>(null);
   const [couponLoading, setCouponLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<
@@ -98,8 +99,21 @@ export function CheckoutSummary({
       res = await getCheckoutPricing(couponCode);
     }
 
+    if (!res) return false;
+
+    if (res.savingsChoiceNotice) {
+      setSavingsNotice(res.savingsChoiceNotice);
+    } else {
+      setSavingsNotice(null);
+    }
+
     if (!res.success) {
       toast.error(res.message ?? "Failed to calculate checkout total");
+      if (res.rewardsUsed !== undefined) {
+        setRewardBalance(Number(res.rewardBalance || 0));
+        setRewardsUsed(Number(res.rewardsUsed || 0));
+        setFinal(res.final);
+      }
       return false;
     }
 
@@ -124,7 +138,7 @@ export function CheckoutSummary({
     } else if (couponCode === null || couponCode === "") {
       useCartStore.getState().setAppliedCoupon(null);
     }
-    return true;
+    return res;
   };
 
   const loadSubscriptionQuote = async () => {
@@ -203,16 +217,21 @@ export function CheckoutSummary({
     }
 
     setCouponLoading(true);
-    const applied = await loadPricing(code);
+    const res: any = await loadPricing(code);
     setCouponLoading(false);
 
-    if (applied) {
-      toast.success("Coupon applied");
+    if (res && res.success) {
+      if (res.savingsChoiceNotice) {
+        toast.info(res.savingsChoiceNotice, { duration: 5000 });
+      } else if (res.coupon) {
+        toast.success(`Coupon ${res.coupon.code} applied!`);
+      }
     }
   };
 
   const handleRemoveCoupon = async () => {
     setCouponInput("");
+    setSavingsNotice(null);
     setCouponLoading(true);
     await loadPricing("");
     useCartStore.getState().setAppliedCoupon(null);
@@ -535,8 +554,14 @@ export function CheckoutSummary({
 
             {appliedCoupon && (
               <div className="rounded-md bg-green-50 px-3 py-2 text-xs text-green-700">
-                Coupon {appliedCoupon.code} applied. You saved ₹
+                Coupon <strong>{appliedCoupon.code}</strong> applied. You saved ₹
                 {discount.toFixed(2)}.
+              </div>
+            )}
+
+            {savingsNotice && (
+              <div className="rounded-md bg-cyan-50 border border-[#016271]/20 p-2.5 text-xs text-[#016271] leading-relaxed">
+                {savingsNotice}
               </div>
             )}
           </div>
@@ -622,14 +647,25 @@ export function CheckoutSummary({
           </div>
           {rewardsUsed > 0 ? (
             <div className="flex items-center justify-between text-sm text-emerald-700 pt-1 border-t border-[#1B8392]/15">
-              <span className="font-semibold">
-                Rewards Credit Applied (Auto)
-              </span>
+              <div>
+                <span className="font-semibold block text-xs sm:text-sm">
+                  Rewards Credit Applied (Auto)
+                </span>
+                <span className="text-[10px] text-emerald-600">
+                  Up to 20% of product total (max ₹150)
+                </span>
+              </div>
               <span className="font-bold">-₹{rewardsUsed.toFixed(2)}</span>
             </div>
+          ) : appliedCoupon && rewardBalance > 0 ? (
+            <p className="text-[11px] text-emerald-800 pt-0.5">
+              Your ₹{rewardBalance} rewards credit remains in your wallet (cannot be combined with coupon; coupon saved more).
+            </p>
           ) : (
             <p className="text-[11px] text-gray-500">
-              Earn cash credits on orders, reviews, referrals &amp; birthdays.
+              {isSubscriptionCheckout
+                ? "Credits are used on one-time orders only, not on subscriptions."
+                : "Credits are applied automatically (up to 20% of product total, max ₹150)."}
             </p>
           )}
         </div>

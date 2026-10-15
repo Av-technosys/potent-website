@@ -20,6 +20,7 @@ import {
   calculateShippingFee as calculateShipping,
 } from "@/lib/shippingConfig";
 import {
+  MAX_REWARD_REDEEM_PERCENT,
   MAX_REWARD_REDEEM_PER_ORDER,
   syncAndGetUserRewards,
 } from "@/lib/rewards";
@@ -275,71 +276,104 @@ export async function calculateCheckoutPricingForUser({
     : { balance: 0 };
   const rewardBalance = Math.max(0, Math.round(Number(rewardState.balance || 0)));
 
-  const { couponInfo, error } = await getValidCoupon({
+  // Specification:
+  // - Credits are applied automatically at checkout. No code to type.
+  // - She can use credits for up to 20% of the product total, and at most ₹150 per order, whichever is lower.
+  // - Credits do not pay for delivery.
+  // - Credits and a coupon code cannot be used together. If she has both, use the one that saves her more and show which one was used.
+  const maxCreditsByPercent = Math.floor(subtotal * MAX_REWARD_REDEEM_PERCENT);
+  const maxPossibleCredits =
+    subtotal > 0
+      ? Math.max(
+          0,
+          Math.min(rewardBalance, maxCreditsByPercent, MAX_REWARD_REDEEM_PER_ORDER),
+        )
+      : 0;
+
+  const { couponInfo, error: couponError } = await getValidCoupon({
     code: couponCode,
     userId,
     subtotal,
   });
 
-  if (error) {
-    const gst = 0;
+  if (couponError && couponCode) {
+    // If entered coupon is invalid / not meeting min order value:
+    // Credits remain applied automatically.
+    const rewardsUsed = maxPossibleCredits;
+    const discountedSubtotal = roundMoney(Math.max(subtotal - rewardsUsed, 0));
     const shipping = calculateShipping(subtotal);
-    const totalBeforeRewards = roundMoney(subtotal + shipping);
-    const rewardsUsed =
-      totalBeforeRewards > 0
-        ? Math.min(
-            rewardBalance,
-            MAX_REWARD_REDEEM_PER_ORDER,
-            Math.max(0, Math.floor(totalBeforeRewards - 1)),
-          )
-        : 0;
+    const final = roundMoney(discountedSubtotal + shipping);
+
     return {
       success: false,
-      message: error,
+      message: couponError,
       items,
       subtotal,
       discount: 0,
-      discountedSubtotal: subtotal,
-      gst,
+      discountedSubtotal,
+      gst: 0,
       shipping,
       rewardBalance,
       rewardsUsed,
       remainingRewardBalance: Math.max(0, rewardBalance - rewardsUsed),
-      final: roundMoney(Math.max(totalBeforeRewards - rewardsUsed, 0)),
+      final,
       coupon: null,
+      savingsChoiceNotice: null,
     };
   }
 
-  let discount = 0;
-
+  let couponDiscount = 0;
   if (couponInfo) {
-    discount = couponInfo.isDiscountPercentage
+    couponDiscount = couponInfo.isDiscountPercentage
       ? subtotal * ((couponInfo.discountPercentage ?? 0) / 100)
       : (couponInfo.discountFixedAmount ?? 0);
 
     if (couponInfo.maximumDiscountAmount > 0) {
-      discount = Math.min(discount, couponInfo.maximumDiscountAmount);
+      couponDiscount = Math.min(couponDiscount, couponInfo.maximumDiscountAmount);
     }
 
-    discount = Math.min(discount, subtotal);
+    couponDiscount = roundMoney(Math.min(couponDiscount, subtotal));
   }
 
-  const safeDiscount = roundMoney(discount);
-  const discountedSubtotal = roundMoney(Math.max(subtotal - safeDiscount, 0));
-  const shipping = calculateShipping(discountedSubtotal);
-  // Product prices are GST-inclusive. Keep GST at zero here so it is not
-  // added again to the customer-facing total or Razorpay order amount.
+  let safeDiscount = 0;
+  let rewardsUsed = 0;
+  let activeCoupon = null;
+  let savingsChoiceNotice: string | null = null;
+
+  if (couponInfo && couponDiscount > 0) {
+    // Both coupon and credits are eligible: compare which saves more
+    if (couponDiscount > maxPossibleCredits) {
+      // Coupon saves more
+      safeDiscount = couponDiscount;
+      rewardsUsed = 0;
+      activeCoupon = couponInfo;
+      if (maxPossibleCredits > 0) {
+        savingsChoiceNotice = `Coupon ${couponInfo.code} saved you ₹${couponDiscount.toFixed(2)}, which is more than your ₹${maxPossibleCredits} rewards credit. Credits and coupons cannot be combined, so coupon was used and your credits stay in your wallet.`;
+      }
+    } else if (maxPossibleCredits > 0) {
+      // Credits save more or equal
+      safeDiscount = 0;
+      rewardsUsed = maxPossibleCredits;
+      activeCoupon = null;
+      savingsChoiceNotice = `₹${maxPossibleCredits} rewards credit applied automatically because it saves you more than coupon ${couponInfo.code} (₹${couponDiscount.toFixed(2)}). Credits and coupons cannot be combined.`;
+    } else {
+      safeDiscount = couponDiscount;
+      rewardsUsed = 0;
+      activeCoupon = couponInfo;
+    }
+  } else {
+    // No coupon code entered: auto-apply credits
+    safeDiscount = 0;
+    rewardsUsed = maxPossibleCredits;
+    activeCoupon = null;
+  }
+
+  // Delivery charge is separate; credits do NOT pay for delivery
+  const productAfterCoupon = roundMoney(Math.max(subtotal - safeDiscount, 0));
+  const shipping = calculateShipping(productAfterCoupon);
+  const discountedSubtotal = roundMoney(Math.max(productAfterCoupon - rewardsUsed, 0));
   const gst = 0;
-  const totalBeforeRewards = roundMoney(discountedSubtotal + shipping);
-  const rewardsUsed =
-    totalBeforeRewards > 0
-      ? Math.min(
-          rewardBalance,
-          MAX_REWARD_REDEEM_PER_ORDER,
-          Math.max(0, Math.floor(totalBeforeRewards - 1)),
-        )
-      : 0;
-  const final = roundMoney(Math.max(totalBeforeRewards - rewardsUsed, 0));
+  const final = roundMoney(discountedSubtotal + shipping);
 
   return {
     success: true,
@@ -353,18 +387,19 @@ export async function calculateCheckoutPricingForUser({
     rewardsUsed,
     remainingRewardBalance: Math.max(0, rewardBalance - rewardsUsed),
     final,
-    coupon: couponInfo
+    savingsChoiceNotice,
+    coupon: activeCoupon
       ? {
-          id: couponInfo.id,
-          name: couponInfo.name,
-          code: couponInfo.code,
-          description: couponInfo.description,
-          isDiscountPercentage: couponInfo.isDiscountPercentage,
-          discountPercentage: couponInfo.discountPercentage,
-          discountFixedAmount: couponInfo.discountFixedAmount,
-          minimumOrderValue: couponInfo.minimumOrderValue,
-          maximumDiscountAmount: couponInfo.maximumDiscountAmount,
-          useOnce: couponInfo.useOnce,
+          id: activeCoupon.id,
+          name: activeCoupon.name,
+          code: activeCoupon.code,
+          description: activeCoupon.description,
+          isDiscountPercentage: activeCoupon.isDiscountPercentage,
+          discountPercentage: activeCoupon.discountPercentage,
+          discountFixedAmount: activeCoupon.discountFixedAmount,
+          minimumOrderValue: activeCoupon.minimumOrderValue,
+          maximumDiscountAmount: activeCoupon.maximumDiscountAmount,
+          useOnce: activeCoupon.useOnce,
         }
       : null,
   };

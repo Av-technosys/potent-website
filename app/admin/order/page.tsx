@@ -1,3 +1,6 @@
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 import { pageSize } from "@/const/globalconst";
 import OrderClient from "./orderClient";
 import { fetchOrders } from "@/helper/index";

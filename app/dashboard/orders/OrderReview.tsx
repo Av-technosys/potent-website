@@ -64,18 +64,20 @@ export const OrderReview = ({
     if (!file) return;
 
     const folder = "review";
-    const { preview, fileKey } = await upload(file, folder);
-    if (!fileKey) {
+    const res = await upload(file, folder);
+    if (!res?.fileKey && !res?.fileUrl) {
       toast.error("Failed to upload image");
       return;
     }
+
+    const cloudFrontUrl = res.fileUrl || (res.fileKey ? getImageUrl(res.fileKey) : res.preview);
 
     setPreviews((prev) => {
       const filtered = prev.filter(
         (p) => !(p.variantId === variantId && p.index === index),
       );
 
-      return [...filtered, { variantId, preview, index }];
+      return [...filtered, { variantId, preview: cloudFrontUrl, index }];
     });
 
     setFileKey((prev) => {
@@ -83,14 +85,14 @@ export const OrderReview = ({
         (p) => !(p.variantId === variantId && p.index === index),
       );
 
-      return [...filtered, { variantId, fileKey, index }];
+      return [...filtered, { variantId, fileKey: cloudFrontUrl, index }];
     });
   };
 
   const handleSubmitReview = async (productVarientId: string, orderItemId: string) => {
     const productMedia = fileKey
       .filter((f) => f.variantId === productVarientId)
-      .map((f) => f.fileKey);
+      .map((f) => getImageUrl(f.fileKey));
 
     const reviewData = {
       userId: orderDetails.userId,
@@ -99,7 +101,13 @@ export const OrderReview = ({
       rating: ratings[productVarientId] || 0,
       message: comments[productVarientId] || "",
       media: productMedia,
+      imageUrl: productMedia[0] || null,
     };
+
+    if (!productMedia || productMedia.length === 0) {
+      toast.error("Please attach at least 1 photo of the product to earn ₹50");
+      return;
+    }
 
     try {
       if (reviewData.rating > 0 && reviewData.message !== "") {
@@ -109,7 +117,7 @@ export const OrderReview = ({
 
         if (response.success) {
           toast.success(
-            "Review submitted! ₹25 (or ₹50 with photo) will be credited once approved by our team.",
+            "Review submitted! ₹50 will be credited once approved by our team.",
           );
 
           setRatings((prev) => ({ ...prev, [productVarientId]: 0 }));
@@ -299,44 +307,49 @@ export const OrderReview = ({
                           ))}
                         </div>
 
-                        <div className="grid grid-cols-3 gap-2">
-                          {[1, 2, 3, 4, 5].map((index: number) => {
-                            const currentPreview = previews.find(
-                              (p) =>
-                                p.variantId === variantId && p.index === index,
-                            );
+                        <div className="space-y-1.5">
+                          <p className="text-xs font-semibold text-[#016271]">
+                            Attach Product Photo <span className="text-red-500">*</span> (1 photo required to earn ₹50)
+                          </p>
+                          <div className="grid grid-cols-3 gap-2">
+                            {[1, 2, 3, 4, 5].map((index: number) => {
+                              const currentPreview = previews.find(
+                                (p) =>
+                                  p.variantId === variantId && p.index === index,
+                              );
 
-                            return (
-                              <div
-                                key={index}
-                                className="border-2 border-dashed rounded-xl p-4 text-center relative overflow-hidden"
-                              >
-                                <Input
-                                  type="file"
-                                  accept="image/*"
-                                  onChange={(e) =>
-                                    handleImageChange(e, variantId, index)
-                                  }
-                                  className="absolute inset-0 opacity-0 cursor-pointer z-10"
-                                />
-
-                                {currentPreview ? (
-                                  <Image
-                                    src={currentPreview.preview}
-                                    alt={`Preview ${index}`}
-                                    width={100}
-                                    height={100}
-                                    className="object-cover mx-auto rounded-md"
+                              return (
+                                <div
+                                  key={index}
+                                  className="border-2 border-dashed rounded-xl p-4 text-center relative overflow-hidden"
+                                >
+                                  <Input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={(e) =>
+                                      handleImageChange(e, variantId, index)
+                                    }
+                                    className="absolute inset-0 opacity-0 cursor-pointer z-10"
                                   />
-                                ) : (
-                                  <div className="flex flex-col items-center justify-center text-muted-foreground">
-                                    <Upload className="mb-2" />
-                                    <p className="text-sm">Upload Image</p>
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
+
+                                  {currentPreview ? (
+                                    <Image
+                                      src={currentPreview.preview}
+                                      alt={`Preview ${index}`}
+                                      width={100}
+                                      height={100}
+                                      className="object-cover mx-auto rounded-md"
+                                    />
+                                  ) : (
+                                    <div className="flex flex-col items-center justify-center text-muted-foreground">
+                                      <Upload className="mb-2" />
+                                      <p className="text-sm">Upload Image</p>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
                         </div>
 
                         <Textarea
@@ -351,22 +364,34 @@ export const OrderReview = ({
                           }
                         />
 
-                        <Button
-                          className="w-full"
-                          disabled={
-                            alreadyReviewed ||
-                            (loadingProduct === variantId &&
-                              loadingProduct !== null)
-                          }
-                          onClick={() => handleSubmitReview(variantId, item.id)}
-                        >
-                          {alreadyReviewed
-                            ? "Review Submitted"
-                            : loadingProduct === variantId &&
-                              loadingProduct !== null
-                            ? "Submitting..."
-                            : "Submit Review"}
-                        </Button>
+                        {(() => {
+                          const itemPhotos = fileKey.filter((f) => f.variantId === variantId);
+                          const hasPhoto = itemPhotos.length > 0;
+                          const hasRating = (ratings[variantId] || 0) > 0;
+                          const hasComment = Boolean(comments[variantId]?.trim());
+
+                          return (
+                            <Button
+                              className="w-full"
+                              disabled={
+                                alreadyReviewed ||
+                                (loadingProduct === variantId &&
+                                  loadingProduct !== null) ||
+                                !hasPhoto ||
+                                !hasRating ||
+                                !hasComment
+                              }
+                              onClick={() => handleSubmitReview(variantId, item.id)}
+                            >
+                              {alreadyReviewed
+                                ? "Review Submitted"
+                                : loadingProduct === variantId &&
+                                  loadingProduct !== null
+                                ? "Submitting..."
+                                : "Submit Review (+₹50)"}
+                            </Button>
+                          );
+                        })()}
                       </CardContent>
                     </Card>
                   );

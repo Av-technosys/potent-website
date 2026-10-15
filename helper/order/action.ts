@@ -129,10 +129,39 @@ export const fetchOrders = async ({
     }
   }
 
-  const data = ordersData.map((orderRow) => ({
-    ...orderRow,
-    items: itemsMap.get(orderRow.id) || [],
-  }));
+  const actionsMap = new Map<string, any[]>();
+  if (orderIds.length > 0) {
+    const actions = await db
+      .select({
+        id: orderAction.id,
+        orderId: orderAction.orderId,
+        requestType: orderAction.requestType,
+        userReason: orderAction.userReason,
+        status: orderAction.status,
+      })
+      .from(orderAction)
+      .where(inArray(orderAction.orderId, orderIds));
+
+    for (const a of actions) {
+      if (!a.orderId) continue;
+      const list = actionsMap.get(a.orderId) || [];
+      list.push(a);
+      actionsMap.set(a.orderId, list);
+    }
+  }
+
+  const data = ordersData.map((orderRow) => {
+    const actions = actionsMap.get(orderRow.id) || [];
+    const returnReq = actions.find((a) => a.requestType === "return_order");
+    const cancelReq = actions.find((a) => a.requestType === "cance_order");
+
+    return {
+      ...orderRow,
+      items: itemsMap.get(orderRow.id) || [],
+      returnRequest: returnReq ?? null,
+      cancelRequest: cancelReq ?? null,
+    };
+  });
 
   return {
     data,
@@ -185,9 +214,21 @@ export const fetchOrderDetails = async (orderId: string) => {
       product: row.product,
     }));
 
+    const returnRequests = await db
+      .select()
+      .from(orderAction)
+      .where(
+        and(
+          eq(orderAction.orderId, orderId),
+          eq(orderAction.requestType, "return_order"),
+        ),
+      );
+
     return {
       ...orderInfo[0],
       items,
+      returnRequests,
+      returnRequest: returnRequests[0] ?? null,
     };
   } catch (error) {
     console.error("fetchOrderDetails error:", error);
@@ -452,35 +493,174 @@ export async function cancelUnpaidOrder(orderId: string) {
   }
 }
 
-export async function submitOrderIssue(orderId: string, issueText: string) {
+export async function submitOrderIssue(
+  payload:
+    | {
+        orderId: string;
+        issueText: string;
+        productName?: string;
+        imageUrls?: string[];
+      }
+    | string,
+  maybeIssueText?: string,
+  maybeProductName?: string,
+  maybeImageUrls?: string[],
+) {
   try {
     const { userId } = await requireUserWithRefresh();
+
+    let orderId = "";
+    let issueText = "";
+    let productName = "";
+    let imageUrls: string[] = [];
+
+    if (typeof payload === "object" && payload !== null) {
+      orderId = payload.orderId;
+      issueText = payload.issueText;
+      productName = payload.productName || "";
+      imageUrls = payload.imageUrls || [];
+    } else {
+      orderId = String(payload || "");
+      issueText = String(maybeIssueText || "");
+      productName = String(maybeProductName || "");
+      imageUrls = Array.isArray(maybeImageUrls) ? maybeImageUrls : [];
+    }
+
+    if (!orderId) {
+      return { success: false, message: "Order ID is missing." };
+    }
+
     if (!issueText || !issueText.trim()) {
       return { success: false, message: "Please describe your issue." };
     }
 
-    const [user] = await db
-      .select({ name: users.name, email: users.email, phone: users.phone })
-      .from(users)
-      .where(eq(users.id, userId))
+    // Verify order exists
+    const [orderRow] = await db
+      .select({ id: order.id, userId: order.userId })
+      .from(order)
+      .where(eq(order.id, orderId))
       .limit(1);
 
-    await db.insert(contactUs).values({
-      name: user?.name || "Customer",
-      email: user?.email || "customer@potenthygiene.com",
-      phone: user?.phone || null,
-      message: `[Order Support Issue #${orderId}]: ${issueText.trim()}`,
-    });
+    if (!orderRow) {
+      return { success: false, message: "Order not found." };
+    }
 
+    // Verify ownership or admin privileges
+    if (orderRow.userId && orderRow.userId !== userId) {
+      const [adminUser] = await db
+        .select({ role: users.role })
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+      if (adminUser?.role !== "admin") {
+        return { success: false, message: "Unauthorized: This order belongs to another account." };
+      }
+    }
+
+    const trimmedProduct = productName?.trim() || "";
+    const isEntireOrder =
+      !trimmedProduct ||
+      trimmedProduct.toLowerCase().includes("all products") ||
+      trimmedProduct.toLowerCase().includes("entire order");
+
+    // Check duplicate issue: only 1 issue can be raised per product (or per order)
+    const existingIssues = await db
+      .select({
+        id: orderAction.id,
+        userReason: orderAction.userReason,
+        status: orderAction.status,
+      })
+      .from(orderAction)
+      .where(
+        and(
+          eq(orderAction.orderId, orderId),
+          eq(orderAction.requestType, "return_order"),
+          notInArray(orderAction.status, ["cancelled"]),
+        ),
+      );
+
+    if (existingIssues.length > 0) {
+      if (isEntireOrder) {
+        return {
+          success: false,
+          message: "An issue has already been submitted for this order. Our team is currently reviewing it.",
+        };
+      } else {
+        const productTag = `[Product: ${trimmedProduct}]`;
+        const alreadySubmittedForProduct = existingIssues.some((issue) =>
+          issue.userReason ? issue.userReason.includes(productTag) : false,
+        );
+        if (alreadySubmittedForProduct) {
+          return {
+            success: false,
+            message: `An issue has already been raised for ${trimmedProduct}. Our team is reviewing it.`,
+          };
+        }
+      }
+    }
+
+    const fullReason = !isEntireOrder
+      ? `[Product: ${trimmedProduct}]: ${issueText.trim()}`
+      : issueText.trim();
+
+    // 1. Insert into orderAction table (Raised issues / returns)
+    const [created] = await db
+      .insert(orderAction)
+      .values({
+        orderId,
+        userId: orderRow.userId || userId,
+        requestType: "return_order",
+        userReason: fullReason,
+        status: "pending",
+      })
+      .returning({ id: orderAction.id });
+
+    // 2. Insert uploaded photo URLs into orderActionImage table if provided
+    const cleanImages = (imageUrls || []).filter(Boolean);
+    if (cleanImages.length > 0) {
+      await db.insert(orderActionImage).values(
+        cleanImages.map((imageUrl) => ({
+          orderActionId: created.id,
+          imageUrl,
+        })),
+      );
+    }
+
+    // 3. Backup notification in contactUs
+    try {
+      const [user] = await db
+        .select({ name: users.name, email: users.email, phone: users.phone })
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+
+      await db.insert(contactUs).values({
+        name: user?.name || "Customer",
+        email: user?.email || "customer@potenthygiene.com",
+        phone: user?.phone || null,
+        message: `[Order Issue Raised #${orderId}]: ${fullReason}`,
+      });
+    } catch (contactErr) {
+      console.warn("contactUs backup log error:", contactErr);
+    }
+
+    revalidatePath("/admin/return-requests");
+    revalidatePath("/admin/return-requests", "page");
+    revalidatePath("/admin/cancel-requests");
+    revalidatePath("/admin/order");
+    revalidatePath("/admin/order", "page");
+    revalidatePath("/admin/order/[id]", "page");
     revalidatePath("/admin/contact-us");
+    revalidatePath("/dashboard/orders");
+    revalidatePath(`/dashboard/orders/${orderId}`);
 
     return {
       success: true,
-      message: "We've got your message",
+      message: "We've got your message! Our care team will review your issue shortly.",
     };
   } catch (error) {
     console.error("submitOrderIssue error:", error);
-    return { success: false, message: "Failed to submit issue" };
+    return { success: false, message: "Failed to submit issue. Please try again." };
   }
 }
 
@@ -523,7 +703,7 @@ export async function createReturnRequest(orderItemId: string, reason: string, i
       })
       .returning({ id: returnRequest.id });
 
-    const cleanImages = imageUrls.map((imageUrl) => getImageKey(imageUrl)).filter(Boolean);
+    const cleanImages = imageUrls.filter(Boolean);
     if (cleanImages.length > 0) {
       await db.insert(returnRequestImage).values(
         cleanImages.map((imageUrl) => ({
@@ -548,10 +728,12 @@ export async function updateCancelRequestStatus(
   adminReason?: string,
 ) {
   try {
+    // In database order_request_status enum: values are 'pending', 'cancelled', 'approved', 'refunded'
+    const dbStatus = status === "rejected" ? "cancelled" : status;
     const [updated] = await db
       .update(cancelRequest)
       .set({
-        status,
+        status: dbStatus as any,
         adminReason,
         updatedAt: new Date(),
       })
@@ -580,17 +762,18 @@ export async function updateReturnRequestStatus(
   adminReason?: string,
 ) {
   try {
+    const dbStatus = status === "rejected" ? "cancelled" : status;
     const [updated] = await db
       .update(returnRequest)
       .set({
-        status,
+        status: dbStatus as any,
         adminReason,
         updatedAt: new Date(),
       })
       .where(eq(returnRequest.id, requestId))
       .returning();
 
-    if (!updated) return { success: false, message: "Return request not found" };
+    if (!updated) return { success: false, message: "Issue request not found" };
 
     if (status === "approved") {
       await changeOrderStatus(updated.orderId, ORDER_STATUS.RETURNED);
@@ -599,7 +782,7 @@ export async function updateReturnRequestStatus(
     revalidatePath("/admin/return-requests");
     revalidatePath("/admin/order");
     revalidatePath("/dashboard/orders");
-    return { success: true, message: `Return request ${status}` };
+    return { success: true, message: `Request marked as ${status}` };
   } catch (error) {
     console.error("updateReturnRequestStatus error:", error);
     return { success: false, message: "Failed to update return request" };
@@ -1068,7 +1251,12 @@ export async function getOrdersByUserId() {
                   productPrice: item.productVarientPrice || v?.price || 0,
                   variant: v ?? null,
                   product: prod ?? null,
-                  returnRequest: returnRequestRow,
+                  returnRequest:
+                    returnRequests.find(
+                      (r) =>
+                        r.userReason &&
+                        r.userReason.includes(`[Product: ${item.productName || prod?.name || fallbackName}]`),
+                    ) || returnRequestRow,
                   review: item.productVariantId
                     ? reviewMap.get(variantProductMap.get(item.productVariantId) ?? "") ?? null
                     : null,
@@ -1096,6 +1284,8 @@ export async function getOrdersByUserId() {
             linkedPayment?.paymentStatus ??
             (orderRow.status === "paid" ? "success" : "pending"),
           cancelRequest: cancelRequests[0] ?? null,
+          returnRequest: returnRequestRow,
+          returnRequests: returnRequests ?? [],
           order_items: mappedItems,
           items: mappedItems,
         };
@@ -1323,16 +1513,28 @@ export async function getOrderById(orderId: string) {
         .limit(1)
     : [null];
 
-  const [cancelAction] = await db
-    .select()
-    .from(orderAction)
-    .where(
-      and(
-        eq(orderAction.orderId, orderId),
-        eq(orderAction.requestType, "cance_order"),
+  const [cancelAction, returnRequests] = await Promise.all([
+    db
+      .select()
+      .from(orderAction)
+      .where(
+        and(
+          eq(orderAction.orderId, orderId),
+          eq(orderAction.requestType, "cance_order"),
+        ),
+      )
+      .limit(1)
+      .then((rows) => rows[0] ?? null),
+    db
+      .select()
+      .from(orderAction)
+      .where(
+        and(
+          eq(orderAction.orderId, orderId),
+          eq(orderAction.requestType, "return_order"),
+        ),
       ),
-    )
-    .limit(1);
+  ]);
 
   const meta = (typeof paymentData?.paymentMeta === "object" ? paymentData.paymentMeta : {}) as any;
   const subtotal = Number(
@@ -1361,11 +1563,14 @@ export async function getOrderById(orderId: string) {
     customerPhone: meta?.shippingAddress?.phone ?? userRecord?.phone ?? null,
     customerEmail: meta?.shippingAddress?.email ?? userRecord?.email ?? null,
     cancelRequest: cancelAction ?? null,
+    returnRequest: returnRequests[0] ?? null,
+    returnRequests: returnRequests ?? [],
     pricingBreakdown: {
       subtotal,
       shipping,
       discount,
       coupon: meta?.coupon ?? null,
+      rewardsUsed: Number(meta?.rewardsUsed ?? 0),
       total: orderData.totalAmount,
     },
   };
@@ -1514,16 +1719,30 @@ export async function getOrderConfirmationById(orderId: string) {
     .where(eq(users.id, userId))
     .limit(1);
 
-  const [cancelAction] = await db
-    .select()
-    .from(orderAction)
-    .where(
-      and(
-        eq(orderAction.orderId, orderId),
-        eq(orderAction.requestType, "cance_order"),
-      ),
-    )
-    .limit(1);
+  const [cancelAction, returnAction] = await Promise.all([
+    db
+      .select()
+      .from(orderAction)
+      .where(
+        and(
+          eq(orderAction.orderId, orderId),
+          eq(orderAction.requestType, "cance_order"),
+        ),
+      )
+      .limit(1)
+      .then((rows) => rows[0] ?? null),
+    db
+      .select()
+      .from(orderAction)
+      .where(
+        and(
+          eq(orderAction.orderId, orderId),
+          eq(orderAction.requestType, "return_order"),
+        ),
+      )
+      .limit(1)
+      .then((rows) => rows[0] ?? null),
+  ]);
 
   const meta = (typeof paymentData?.paymentMeta === "object" ? paymentData.paymentMeta : {}) as any;
   const subtotal = Number(
@@ -1569,11 +1788,13 @@ export async function getOrderConfirmationById(orderId: string) {
     customerPhone: meta?.shippingAddress?.phone ?? currentUser?.phone ?? null,
     customerEmail: meta?.shippingAddress?.email ?? currentUser?.email ?? null,
     cancelRequest: cancelAction ?? null,
+    returnRequest: returnAction ?? null,
     pricingBreakdown: {
       subtotal,
       shipping,
       discount,
       coupon: meta?.coupon ?? null,
+      rewardsUsed: Number(meta?.rewardsUsed ?? 0),
       total: orderData.totalAmount,
     },
     gatewayConfirmation,

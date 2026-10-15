@@ -1,4 +1,7 @@
 // @ts-nocheck
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 import { pageSize as defaultPageSize } from "@/const/globalconst";
 import { fetchAdminReturnRequests } from "@/helper/adminListing/action";
 import ReturnRequestsClient from "./returnRequestsClient";

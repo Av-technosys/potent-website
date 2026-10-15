@@ -3,12 +3,13 @@
 "use server";
 import { db } from "@/db";
 import { order, orderItem, review, users, product, productVariant } from "@/db/schema";
-import { and, eq, sql } from "drizzle-orm";
+import { and, desc, eq, or, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { requireUserWithRefresh } from "../user/action";
 import { ORDER_STATUS } from "@/const/globalconst";
 
 import { syncAndGetUserRewards, REVIEW_REWARD_RUPEES } from "@/lib/rewards";
+import { getImageUrl } from "@/lib/imageUrl";
 
 export async function createReview(reviewData: any) {
   try {
@@ -90,10 +91,29 @@ export async function createReview(reviewData: any) {
         },
       });
 
-      const mediaJson =
-        Array.isArray(reviewData.media) && reviewData.media.length > 0
-          ? JSON.stringify(reviewData.media)
-          : reviewData.varient || null;
+      const rawMediaList = Array.isArray(reviewData.media)
+        ? reviewData.media
+        : reviewData.imageUrl
+          ? [reviewData.imageUrl]
+          : reviewData.fileKey
+            ? [reviewData.fileKey]
+            : reviewData.varient
+              ? [reviewData.varient]
+              : [];
+
+      const normalizedMedia = rawMediaList
+        .filter(Boolean)
+        .map((m: any) => {
+          const raw = typeof m === "string" ? m : m?.mediaURL ? m.mediaURL : String(m);
+          return getImageUrl(raw);
+        });
+
+      const primaryImageUrl = normalizedMedia[0] || null;
+      if (!primaryImageUrl) {
+        throw new Error("Please attach at least 1 photo of the product to earn ₹50");
+      }
+
+      const mediaJson = normalizedMedia.length > 0 ? JSON.stringify(normalizedMedia) : null;
 
       await tx.insert(review).values({
         userId,
@@ -102,6 +122,7 @@ export async function createReview(reviewData: any) {
         rating: Number(rating),
         message,
         varient: mediaJson,
+        imageUrl: primaryImageUrl,
         isAdminApproved: false,
       });
     });
@@ -120,7 +141,7 @@ export async function createReview(reviewData: any) {
       rewardAdded: 0,
       balance: synced.balance,
       message:
-        "Review submitted! ₹25 (or ₹50 with photo) will be credited to your Rewards balance once approved by our team.",
+        "Review submitted! ₹50 will be credited to your Rewards balance once approved by our team.",
     };
   } catch (error) {
     console.error("Failed to create review:", error);
@@ -134,8 +155,15 @@ export async function createReview(reviewData: any) {
 
 export async function getProductReviews(slug: string | any) {
   try {
+    if (!slug) return [];
+
+    let targetSlug = typeof slug === "string" ? slug.trim() : slug;
+    if (targetSlug === "menstrual-cup") {
+      targetSlug = "ovy-cup";
+    }
+
     const v = await db.query.product.findFirst({
-      where: eq(product.slug, slug),
+      where: or(eq(product.slug, targetSlug), eq(product.id, slug)),
     });
     if (!v || !v.id) return [];
     const reviews = await db
@@ -147,32 +175,46 @@ export async function getProductReviews(slug: string | any) {
         email: users.email,
         message: review.message,
         varient: review.varient,
+        imageUrl: review.imageUrl,
         productId: review.productId,
         createdAt: review.createdAt,
       })
       .from(review)
-      .innerJoin(users, eq(review.userId, users.id))
+      .leftJoin(users, eq(review.userId, users.id))
       .where(
         and(
           eq(review.productId, v.id),
           eq(review.isAdminApproved, true),
         ),
-      );
+      )
+      .orderBy(desc(review.createdAt));
 
     return reviews.map((r) => {
       let media: any[] = [];
+      if (r.imageUrl) {
+        media.push({ mediaURL: getImageUrl(r.imageUrl) });
+      }
       if (r.varient) {
         try {
           const parsed = JSON.parse(r.varient);
           if (Array.isArray(parsed)) {
-            media = parsed.map((m) =>
-              typeof m === "string" ? { mediaURL: m } : m,
-            );
+            parsed.forEach((m) => {
+              const url = typeof m === "string" ? getImageUrl(m) : m?.mediaURL ? getImageUrl(m.mediaURL) : null;
+              if (url && !media.some((item) => item.mediaURL === url)) {
+                media.push({ mediaURL: url });
+              }
+            });
           } else if (typeof parsed === "string") {
-            media = [{ mediaURL: parsed }];
+            const url = getImageUrl(parsed);
+            if (!media.some((item) => item.mediaURL === url)) {
+              media.push({ mediaURL: url });
+            }
           }
         } catch {
-          media = [{ mediaURL: r.varient }];
+          const url = getImageUrl(r.varient);
+          if (!media.some((item) => item.mediaURL === url)) {
+            media.push({ mediaURL: url });
+          }
         }
       }
       return { ...r, media };
@@ -214,6 +256,9 @@ export async function toggleApproveReview(id: string) {
     }
 
     revalidatePath("/admin/reviews");
+    revalidatePath("/menstrual-cup");
+    revalidatePath("/looway-toilet-seat-covers");
+    revalidatePath("/dashboard/reviews");
     if (existingReview.productSlug) {
       revalidatePath(`/product-detail/${existingReview.productSlug}`);
     }
@@ -260,6 +305,9 @@ export async function deleteReview(id: string) {
     }
 
     revalidatePath("/admin/reviews");
+    revalidatePath("/menstrual-cup");
+    revalidatePath("/looway-toilet-seat-covers");
+    revalidatePath("/dashboard/reviews");
     if (existingReview.productSlug) {
       revalidatePath(`/product-detail/${existingReview.productSlug}`);
     }
@@ -300,6 +348,7 @@ export async function getUserAllReviews() {
         email: users.email,
         message: review.message,
         varient: review.varient,
+        imageUrl: review.imageUrl,
         productId: review.productId,
         productName: product.name,
         isAdminApproved: review.isAdminApproved,
@@ -312,18 +361,30 @@ export async function getUserAllReviews() {
 
     return reviews.map((r) => {
       let media: any[] = [];
+      if (r.imageUrl) {
+        media.push({ mediaURL: getImageUrl(r.imageUrl) });
+      }
       if (r.varient) {
         try {
           const parsed = JSON.parse(r.varient);
           if (Array.isArray(parsed)) {
-            media = parsed.map((m) =>
-              typeof m === "string" ? { mediaURL: m } : m,
-            );
+            parsed.forEach((m) => {
+              const url = typeof m === "string" ? getImageUrl(m) : m?.mediaURL ? getImageUrl(m.mediaURL) : null;
+              if (url && !media.some((item) => item.mediaURL === url)) {
+                media.push({ mediaURL: url });
+              }
+            });
           } else if (typeof parsed === "string") {
-            media = [{ mediaURL: parsed }];
+            const url = getImageUrl(parsed);
+            if (!media.some((item) => item.mediaURL === url)) {
+              media.push({ mediaURL: url });
+            }
           }
         } catch {
-          media = [{ mediaURL: r.varient }];
+          const url = getImageUrl(r.varient);
+          if (!media.some((item) => item.mediaURL === url)) {
+            media.push({ mediaURL: url });
+          }
         }
       }
       return { ...r, media };
@@ -376,7 +437,12 @@ export async function getReviewableProducts() {
     }> = [];
 
     for (const item of orderedItems) {
-      if (item.orderStatus === ORDER_STATUS.CANCELED) continue;
+      if (
+        item.orderStatus !== ORDER_STATUS.DELIVERED &&
+        item.orderStatus !== ORDER_STATUS.COMPLETED
+      ) {
+        continue;
+      }
 
       let prodId = item.resolvedProductId ?? null;
       if (!prodId && item.slug) {

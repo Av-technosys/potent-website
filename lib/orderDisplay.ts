@@ -40,6 +40,8 @@ export function getOrderStageBadgeClasses(stageOrStatus: string, isUnpaid?: bool
       return "bg-amber-100 text-amber-800";
     case "Cancelled":
       return "bg-red-100 text-red-700";
+    case "Returned":
+      return "bg-rose-100 text-rose-800";
     case "Order placed":
     default:
       return "bg-[#DCF7FC] text-[#016271]";
@@ -70,6 +72,12 @@ export function getDeliveryHeader(isDelivered: boolean): string {
 export function canTrackOrder(order: any): boolean {
   if (!order) return false;
   const status = String(order.status || "").toLowerCase().trim();
+  const isReturned =
+    status === "returned" ||
+    order.returnRequest?.status === "approved" ||
+    order.orderAction?.status === "approved";
+  if (isReturned) return true;
+
   const isCanceled =
     status === "canceled" ||
     status === "cancelled" ||

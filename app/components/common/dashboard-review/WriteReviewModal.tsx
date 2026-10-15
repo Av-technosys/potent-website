@@ -20,6 +20,7 @@ import { Camera, X, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useFileUpload } from "@/helper/useFileUpload";
+import { getImageUrl } from "@/lib/imageUrl";
 
 interface WriteReviewModalProps {
   product?: any;
@@ -61,9 +62,10 @@ export const WriteReviewModal = ({
 
     try {
       const res = await upload(file, "review");
-      if (res?.fileKey) {
-        setPhotoKey(res.fileKey);
-        setPhotoPreview(res.preview || null);
+      const cloudFrontUrl = res?.fileUrl || (res?.fileKey ? getImageUrl(res.fileKey) : res?.preview);
+      if (cloudFrontUrl) {
+        setPhotoKey(cloudFrontUrl);
+        setPhotoPreview(cloudFrontUrl);
         toast.success("Photo uploaded! Eligible for ₹50 reward upon approval.");
       } else {
         toast.error("Failed to upload photo");
@@ -84,6 +86,11 @@ export const WriteReviewModal = ({
       return;
     }
 
+    if (!photoKey) {
+      toast.error("Please attach at least 1 product photo to earn ₹50");
+      return;
+    }
+
     try {
       setLoading(true);
 
@@ -99,6 +106,7 @@ export const WriteReviewModal = ({
           rating: rating,
           message: comment.trim(),
           media: photoKey ? [photoKey] : [],
+          imageUrl: photoKey || null,
         }),
       });
 
@@ -106,9 +114,7 @@ export const WriteReviewModal = ({
 
       if (response.ok) {
         toast.success(
-          photoKey
-            ? "Review submitted! ₹50 cash credit will be added once approved."
-            : "Review submitted! ₹25 cash credit will be added once approved.",
+          "Review submitted! ₹50 cash credit will be added once approved.",
         );
         setComment("");
         setUserName("");
@@ -158,8 +164,8 @@ export const WriteReviewModal = ({
 
         <div className="my-1 rounded-xl bg-[#E9F7F9] p-3 text-xs">
           <p className="font-bold text-[#2D3748]">{productName}</p>
-          <p className="font-medium text-[#016271] mt-0.5">
-            Earn ₹25 for text review • ₹50 with a photo (credited on approval)
+          <p className="font-semibold text-[#016271] mt-0.5">
+            Earn ₹50 on review (credited on approval) • 1 photo required
           </p>
         </div>
 
@@ -218,9 +224,9 @@ export const WriteReviewModal = ({
           {/* Photo Upload */}
           <div className="space-y-1.5 text-left">
             <label className="text-[14px] font-semibold text-[#333333] flex items-center justify-between">
-              <span>Add a Photo (Optional)</span>
+              <span>Attach Product Photo <span className="text-red-500">*</span></span>
               <span className="text-xs font-semibold text-teal-700 bg-teal-50 px-2 py-0.5 rounded-full">
-                +₹50 with photo
+                1 photo required 
               </span>
             </label>
 
@@ -251,7 +257,7 @@ export const WriteReviewModal = ({
                 ) : (
                   <div className="flex items-center gap-2 text-sm text-gray-600">
                     <Camera size={18} className="text-[#016271]" />
-                    <span>Attach photo for ₹50 reward</span>
+                    <span>Upload product photo</span>
                   </div>
                 )}
                 <input
@@ -269,8 +275,8 @@ export const WriteReviewModal = ({
         <div className="mt-4 flex gap-3">
           <Button
             onClick={submitReview}
-            disabled={loading || uploading}
-            className="h-11 flex-1 rounded-xl bg-[#1B8392] font-bold text-white hover:bg-[#016271] cursor-pointer"
+            disabled={loading || uploading || !comment.trim() || !photoKey}
+            className="h-11 flex-1 rounded-xl bg-[#1B8392] font-bold text-white hover:bg-[#016271] cursor-pointer disabled:bg-gray-300 disabled:cursor-not-allowed"
           >
             {loading ? "Submitting..." : "Submit Review"}
           </Button>

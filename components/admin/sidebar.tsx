@@ -13,6 +13,7 @@ import {
   IndianRupee,
   XCircle,
   PhoneCall,
+  AlertCircle,
 } from "lucide-react";
 
 const navItems = [
@@ -27,6 +28,7 @@ const navItems = [
   { label: "Contact Us", href: "/admin/contact-us", icon: PhoneCall },
   { label: "Payment", href: "/admin/payment", icon: IndianRupee },
   { label: "Cancel Requests", href: "/admin/cancel-requests", icon: XCircle },
+  { label: "Issues & Returns", href: "/admin/return-requests", icon: AlertCircle },
   { label: "Coupon", href: "/admin/coupon", icon: Code },
 ];
 

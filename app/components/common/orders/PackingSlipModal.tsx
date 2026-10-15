@@ -507,6 +507,12 @@ export function PackingSlipModal({
                   <span className="font-bold">-₹{Number(meta.discount).toFixed(2)}</span>
                 </div>
               )}
+              {meta?.rewardsUsed > 0 && (
+                <div className="flex justify-between w-48 text-[#016271]">
+                  <span>Rewards Credit:</span>
+                  <span className="font-bold">-₹{Number(meta.rewardsUsed).toFixed(2)}</span>
+                </div>
+              )}
               <div className="flex justify-between w-48 text-gray-600">
                 <span>Shipping:</span>
                 <span className="font-bold">

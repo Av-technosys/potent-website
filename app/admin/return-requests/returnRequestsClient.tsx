@@ -36,8 +36,10 @@ const ReturnRequestsClient = ({ requests, total, currentPage, pageSize }: Props)
     <div className="w-full p-1">
       <Card>
         <CardHeader>
-          <CardTitle>Return Request Listing</CardTitle>
-          <CardDescription>View return requests, product details, reasons, and attached images.</CardDescription>
+          <CardTitle>Raised Issues &amp; Return Requests</CardTitle>
+          <CardDescription>
+            Review product issues raised by customers, view uploaded photos, and manage approvals.
+          </CardDescription>
         </CardHeader>
 
         <CardContent>

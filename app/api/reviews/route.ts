@@ -3,6 +3,7 @@ import { db } from "@/src/db";
 import { product, review, users } from "@/src/db/schema";
 import { getCurrentUser } from "@/helper/user/action";
 import { syncAndGetUserRewards, REVIEW_REWARD_RUPEES } from "@/lib/rewards";
+import { getImageUrl } from "@/lib/imageUrl";
 import { and, desc, eq, ilike } from "drizzle-orm";
 
 const UUID_REGEX =
@@ -126,10 +127,26 @@ export async function POST(req: NextRequest) {
       ? body.media
       : body.fileKey
         ? [body.fileKey]
-        : body.photoUrl
-          ? [body.photoUrl]
-          : [];
-    const mediaJson = mediaList.length > 0 ? JSON.stringify(mediaList) : null;
+        : body.imageUrl
+          ? [body.imageUrl]
+          : body.photoUrl
+            ? [body.photoUrl]
+            : [];
+    const normalizedMedia = mediaList
+      .filter(Boolean)
+      .map((m: any) => {
+        const raw = typeof m === "string" ? m : m?.mediaURL ? m.mediaURL : String(m);
+        return getImageUrl(raw);
+      });
+    const primaryImageUrl = normalizedMedia[0] || null;
+    if (!primaryImageUrl) {
+      return NextResponse.json(
+        { error: "Please attach at least 1 photo of the product to earn ₹50." },
+        { status: 400 },
+      );
+    }
+
+    const mediaJson = normalizedMedia.length > 0 ? JSON.stringify(normalizedMedia) : null;
 
     const [created] = await db
       .insert(review)
@@ -140,6 +157,7 @@ export async function POST(req: NextRequest) {
         rating,
         message,
         varient: mediaJson,
+        imageUrl: primaryImageUrl,
         isAdminApproved: false, // Rule: Added when we approve the review
       })
       .returning();
@@ -153,7 +171,7 @@ export async function POST(req: NextRequest) {
       rewardAdded: 0,
       balance: synced.balance,
       message:
-        "Review submitted! ₹25 (or ₹50 with photo) will be added to your balance once approved.",
+        "Review submitted! ₹50 will be added to your balance once approved.",
     });
   } catch (error) {
     console.error("Failed to create review:", error);

@@ -58,8 +58,8 @@ export function OrderSummary() {
   let discount = 0;
   if (appliedCoupon && subtotal > 0) {
     if (
-      appliedCoupon.minimumOrderValue &&
-      subtotal < appliedCoupon.minimumOrderValue
+      Number(appliedCoupon.minimumOrderValue || 0) > 0 &&
+      subtotal < Number(appliedCoupon.minimumOrderValue)
     ) {
       discount = 0;
     } else {
@@ -311,12 +311,12 @@ export function OrderSummary() {
         )}
 
         {appliedCoupon &&
-          appliedCoupon.minimumOrderValue &&
-          subtotal < appliedCoupon.minimumOrderValue && (
-            <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-800">
-              Min order value of ₹{appliedCoupon.minimumOrderValue} required for {appliedCoupon.code}.
-            </div>
-          )}
+        Number(appliedCoupon.minimumOrderValue || 0) > 0 &&
+        subtotal < Number(appliedCoupon.minimumOrderValue) ? (
+          <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-800">
+            Min order value of ₹{appliedCoupon.minimumOrderValue} required for {appliedCoupon.code}.
+          </div>
+        ) : null}
       </div>
 
       {/* 🎁 Gift Option in Cart */}

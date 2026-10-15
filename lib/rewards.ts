@@ -15,14 +15,15 @@ import { desc, eq, inArray, sql } from "drizzle-orm";
 export const SIGNUP_BONUS_RUPEES = 50; // ₹50 welcome reward when account created
 export const REFERRAL_EARNING_RUPEES = 100; // ₹100 for referrer when friend's first order is delivered
 export const REFERRAL_FRIEND_BONUS_RUPEES = 100; // ₹100 off on friend's first order
-export const REVIEW_TEXT_REWARD_RUPEES = 25; // ₹25 for text review
+export const REVIEW_TEXT_REWARD_RUPEES = 50; // ₹50 for review
 export const REVIEW_PHOTO_REWARD_RUPEES = 50; // ₹50 for review with photo
-export const REVIEW_REWARD_RUPEES = REVIEW_TEXT_REWARD_RUPEES;
+export const REVIEW_REWARD_RUPEES = 50;
 export const BIRTHDAY_REWARD_RUPEES = 50; // ₹50 annual birthday credit (valid for 3 months)
 export const ORDER_REWARD_RATE = 0.05; // 5% of amount paid for products (delivered)
 export const REFERRAL_MIN_ORDER_AMOUNT = 399; // Friend's first order must be ₹399 or more
 export const MAX_REFERRALS_PER_MONTH = 5; // Up to 5 referrals per person per month
-export const MAX_REWARD_REDEEM_PER_ORDER = 500;
+export const MAX_REWARD_REDEEM_PER_ORDER = 150; // at most ₹150 per order
+export const MAX_REWARD_REDEEM_PERCENT = 0.20; // up to 20% of product total
 
 // Backward compatibility aliases
 export const SIGNUP_BONUS_COINS = SIGNUP_BONUS_RUPEES;
@@ -38,33 +39,56 @@ export function calculateProductPaidAmount(ord: any, pay?: any): number {
   if (!ord) return 0;
   if (typeof ord === "number") return Math.max(0, ord);
 
+  const paymentMeta =
+    typeof pay?.paymentMeta === "object" && pay?.paymentMeta !== null
+      ? pay.paymentMeta
+      : typeof ord.payment?.paymentMeta === "object" && ord.payment?.paymentMeta !== null
+        ? ord.payment.paymentMeta
+        : {};
+
+  // Part paid with credits to exclude
+  const creditsUsed = Number(
+    paymentMeta?.rewardsUsed ??
+    paymentMeta?.rewardUsed ??
+    paymentMeta?.rewardsRedeemed ??
+    ord.pricingBreakdown?.rewardsUsed ??
+    0,
+  );
+
   // Delivery charge to exclude
   const shipping = Number(
+    paymentMeta?.shipping ??
     ord.pricingBreakdown?.shipping ??
     ord.shippingFee ??
     ord.shipping ??
     0,
   );
 
-  const totalAmount = Number(ord.totalAmount ?? 0);
-
-  // Products subtotal before delivery charge
-  const subtotal = Number(
-    ord.pricingBreakdown?.subtotal ??
-    ord.subtotal ??
-    Math.max(0, totalAmount - shipping),
-  );
-
-  // Part paid with credits to exclude
-  const creditsUsed = Number(
-    (pay?.paymentMeta as any)?.rewardsUsed ??
-    (pay?.paymentMeta as any)?.rewardUsed ??
-    (pay?.paymentMeta as any)?.rewardsRedeemed ??
-    ord.pricingBreakdown?.rewardsUsed ??
+  // Coupon discount to exclude
+  const discount = Number(
+    paymentMeta?.discount ??
+    ord.pricingBreakdown?.discount ??
     0,
   );
 
-  return Math.max(0, subtotal - creditsUsed);
+  // Products subtotal before delivery and before credits/discounts
+  const rawSubtotal = Number(
+    paymentMeta?.subtotal ??
+    ord.pricingBreakdown?.subtotal ??
+    ord.subtotal ??
+    0,
+  );
+
+  if (rawSubtotal > 0) {
+    // Product amount customer actually paid with real money
+    return Math.max(0, rawSubtotal - discount - creditsUsed);
+  }
+
+  // Fallback if rawSubtotal wasn't recorded:
+  // ord.totalAmount is the safeAmount charged at gateway (subtotal - discount - creditsUsed + shipping).
+  // Deducting shipping gives the exact product amount paid with real money.
+  const totalAmount = Number(ord.totalAmount ?? pay?.amount ?? 0);
+  return Math.max(0, totalAmount - shipping);
 }
 
 export function calculateOrderRewardRupees(ord: any, pay?: any): number {
@@ -406,18 +430,9 @@ export async function syncAndGetUserRewards(userId: string) {
 
   for (const rev of userReviews) {
     if (rev.isAdminApproved) {
-      const hasPhoto = Boolean(
-        rev.varient &&
-          (rev.varient.trim().startsWith("[") ||
-            rev.varient.trim().startsWith("http") ||
-            rev.varient.trim().length > 5),
-      );
-      const rewardAmount = hasPhoto
-        ? REVIEW_PHOTO_REWARD_RUPEES
-        : REVIEW_TEXT_REWARD_RUPEES;
       validApprovedReviewMap.set(rev.id, {
         id: rev.id,
-        reward: rewardAmount,
+        reward: REVIEW_PHOTO_REWARD_RUPEES,
         name: (rev.productName || "Potent Product").trim(),
       });
     }

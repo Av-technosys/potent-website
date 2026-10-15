@@ -81,6 +81,10 @@ export const OrderCard = ({
     order?.cancelRequest?.status === "refunded";
 
   const isDelivered = statusLower === "delivered" || statusLower === "completed";
+  const isReturned =
+    statusLower === "returned" ||
+    order?.returnRequest?.status === "approved" ||
+    order?.orderAction?.status === "approved";
 
   const isSubscriptionOnly = Boolean(order?.isSubscriptionOnly);
 
@@ -93,12 +97,7 @@ export const OrderCard = ({
     isUnpaid,
   });
 
-  const canReview =
-    !isUnpaid &&
-    !isCanceled &&
-    ["paid", "processing", "shipped", "delivered", "completed"].includes(
-      statusLower,
-    );
+  const canReview = isDelivered && !isCanceled && !isReturned;
   const isGift = Boolean(
     order?.payment?.paymentMeta?.isGift ||
     order?.paymentMeta?.isGift ||
@@ -482,9 +481,9 @@ export const OrderCard = ({
             </Button>
           )}
 
-          {/* No tracking on cancelled orders */}
-          {canTrack && <TrackOrderModal order={order} />}
-          {isDelivered && !isCanceled && <RaiseSupportModal order={order} />}
+          {/* No tracking on cancelled orders, but tracking enabled for active & returned */}
+          {(canTrack || isReturned) && <TrackOrderModal order={order} />}
+          {isDelivered && !isCanceled && !isReturned && <RaiseSupportModal order={order} />}
         </div>
       )}
     </Card>

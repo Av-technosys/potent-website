@@ -3,7 +3,7 @@
 
 
 
-import { CheckCircle2, Phone, Mail, Gift } from "lucide-react";
+import { CheckCircle2, Phone, Mail, Gift, AlertCircle } from "lucide-react";
 import { PackingSlipModal } from "@/app/components/common/orders/PackingSlipModal";
 
 import { useState, useTransition } from "react";
@@ -88,6 +88,31 @@ export default function Details({ id, initialOrderInfo }: { id: string; initialO
 
   return (
     <div className={`w-full max-w-full mx-auto p-1 space-y-5 ${isPending ? "opacity-70" : ""}`}>
+      {/* Active Raised Issue / Return Request Alert */}
+      {(orderInfo?.returnRequest || (orderInfo?.returnRequests && orderInfo.returnRequests.length > 0)) && (
+        <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-900 shadow-xs space-y-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-amber-600 shrink-0" />
+              <span className="font-bold text-sm">Issue / Return Request Active</span>
+              <Badge className="bg-amber-200 text-amber-900 border-amber-300 font-semibold uppercase text-[10px]">
+                {orderInfo?.returnRequest?.status || orderInfo?.returnRequests?.[0]?.status || "pending"}
+              </Badge>
+            </div>
+            <Link
+              href="/admin/return-requests"
+              className="text-xs font-semibold text-[#016271] underline hover:text-[#014d59]"
+            >
+              Manage in Issues & Returns →
+            </Link>
+          </div>
+          <div className="rounded-lg border border-amber-200 bg-white/80 p-3 text-xs text-slate-800">
+            <span className="font-semibold text-slate-500 block mb-0.5">Customer Issue Description:</span>
+            <p className="whitespace-pre-wrap">{orderInfo?.returnRequest?.userReason || orderInfo?.returnRequests?.[0]?.userReason}</p>
+          </div>
+        </div>
+      )}
+
       {/* Top Grid */}
       <div className="grid grid-cols-1 md:grid-cols-12 gap-2">
         {/* Left Card: Timeline */}

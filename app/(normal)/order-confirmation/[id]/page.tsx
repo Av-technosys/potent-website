@@ -299,6 +299,14 @@ export default async function OrderConfirmationPage({ params }: any) {
                       </span>
                     </div>
                   )}
+                  {order.pricingBreakdown?.rewardsUsed > 0 && (
+                    <div className="flex justify-between text-[#016271]">
+                      <span>Rewards Credit Applied</span>
+                      <span className="font-semibold">
+                        -{formatPrice(order.pricingBreakdown.rewardsUsed)}
+                      </span>
+                    </div>
+                  )}
                   <div className="flex justify-between text-gray-600">
                     <span>Delivery</span>
                     <span className="font-semibold text-gray-950">

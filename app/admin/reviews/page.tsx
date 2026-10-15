@@ -2,10 +2,13 @@
 import { db } from "@/lib/db";
 
 
-import { and, asc, ilike, sql } from "drizzle-orm";
+import { and, desc, eq, ilike, sql } from "drizzle-orm";
 import { pageSize } from "@/const/globalconst";
-import { review } from "@/db/schema";
+import { review, product, users } from "@/db/schema";
 import ReviewClient from "./reviewClient";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 interface PageProps {
   searchParams: {
@@ -15,8 +18,7 @@ interface PageProps {
   };
 }
 
-  const PAGE_SIZE = pageSize
-
+const PAGE_SIZE = pageSize;
 
 const Page = async ({ searchParams }: PageProps) => {
   const params = await searchParams;
@@ -34,9 +36,25 @@ const Page = async ({ searchParams }: PageProps) => {
   const offset = (page - 1) * pageSize;
 
   const reviews = await db
-    .select()
+    .select({
+      id: review.id,
+      name: review.name,
+      rating: review.rating,
+      message: review.message,
+      imageUrl: review.imageUrl,
+      varient: review.varient,
+      isAdminApproved: review.isAdminApproved,
+      createdAt: review.createdAt,
+      userId: review.userId,
+      productId: review.productId,
+      email: users.email,
+      productName: product.name,
+      productSlug: product.slug,
+    })
     .from(review)
-    .orderBy(asc(review.createdAt))
+    .leftJoin(users, eq(review.userId, users.id))
+    .leftJoin(product, eq(review.productId, product.id))
+    .orderBy(desc(review.createdAt))
     .limit(PAGE_SIZE)
     .offset(offset)
     .where(whereClause);

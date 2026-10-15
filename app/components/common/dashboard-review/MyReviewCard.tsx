@@ -41,7 +41,7 @@ export const MyReviewCard = ({ review }: { review: any }) => (
           </span>
           {review.isAdminApproved ? (
             <span className="text-xs bg-emerald-50 text-emerald-700 font-semibold px-2 py-0.5 rounded-full">
-              +{review?.media?.length > 0 ? "₹50" : "₹25"} Reward Earned
+              +₹50 Reward Earned
             </span>
           ) : (
             <span className="text-xs bg-amber-50 text-amber-700 font-medium px-2 py-0.5 rounded-full">

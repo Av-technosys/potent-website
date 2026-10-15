@@ -9,6 +9,8 @@ import { useTransition, useState } from "react";
 
 import { pageSize } from "@/const/globalconst";
 
+import Image from "next/image";
+import { getImageUrl } from "@/lib/imageUrl";
 import {
   Mail,
   Star,
@@ -16,6 +18,7 @@ import {
   Check,
   Loader2,
   Undo2,
+  ImageIcon,
 } from "lucide-react";
 
 import {
@@ -113,11 +116,13 @@ async function handleDelete() {
       <Table>
         <TableHeader>
           <TableRow className="text-muted-foreground">
-            <TableHead className="w-[70px] ">S.No</TableHead>
+            <TableHead className="w-[60px]">S.No</TableHead>
             <TableHead>User</TableHead>
             <TableHead>Contact</TableHead>
-            <TableHead className="w-[160px]">Rating</TableHead>
-            <TableHead className="w-[40%]">Message</TableHead>
+            <TableHead className="w-[150px]">Product</TableHead>
+            <TableHead className="w-[140px]">Rating</TableHead>
+            <TableHead className="w-[80px]">Photo</TableHead>
+            <TableHead className="w-[30%]">Message</TableHead>
             <TableHead className="text-right pr-4 w-[150px]">Action</TableHead>
           </TableRow>
         </TableHeader>
@@ -125,6 +130,20 @@ async function handleDelete() {
         <TableBody>
           {reviews?.map((review: any, index: number) => {
             const rowNumber = startIndex + index + 1;
+
+            let reviewImgUrl: string | null = review.imageUrl || null;
+            if (!reviewImgUrl && review.varient) {
+              try {
+                const p = JSON.parse(review.varient);
+                if (Array.isArray(p) && p.length > 0) {
+                  reviewImgUrl = typeof p[0] === "string" ? p[0] : p[0]?.mediaURL;
+                } else if (typeof p === "string") {
+                  reviewImgUrl = p;
+                }
+              } catch {
+                reviewImgUrl = review.varient;
+              }
+            }
 
             return (
               <TableRow key={rowNumber} className="hover:bg-muted/30 transition-colors">
@@ -136,7 +155,6 @@ async function handleDelete() {
                 {/* User */}
                 <TableCell className="py-5">
                   <div className="flex items-center gap-3">
-                
                     <span className="font-medium">{review.name}</span>
                   </div>
                 </TableCell>
@@ -145,8 +163,15 @@ async function handleDelete() {
                 <TableCell className="py-5">
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <Mail size={14} />
-                    <span className="text-sm">{review.email}</span>
+                    <span className="text-sm">{review.email || "-"}</span>
                   </div>
+                </TableCell>
+
+                {/* Product */}
+                <TableCell className="py-5">
+                  <span className="font-medium text-xs bg-muted text-foreground/80 px-2 py-1 rounded inline-block max-w-[160px] truncate" title={review.productName || "Product"}>
+                    {review.productName || "Product"}
+                  </span>
                 </TableCell>
 
                 {/* Rating */}
@@ -160,6 +185,29 @@ async function handleDelete() {
                       )
                     )}
                   </div>
+                </TableCell>
+
+                {/* Photo */}
+                <TableCell className="py-5">
+                  {reviewImgUrl ? (
+                    <a
+                      href={getImageUrl(reviewImgUrl)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="group relative block h-11 w-11 overflow-hidden rounded-lg border border-gray-200 bg-muted shadow-2xs hover:border-[#016271]"
+                      title="View full image"
+                    >
+                      <Image
+                        src={getImageUrl(reviewImgUrl)}
+                        alt="Review attachment"
+                        fill
+                        sizes="44px"
+                        className="object-cover transition-transform group-hover:scale-105"
+                      />
+                    </a>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">-</span>
+                  )}
                 </TableCell>
 
                 {/* Message */}

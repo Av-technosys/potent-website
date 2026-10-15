@@ -145,8 +145,9 @@ export default async function RewardsHistory() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3 text-sm text-gray-600">
-          <p>• <strong>Rupees Only:</strong> 1 credit = ₹1. All reward earnings are credited directly in Indian Rupees.</p>
+          <p>• <strong>Rupees Only:</strong> 1 credit = ₹1.</p>
           <p>• <strong>Shopping Credit:</strong> Credits are only for shopping on our site and cannot be taken out as cash or transferred.</p>
+          <p>• <strong>Checkout Usage:</strong> Credits are applied automatically at checkout for one-time orders. Use up to 20% of the product total, and at most ₹150 per order (whichever is lower). Credits do not pay for delivery and cannot be combined with coupons (the option that saves you more is automatically applied). Unused credits remain in your wallet.</p>
           <p>• <strong>Orders:</strong> Earn 5% cash credit on the product amount paid when your order is delivered (delivery charges and credit-paid portions excluded).</p>
           <p>• <strong>Birthday:</strong> ₹50 birthday credit on your birthday (valid for 3 months). Set once; changes go through support.</p>
           <p>• <strong>Reviews:</strong> ₹25 for text review, ₹50 with a photo, credited once approved by our team.</p>

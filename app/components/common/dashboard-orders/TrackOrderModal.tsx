@@ -23,11 +23,28 @@ export const TrackOrderModal = ({
   if (!canTrackOrder(order)) {
     return null;
   }
-  const status = String(order?.status || "").toLowerCase();
-  const isPaidOrPlaced = ["paid", "processing", "packed", "shipped", "delivered", "completed"].includes(status);
-  const isPacked = ["processing", "packed", "shipped", "delivered", "completed"].includes(status);
-  const isShipped = ["shipped", "delivered", "completed"].includes(status);
-  const isDelivered = ["delivered", "completed"].includes(status);
+  const status = String(order?.status || "").toLowerCase().trim();
+  const isReturned =
+    status === "returned" ||
+    order?.returnRequest?.status === "approved" ||
+    order?.orderAction?.status === "approved";
+
+  if (!canTrackOrder(order) && !isReturned) {
+    return null;
+  }
+
+  const isPaidOrPlaced =
+    ["paid", "processing", "packed", "shipped", "delivered", "completed", "returned"].includes(status) ||
+    isReturned;
+  const isPacked =
+    ["processing", "packed", "shipped", "delivered", "completed", "returned"].includes(status) ||
+    isReturned;
+  const isShipped =
+    ["shipped", "delivered", "completed", "returned"].includes(status) ||
+    isReturned;
+  const isDelivered =
+    ["delivered", "completed", "returned"].includes(status) ||
+    isReturned;
 
   const orderDate = formatOrderDate(order?.createdAt);
   const updatedDate = formatOrderDate(order?.updatedAt);
@@ -65,6 +82,20 @@ export const TrackOrderModal = ({
     },
   ];
 
+  if (isReturned) {
+    steps.push({
+      label: updatedDate ? `Returned, ${updatedDate}` : "Returned",
+      done: true,
+      detail: "Return approved by admin & order successfully returned",
+    });
+  } else if (order?.returnRequest?.status === "pending") {
+    steps.push({
+      label: "Return Requested",
+      done: false,
+      detail: "Return / issue request is under review by customer care",
+    });
+  }
+
   return (
     <Dialog>
       <DialogTrigger asChild>
@@ -97,8 +128,25 @@ export const TrackOrderModal = ({
           )}
         </div>
 
-        {/* Courier Details Card if Shipped */}
-        {isShipped && !isDelivered && (
+        {/* Return Details Card if Returned */}
+        {isReturned ? (
+          <div className="rounded-xl border border-rose-200 bg-rose-50/70 p-3 text-xs space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-rose-800 uppercase tracking-wide text-[10px]">
+                Return Status
+              </span>
+              <span className="rounded bg-rose-100 px-2 py-0.5 text-[10px] font-bold text-rose-800">
+                Returned
+              </span>
+            </div>
+            <p className="text-gray-700">
+              Return Approved: <strong>{updatedDate || orderDate}</strong>
+            </p>
+            <p className="text-gray-600 text-[11px]">
+              This order has been returned and the refund / return has been processed.
+            </p>
+          </div>
+        ) : isShipped && !isDelivered ? (
           <div className="rounded-xl border border-[#016271]/20 bg-[#F0F9FA] p-3 text-xs space-y-1.5">
             <div className="flex items-center justify-between">
               <span className="font-bold text-[#016271] uppercase tracking-wide text-[10px]">
@@ -118,7 +166,7 @@ export const TrackOrderModal = ({
               Expected Delivery: <strong>Within 2–4 business days</strong>
             </p>
           </div>
-        )}
+        ) : null}
 
         <div className="relative ml-2 space-y-0 pt-2">
           {/* Vertical Line */}

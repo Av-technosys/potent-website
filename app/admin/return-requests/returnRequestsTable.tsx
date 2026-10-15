@@ -34,7 +34,7 @@ export type ReturnRequestRow = {
   userId: string;
   reason: string;
   adminReason: string | null;
-  status: "pending" | "approved" | "rejected" | "refunded" | null;
+  status: "pending" | "approved" | "rejected" | "cancelled" | "refunded" | null;
   createdAt: Date;
   productName: string | null;
   productSku: string | null;
@@ -65,9 +65,14 @@ function formatAmount(amount: number | null) {
 
 function statusClass(status: ReturnRequestRow["status"]) {
   if (status === "approved") return "bg-green-100 text-green-700";
-  if (status === "rejected") return "bg-red-100 text-red-700";
+  if (status === "rejected" || status === "cancelled") return "bg-red-100 text-red-700";
   if (status === "refunded") return "bg-blue-100 text-blue-700";
   return "bg-orange-100 text-orange-700";
+}
+
+function displayStatus(status: ReturnRequestRow["status"]) {
+  if (status === "cancelled") return "rejected";
+  return status ?? "pending";
 }
 
 const ReturnRequestsTable = ({ requests, page, pageSize }: Props) => {
@@ -157,7 +162,7 @@ const ReturnRequestsTable = ({ requests, page, pageSize }: Props) => {
                   </div>
                 </TableCell>
                 <TableCell className="align-top">
-                  <Badge className={statusClass(request.status)}>{request.status ?? "pending"}</Badge>
+                  <Badge className={statusClass(request.status)}>{displayStatus(request.status)}</Badge>
                 </TableCell>
                 <TableCell className="align-top">{formatAmount(request.productPrice)}</TableCell>
                 <TableCell className="align-top">

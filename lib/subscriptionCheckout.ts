@@ -240,15 +240,9 @@ export async function getSubscriptionCheckoutQuote(
     0,
     Math.round(Number(rewardState.balance || 0)),
   );
-  const rewardsUsed =
-    totalBeforeRewards > 0
-      ? Math.min(
-          rewardBalance,
-          MAX_REWARD_REDEEM_PER_ORDER,
-          Math.max(0, Math.floor(totalBeforeRewards - 1)),
-        )
-      : 0;
-  const final = Math.max(totalBeforeRewards - rewardsUsed, 0);
+  // Rule: For now, credits are used only on one-time orders in the bag, not on subscription payments.
+  const rewardsUsed = 0;
+  const final = totalBeforeRewards;
   const billing = getBilling(subscriptionType, item?.cycleSync);
   const now = new Date();
   const cycleSchedule =

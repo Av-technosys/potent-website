@@ -80,7 +80,7 @@ export default function ReviewPage() {
               Write a Review
             </h3>
             <span className="text-xs font-semibold text-[#1B8392] bg-[#E9F7F9] px-3 py-1 rounded-full">
-              Earn ₹25 (text) • ₹50 (photo)
+              Earn ₹50 Reward (1 photo required)
             </span>
           </div>
           <div className="space-y-3">

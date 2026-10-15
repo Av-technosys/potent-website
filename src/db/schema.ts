@@ -218,6 +218,7 @@ export const review = pgTable("reviews", {
   rating: integer("rating"),
   message: varchar("message"),
   varient: varchar("varient"),
+  imageUrl: text("image_url"),
   isAdminApproved: boolean("is_admin_approved").default(false),
   createdAt: timestamp("created_at").defaultNow(),
 });

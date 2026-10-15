@@ -14,7 +14,7 @@ import {
   productVariant,
   users,
 } from "@/db/schema";
-import { desc, eq, ilike, inArray, notInArray, or, sql } from "drizzle-orm";
+import { and, desc, eq, ilike, inArray, notInArray, or, sql } from "drizzle-orm";
 import { revalidatePath, unstable_cache } from "next/cache";
 
 const cancelRequest = orderAction;
@@ -245,53 +245,6 @@ export async function fetchAdminCancelRequests({
   const offset = (currentPage - 1) * limit;
   const text = search.trim();
 
-  // Self-heal: Ensure all orders marked cancelled/canceled in database have a corresponding record
-  try {
-    const missingCancelledOrders = await db
-      .select({
-        id: order.id,
-        userId: order.userId,
-        createdAt: order.createdAt,
-        updatedAt: order.updatedAt,
-      })
-      .from(order)
-      .leftJoin(
-        cancelRequest,
-        and(
-          eq(cancelRequest.orderId, order.id),
-          eq(cancelRequest.requestType, "cance_order"),
-        ),
-      )
-      .where(
-        and(
-          or(
-            eq(order.status, "cancelled"),
-            eq(order.status, "canceled"),
-          ),
-          sql`${cancelRequest.id} IS NULL`,
-        ),
-      )
-      .limit(10);
-
-    if (missingCancelledOrders.length > 0) {
-      await db.insert(cancelRequest).values(
-        missingCancelledOrders
-          .filter((o) => o.userId)
-          .map((o) => ({
-            orderId: o.id,
-            userId: o.userId!,
-            requestType: "cance_order",
-            userReason: "Order cancelled",
-            status: "approved",
-            createdAt: o.createdAt || new Date(),
-            updatedAt: o.updatedAt || new Date(),
-          })),
-      );
-    }
-  } catch (syncErr) {
-    console.error("Auto-sync cancelled orders error:", syncErr);
-  }
-
   const filters = [eq(cancelRequest.requestType, "cance_order")];
 
   if (text) {
@@ -301,6 +254,7 @@ export async function fetchAdminCancelRequests({
         ilike(users.name, `%${text}%`),
         ilike(users.email, `%${text}%`),
         sql`${cancelRequest.status}::text ILIKE ${`%${text}%`}`,
+        sql`${cancelRequest.userReason}::text ILIKE ${`%${text}%`}`,
       ),
     );
   }
@@ -360,15 +314,22 @@ export async function fetchAdminReturnRequests({
   const offset = (currentPage - 1) * limit;
   const text = search.trim();
 
-  const whereClause = text
-    ? or(
+  const filters = [eq(returnRequest.requestType, "return_order")];
+
+  if (text) {
+    filters.push(
+      or(
         sql`${returnRequest.id}::text ILIKE ${`%${text}%`}`,
         sql`${returnRequest.orderId}::text ILIKE ${`%${text}%`}`,
         ilike(users.name, `%${text}%`),
         ilike(users.email, `%${text}%`),
-        ilike(returnRequest.status, `%${text}%`),
-      )
-    : undefined;
+        sql`${returnRequest.status}::text ILIKE ${`%${text}%`}`,
+        sql`${returnRequest.userReason}::text ILIKE ${`%${text}%`}`,
+      ),
+    );
+  }
+
+  const whereClause = and(...filters);
 
   const requests = await db
     .select({
@@ -380,18 +341,15 @@ export async function fetchAdminReturnRequests({
       adminReason: returnRequest.adminReason,
       status: returnRequest.status,
       createdAt: returnRequest.createdAt,
-      productName: sql<string | null>`null`,
-      productSku: sql<string | null>`null`,
-      productImage: sql<string | null>`null`,
-      productPrice: sql<number | null>`null`,
-      quantity: sql<number | null>`null`,
+      orderStatus: order.status,
+      totalAmount: order.totalAmount,
       customerName: users.name,
       customerEmail: users.email,
       customerPhone: users.phone,
     })
     .from(returnRequest)
     .leftJoin(order, eq(returnRequest.orderId, order.id))
-    .leftJoin(users, eq(returnRequest.userId, users.id))
+    .leftJoin(users, eq(sql`COALESCE(${returnRequest.userId}, ${order.userId})`, users.id))
     .where(whereClause)
     .orderBy(desc(returnRequest.createdAt))
     .limit(limit)
@@ -417,16 +375,70 @@ export async function fetchAdminReturnRequests({
     imageMap.set(image.returnRequestId, list);
   });
 
-  const data = requests.map((request) => ({
-    ...request,
-    images: imageMap.get(request.id) ?? [],
-  }));
+  // Fetch product items associated with these orders
+  const orderIds = Array.from(
+    new Set(requests.map((r) => r.orderId).filter(Boolean)),
+  ) as string[];
+
+  const orderItemsList = orderIds.length
+    ? await db
+        .select({
+          id: orderItem.id,
+          orderId: orderItem.orderId,
+          name: orderItem.productVarientName,
+          sku: orderItem.productVarientSKU,
+          image: orderItem.productVarientImage,
+          price: orderItem.productVarientPrice,
+          quantity: orderItem.quantity,
+        })
+        .from(orderItem)
+        .where(inArray(orderItem.orderId, orderIds))
+    : [];
+
+  const orderItemMap = new Map<string, typeof orderItemsList>();
+  orderItemsList.forEach((it) => {
+    if (!it.orderId) return;
+    const list = orderItemMap.get(it.orderId) ?? [];
+    list.push(it);
+    orderItemMap.set(it.orderId, list);
+  });
+
+  const data = requests.map((request) => {
+    const itemsForOrder = orderItemMap.get(request.orderId || "") || [];
+    const firstItem = itemsForOrder[0];
+
+    // Extract product name from userReason tag like "[Product: XYZ]: ..." if present
+    let extractedProductName: string | null = null;
+    const match = request.reason ? request.reason.match(/^\[Product:\s*([^\]]+)\]/i) : null;
+    if (match && match[1]) {
+      extractedProductName = match[1].trim();
+    }
+
+    const matchedItem = extractedProductName
+      ? itemsForOrder.find(
+          (it) => it.name && it.name.toLowerCase().includes(extractedProductName!.toLowerCase()),
+        )
+      : null;
+
+    const displayItem = matchedItem || firstItem;
+    const allProductNames = itemsForOrder.map((it) => it.name).filter(Boolean).join(", ");
+
+    return {
+      ...request,
+      productName: extractedProductName || (itemsForOrder.length > 1 ? allProductNames : displayItem?.name) || "Order Products",
+      productSku: displayItem?.sku || (itemsForOrder.length > 1 ? `${itemsForOrder.length} products` : "-"),
+      productImage: displayItem?.image || null,
+      productPrice: displayItem?.price || request.totalAmount || null,
+      quantity: itemsForOrder.reduce((sum, it) => sum + (it.quantity || 1), 0) || 1,
+      images: imageMap.get(request.id) ?? [],
+    };
+  });
 
   const [{ count }] = await db
     .select({ count: sql<number>`count(*)` })
     .from(returnRequest)
     .leftJoin(order, eq(returnRequest.orderId, order.id))
-    .leftJoin(users, eq(returnRequest.userId, users.id))
+    .leftJoin(users, eq(sql`COALESCE(${returnRequest.userId}, ${order.userId})`, users.id))
     .where(whereClause);
 
   const total = Number(count);
