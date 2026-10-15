@@ -51,8 +51,8 @@ const UsersTable = ({ users, page, pageSize }: UsersTableProps) => {
             <TableHead>Email</TableHead>
             <TableHead>Phone</TableHead>
             <TableHead>Email Verified</TableHead>
-            <TableHead>Reward Coins</TableHead>
-            <TableHead>Referral Coins</TableHead>
+            <TableHead>Reward Balance (₹)</TableHead>
+            <TableHead>Referral Balance (₹)</TableHead>
             <TableHead>Joined</TableHead>
           </TableRow>
         </TableHeader>
@@ -81,8 +81,8 @@ const UsersTable = ({ users, page, pageSize }: UsersTableProps) => {
                     </span>
                   )}
                 </TableCell>
-                <TableCell>{user.rewardOrderCoins ?? 0}</TableCell>
-                <TableCell>{user.referralCoins ?? 0}</TableCell>
+                <TableCell>₹{user.rewardOrderCoins ?? 0}</TableCell>
+                <TableCell>₹{user.referralCoins ?? 0}</TableCell>
                 <TableCell>{formatDate(user.createdAt)}</TableCell>
               </TableRow>
             ))

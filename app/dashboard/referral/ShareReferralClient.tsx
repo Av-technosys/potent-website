@@ -31,7 +31,7 @@ export default function ShareReferralClient({ userDetail }: any) {
   };
 
   const handleWhatsAppShare = () => {
-    const shareMessage = `Hey! Use my referral code ${referralCode} to get ₹100 OFF on your first Potent order.`;
+    const shareMessage = `Hey! Use my referral code ${referralCode} to get ₹100 OFF on your first Potent order (above ₹399).`;
     const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(shareMessage)}`;
     window.open(whatsappUrl, "_blank", "noopener,noreferrer");
   };

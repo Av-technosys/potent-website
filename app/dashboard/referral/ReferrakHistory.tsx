@@ -4,13 +4,14 @@ import { users } from "@/db/schema";
 import { requireUserWithRefresh } from "@/helper/user/action";
 import { formatRewardDate, syncAndGetUserRewards } from "@/lib/rewards";
 import { eq } from "drizzle-orm";
-import { Check } from "lucide-react";
+import { Check, Clock } from "lucide-react";
 
 const programTerms = [
-  "Your friend must be a new customer to Potent Hygiene",
-  "Minimum order value of ₹500 required for referral to be valid",
-  "Maximum ₹500 referral credit can be used per order",
-  "Referral credits are added in rupees (₹) to your Rewards Balance with no expiry date",
+  "₹100 reward for you when your friend's first order is delivered",
+  "₹100 off for your friend on their first order",
+  "Your friend must be a new customer and their first order must be ₹399 or more",
+  "Up to 5 referrals per person per month",
+  "Credits are strictly for shopping on our site and cannot be taken out as cash or transferred",
 ];
 
 export async function ReferralHistory() {
@@ -25,7 +26,7 @@ export async function ReferralHistory() {
     : { validReferrals: [] };
 
   const referralHistory = (synced.validReferrals || []).filter(
-    (item) =>
+    (item: any) =>
       item.newUserId !== userDetail?.id &&
       (item.newUserName || "").trim().toLowerCase() !==
         (userDetail?.name || "").trim().toLowerCase(),
@@ -40,37 +41,65 @@ export async function ReferralHistory() {
 
         <CardContent className="space-y-4">
           {referralHistory && referralHistory.length > 0 ? (
-            referralHistory.map((item, index) => (
-              <div
-                key={item.id || index}
-                className="flex items-center justify-between gap-4 rounded-xl border p-4"
-              >
-                {/* LEFT */}
-                <div className="flex items-center gap-4">
-                  {/* ICON */}
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-green-100">
-                    <Check className="h-5 w-5 text-green-600" />
+            referralHistory.map((item: any, index: number) => {
+              const isCredited = item.isQualified === true || item.status === "credited";
+              const isCapReached = item.status === "monthly_cap_reached";
+
+              return (
+                <div
+                  key={item.id || index}
+                  className="flex items-center justify-between gap-4 rounded-xl border p-4"
+                >
+                  {/* LEFT */}
+                  <div className="flex items-center gap-4">
+                    {/* ICON */}
+                    <div
+                      className={`flex h-12 w-12 items-center justify-center rounded-xl ${
+                        isCredited ? "bg-green-100" : "bg-amber-100"
+                      }`}
+                    >
+                      {isCredited ? (
+                        <Check className="h-5 w-5 text-green-600" />
+                      ) : (
+                        <Clock className="h-5 w-5 text-amber-600" />
+                      )}
+                    </div>
+
+                    {/* TEXT */}
+                    <div>
+                      <p className="font-semibold text-gray-800">
+                        {item.newUserName || "Referred Friend"}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        Referred on {formatRewardDate(item.createdAt)}
+                      </p>
+                      <p className="mt-0.5 text-xs font-medium text-gray-500">
+                        {isCredited
+                          ? "First order delivered (₹399+) • Credited to Rewards"
+                          : isCapReached
+                            ? "Monthly referral limit reached (max 5 per month)"
+                            : "Pending: Awaiting friend's first delivered order (₹399+)"}
+                      </p>
+                    </div>
                   </div>
 
-                  {/* TEXT */}
-                  <div>
-                    <p className="font-semibold text-gray-800">
-                      {item.newUserName || "Referred Friend"}
-                    </p>
-                    <p className="text-sm text-gray-500">
-                      Referred on {formatRewardDate(item.createdAt)}
-                    </p>
+                  {/* RIGHT */}
+                  <div
+                    className={`font-bold whitespace-nowrap text-sm sm:text-base ${
+                      isCredited ? "text-green-600" : "text-amber-600"
+                    }`}
+                  >
+                    {isCredited
+                      ? `+₹${Number(item.coins || 100).toLocaleString("en-IN")}`
+                      : "Pending"}
                   </div>
                 </div>
-
-                {/* RIGHT */}
-                <div className="font-bold whitespace-nowrap text-green-600">
-                  +₹{Number(item.coins || 200).toLocaleString("en-IN")}
-                </div>
-              </div>
-            ))
+              );
+            })
           ) : (
-            <p className="text-sm text-gray-500">No referrals yet. Share your code above to earn ₹200 per friend!</p>
+            <p className="text-sm text-gray-500">
+              No referrals yet. Share your code above to earn ₹100 when your friend&apos;s first order of ₹399+ is delivered!
+            </p>
           )}
         </CardContent>
       </Card>
@@ -84,7 +113,7 @@ export async function ReferralHistory() {
           {programTerms.map((term, index) => (
             <div key={index} className="flex items-start gap-3">
               {/* ICON */}
-              <div className="mt-1 flex h-6 w-6 items-center justify-center rounded-full bg-[#C9E6EA]">
+              <div className="mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#C9E6EA]">
                 <Check className="h-4 w-4 text-teal-600" />
               </div>
 

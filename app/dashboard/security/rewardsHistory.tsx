@@ -137,6 +137,22 @@ export default async function RewardsHistory() {
           )}
         </CardContent>
       </Card>
+
+      <Card className="w-full rounded-2xl shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-lg font-semibold">
+            Rewards Program Terms
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm text-gray-600">
+          <p>• <strong>Rupees Only:</strong> 1 credit = ₹1. All reward earnings are credited directly in Indian Rupees.</p>
+          <p>• <strong>Shopping Credit:</strong> Credits are only for shopping on our site and cannot be taken out as cash or transferred.</p>
+          <p>• <strong>Orders:</strong> Earn 5% cash credit on the product amount paid when your order is delivered (delivery charges and credit-paid portions excluded).</p>
+          <p>• <strong>Birthday:</strong> ₹50 birthday credit on your birthday (valid for 3 months). Set once; changes go through support.</p>
+          <p>• <strong>Reviews:</strong> ₹25 for text review, ₹50 with a photo, credited once approved by our team.</p>
+          <p>• <strong>Referrals:</strong> ₹100 for you and ₹100 off for your friend, credited when friend&apos;s first order (₹399+) is delivered (up to 5 referrals/month).</p>
+        </CardContent>
+      </Card>
     </div>
   );
 }

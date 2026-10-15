@@ -39,11 +39,11 @@ const RewardReferrelOverview = async ({ tittle, description, cards }: any) => {
         : [
             {
               title: "You Earn",
-              description: "₹200 Per Friend",
+              description: "₹100 Per Referral",
             },
             {
               title: "Friend Gets",
-              description: "₹100 On Joining",
+              description: "₹100 Off (Order ₹399+)",
             },
           ];
 

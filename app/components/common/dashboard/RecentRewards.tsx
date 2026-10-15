@@ -7,7 +7,7 @@ const rewards = [
     title: "Order ORD-2024-1234",
     date: "3/15/2024",
     icon: IconShoppingCart,
-    amount: "+68 Coins",
+    amount: "+₹25",
     color: "bg-[#FFDFDF] text-[#FF0000]",
   },
   {
@@ -15,7 +15,7 @@ const rewards = [
     title: "Friend Emma Joined",
     date: "3/15/2024",
     icon: IconUserPlus,
-    amount: "+68 Coins",
+    amount: "+₹100",
     color: "bg-[#FEF3C7] text-[#D97706]",
   },
   {
@@ -23,7 +23,7 @@ const rewards = [
     title: "Order ORD-2024-1234",
     date: "3/15/2024",
     icon: IconShoppingCart,
-    amount: "+68 Coins",
+    amount: "+₹50",
     color: "bg-[#FFDFDF] text-[#FF0000]",
   },
 ];

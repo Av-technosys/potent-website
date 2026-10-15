@@ -12,15 +12,19 @@ import {
 } from "@/src/db/schema";
 import { desc, eq, inArray, sql } from "drizzle-orm";
 
-export const SIGNUP_BONUS_RUPEES = 100;
-export const REFERRAL_EARNING_RUPEES = 200;
-export const REFERRAL_FRIEND_BONUS_RUPEES = 100;
-export const REVIEW_REWARD_RUPEES = 50;
-export const BIRTHDAY_REWARD_RUPEES = 100;
-export const ORDER_REWARD_RATE = 0.05; // Strictly 5% cash credit in rupees
+export const SIGNUP_BONUS_RUPEES = 50; // ₹50 welcome reward when account created
+export const REFERRAL_EARNING_RUPEES = 100; // ₹100 for referrer when friend's first order is delivered
+export const REFERRAL_FRIEND_BONUS_RUPEES = 100; // ₹100 off on friend's first order
+export const REVIEW_TEXT_REWARD_RUPEES = 25; // ₹25 for text review
+export const REVIEW_PHOTO_REWARD_RUPEES = 50; // ₹50 for review with photo
+export const REVIEW_REWARD_RUPEES = REVIEW_TEXT_REWARD_RUPEES;
+export const BIRTHDAY_REWARD_RUPEES = 50; // ₹50 annual birthday credit (valid for 3 months)
+export const ORDER_REWARD_RATE = 0.05; // 5% of amount paid for products (delivered)
+export const REFERRAL_MIN_ORDER_AMOUNT = 399; // Friend's first order must be ₹399 or more
+export const MAX_REFERRALS_PER_MONTH = 5; // Up to 5 referrals per person per month
 export const MAX_REWARD_REDEEM_PER_ORDER = 500;
 
-// Backward compatibility aliases so cached/reloaded modules never throw ReferenceError
+// Backward compatibility aliases
 export const SIGNUP_BONUS_COINS = SIGNUP_BONUS_RUPEES;
 export const REFERRAL_EARNING_COINS = REFERRAL_EARNING_RUPEES;
 export const REFERRAL_FRIEND_BONUS_COINS = REFERRAL_FRIEND_BONUS_RUPEES;
@@ -30,10 +34,43 @@ export function coinsToRupees(coins: number): number {
   return Number(coins || 0);
 }
 
-export function calculateOrderRewardRupees(orderAmount: number): number {
-  const numeric = Number(orderAmount || 0);
-  if (numeric <= 0) return 0;
-  return Math.max(1, Math.round(numeric * ORDER_REWARD_RATE));
+export function calculateProductPaidAmount(ord: any, pay?: any): number {
+  if (!ord) return 0;
+  if (typeof ord === "number") return Math.max(0, ord);
+
+  // Delivery charge to exclude
+  const shipping = Number(
+    ord.pricingBreakdown?.shipping ??
+    ord.shippingFee ??
+    ord.shipping ??
+    0,
+  );
+
+  const totalAmount = Number(ord.totalAmount ?? 0);
+
+  // Products subtotal before delivery charge
+  const subtotal = Number(
+    ord.pricingBreakdown?.subtotal ??
+    ord.subtotal ??
+    Math.max(0, totalAmount - shipping),
+  );
+
+  // Part paid with credits to exclude
+  const creditsUsed = Number(
+    (pay?.paymentMeta as any)?.rewardsUsed ??
+    (pay?.paymentMeta as any)?.rewardUsed ??
+    (pay?.paymentMeta as any)?.rewardsRedeemed ??
+    ord.pricingBreakdown?.rewardsUsed ??
+    0,
+  );
+
+  return Math.max(0, subtotal - creditsUsed);
+}
+
+export function calculateOrderRewardRupees(ord: any, pay?: any): number {
+  const productPaid = typeof ord === "number" ? ord : calculateProductPaidAmount(ord, pay);
+  if (productPaid <= 0) return 0;
+  return Math.max(1, Math.round(productPaid * ORDER_REWARD_RATE));
 }
 
 export function formatRewardDate(dateInput?: Date | string | null): string {
@@ -90,8 +127,8 @@ export async function setUserBirthday(
 
   const existingBirthday = await getUserBirthday(userId);
 
-  // Production rule: Date of Birth can only be set ONCE per user account.
-  // If already set, do not allow changing it or claiming multiple times.
+  // Production rule: Birthday can only be set ONCE per user account.
+  // Changes must go through support.
   if (existingBirthday) {
     const synced = await syncAndGetUserRewards(userId);
     return {
@@ -199,6 +236,8 @@ export async function syncAndGetUserRewards(userId: string) {
         productId: review.productId,
         createdAt: review.createdAt,
         productName: product.name,
+        isAdminApproved: review.isAdminApproved,
+        varient: review.varient,
       })
       .from(review)
       .leftJoin(product, eq(review.productId, product.id))
@@ -239,7 +278,7 @@ export async function syncAndGetUserRewards(userId: string) {
 
   // 1. Clean out self-referrals & duplicate referrals in referralCoinHistory
   const selfOrDupReferralIds: string[] = [];
-  const validReferrals: typeof rawReferrals = [];
+  const validReferrals: (typeof rawReferrals[0] & { isQualified?: boolean; status?: string })[] = [];
   const seenReferredKeys = new Set<string>();
   const normalizedUserName = (userRow.name || "").trim().toLowerCase();
 
@@ -282,16 +321,112 @@ export async function syncAndGetUserRewards(userId: string) {
     }
   }
 
+  // Check which referrals are qualified:
+  // Rule: Added when friend's first order is delivered. Friend must be a new customer,
+  // first order must be ₹399 or more. Up to 5 referrals per person per month.
+  const referredUserIds = validReferrals
+    .map((r) => r.newUserId)
+    .filter(Boolean) as string[];
+
+  const qualifyingFriendOrdersMap = new Map<string, { deliveredAt: Date }>();
+
+  if (referredUserIds.length > 0) {
+    const friendOrderRows = await db
+      .select({
+        id: order.id,
+        userId: order.userId,
+        status: order.status,
+        totalAmount: order.totalAmount,
+        createdAt: order.createdAt,
+        updatedAt: order.updatedAt,
+      })
+      .from(order)
+      .where(inArray(order.userId, referredUserIds));
+
+    for (const ord of friendOrderRows) {
+      if (!ord.userId) continue;
+      const status = String(ord.status || "").toLowerCase();
+      const isDelivered = status === "delivered" || status === "completed";
+      const productAmount = Number(ord.totalAmount ?? 0);
+
+      if (isDelivered && productAmount >= REFERRAL_MIN_ORDER_AMOUNT) {
+        const existing = qualifyingFriendOrdersMap.get(ord.userId);
+        const orderDate = ord.createdAt ? new Date(ord.createdAt) : new Date();
+        if (!existing || orderDate < existing.deliveredAt) {
+          qualifyingFriendOrdersMap.set(ord.userId, {
+            deliveredAt: orderDate,
+          });
+        }
+      }
+    }
+  }
+
+  // Sort referrals chronologically to apply the monthly cap of 5 referrals per month
+  const qualifiedReferralIds = new Set<string>();
+  const referralsByMonth = new Map<string, number>();
+
+  const sortedValidReferrals = [...validReferrals].sort((a, b) => {
+    const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    return timeA - timeB;
+  });
+
+  for (const refRow of sortedValidReferrals) {
+    let isDeliveredEligible = false;
+    let eventDate = refRow.createdAt ? new Date(refRow.createdAt) : new Date();
+
+    if (refRow.newUserId && qualifyingFriendOrdersMap.has(refRow.newUserId)) {
+      isDeliveredEligible = true;
+      eventDate = qualifyingFriendOrdersMap.get(refRow.newUserId)!.deliveredAt;
+    }
+
+    if (isDeliveredEligible) {
+      const monthKey = `${eventDate.getFullYear()}-${eventDate.getMonth() + 1}`;
+      const countForMonth = referralsByMonth.get(monthKey) || 0;
+      if (countForMonth < MAX_REFERRALS_PER_MONTH) {
+        referralsByMonth.set(monthKey, countForMonth + 1);
+        qualifiedReferralIds.add(refRow.id);
+        refRow.isQualified = true;
+        refRow.status = "credited";
+      } else {
+        refRow.isQualified = false;
+        refRow.status = "monthly_cap_reached";
+      }
+    } else {
+      refRow.isQualified = false;
+      refRow.status = "pending";
+    }
+  }
+
+  // Helper for reviews: ₹25 for text, ₹50 with photo, only once approved by admin
+  const validApprovedReviewMap = new Map<
+    string,
+    { id: string; reward: number; name: string }
+  >();
+
+  for (const rev of userReviews) {
+    if (rev.isAdminApproved) {
+      const hasPhoto = Boolean(
+        rev.varient &&
+          (rev.varient.trim().startsWith("[") ||
+            rev.varient.trim().startsWith("http") ||
+            rev.varient.trim().length > 5),
+      );
+      const rewardAmount = hasPhoto
+        ? REVIEW_PHOTO_REWARD_RUPEES
+        : REVIEW_TEXT_REWARD_RUPEES;
+      validApprovedReviewMap.set(rev.id, {
+        id: rev.id,
+        reward: rewardAmount,
+        name: (rev.productName || "Potent Product").trim(),
+      });
+    }
+  }
+
   // 2. Deduplicate & validate existing rewardCoinsHistory rows
-  // - At most 1 signup_bonus / welcome_bonus row
-  // - At most 1 birthday_reward row per calendar year
-  // - Referral bonus rows must strictly match validReferrals (1 row per refRow.id)
-  // - Review reward rows must strictly match userReviews (1 row per review.id)
   let seenSignupBonus = false;
   const seenBirthdayYears = new Set<string>();
   const matchedReferralIds = new Set<string>();
-  const validReferralMap = new Map(validReferrals.map((r) => [r.id, r]));
-  const validReviewMap = new Map(userReviews.map((r) => [r.id, r]));
   const matchedReviewIds = new Set<string>();
 
   // Walk oldest-first so we keep the original row and delete newer duplicates
@@ -319,7 +454,10 @@ export async function syncAndGetUserRewards(userId: string) {
 
     if (rawType === "birthday_reward" || rawType.startsWith("birthday_reward:")) {
       const parts = rawType.split(":");
-      const yearKey = parts[1] && /^\d{4}$/.test(parts[1]) ? parts[1] : String(new Date(h.createdAt ?? Date.now()).getFullYear());
+      const yearKey =
+        parts[1] && /^\d{4}$/.test(parts[1])
+          ? parts[1]
+          : String(new Date(h.createdAt ?? Date.now()).getFullYear());
       if (seenBirthdayYears.has(yearKey)) {
         rewardIdsToDelete.add(h.id);
       } else {
@@ -339,7 +477,12 @@ export async function syncAndGetUserRewards(userId: string) {
     if (rawType === "referral" || rawType.startsWith("referral_bonus:")) {
       const parts = rawType.split(":");
       const refId = parts[1] || "";
-      if (refId && validReferralMap.has(refId) && !matchedReferralIds.has(refId)) {
+      // Only retain if it is in qualifiedReferralIds (friend's first order delivered, ₹399+, <= 5/mo)
+      if (
+        refId &&
+        qualifiedReferralIds.has(refId) &&
+        !matchedReferralIds.has(refId)
+      ) {
         matchedReferralIds.add(refId);
         if (Number(h.coins) !== REFERRAL_EARNING_RUPEES) {
           await db
@@ -350,7 +493,7 @@ export async function syncAndGetUserRewards(userId: string) {
           mutated = true;
         }
       } else {
-        // Duplicate or invalid referral bonus row — remove it!
+        // Pending, capped, or duplicate referral bonus row — remove from balance!
         rewardIdsToDelete.add(h.id);
       }
       continue;
@@ -359,17 +502,20 @@ export async function syncAndGetUserRewards(userId: string) {
     if (rawType === "review_reward" || rawType.startsWith("review_reward:")) {
       const parts = rawType.split(":");
       const revId = parts[1] || "";
-      if (revId && validReviewMap.has(revId) && !matchedReviewIds.has(revId)) {
+      const validRev = validApprovedReviewMap.get(revId);
+
+      if (validRev && !matchedReviewIds.has(revId)) {
         matchedReviewIds.add(revId);
-        if (Number(h.coins) !== REVIEW_REWARD_RUPEES) {
+        if (Number(h.coins) !== validRev.reward) {
           await db
             .update(rewardCoinsHistory)
-            .set({ coins: REVIEW_REWARD_RUPEES })
+            .set({ coins: validRev.reward })
             .where(eq(rewardCoinsHistory.id, h.id));
-          h.coins = REVIEW_REWARD_RUPEES;
+          h.coins = validRev.reward;
           mutated = true;
         }
       } else {
+        // Unapproved, deleted, or duplicate review — remove from balance!
         rewardIdsToDelete.add(h.id);
       }
       continue;
@@ -412,19 +558,16 @@ export async function syncAndGetUserRewards(userId: string) {
       }
       const linked = orderMap.get(h.orderId)!;
       const ordStatus = String(linked.order?.status || "").toLowerCase();
-      const payStatus = String(linked.payment?.paymentStatus || "").toLowerCase();
-      const isActuallyPaid =
-        payStatus === "success" ||
-        ["paid", "processing", "shipped", "delivered", "completed", "cancelled", "canceled", "returned"].includes(ordStatus);
+      const isDelivered = ordStatus === "delivered" || ordStatus === "completed";
 
-      if (!isActuallyPaid) {
+      // Order reward: Added ONLY when the order is delivered!
+      if (!isDelivered) {
         rewardIdsToDelete.add(h.id);
         continue;
       }
 
       seenOrderEarn.add(h.orderId);
-      const orderTotal = Number(linked.order?.totalAmount || 0);
-      const expectedCredit = calculateOrderRewardRupees(orderTotal);
+      const expectedCredit = calculateOrderRewardRupees(linked.order, linked.payment);
       if (expectedCredit > 0 && Number(h.coins) !== expectedCredit) {
         await db
           .update(rewardCoinsHistory)
@@ -447,7 +590,7 @@ export async function syncAndGetUserRewards(userId: string) {
       if (linked) {
         const credited =
           orderEarnAmountMap.get(h.orderId) ||
-          calculateOrderRewardRupees(Number(linked.order?.totalAmount || 0));
+          calculateOrderRewardRupees(linked.order, linked.payment);
         const expectedReversal = -Math.abs(credited);
         if (expectedReversal < 0 && Number(h.coins) !== expectedReversal) {
           await db
@@ -520,7 +663,7 @@ export async function syncAndGetUserRewards(userId: string) {
     mutated = true;
   }
 
-  // 4. Insert missing legitimate entries (at most 1 each)
+  // 4. Insert missing legitimate entries
   if (!seenSignupBonus) {
     await db.insert(rewardCoinsHistory).values({
       userId,
@@ -532,7 +675,7 @@ export async function syncAndGetUserRewards(userId: string) {
   }
 
   for (const refRow of validReferrals) {
-    if (!matchedReferralIds.has(refRow.id)) {
+    if (qualifiedReferralIds.has(refRow.id) && !matchedReferralIds.has(refRow.id)) {
       await db.insert(rewardCoinsHistory).values({
         userId,
         coins: REFERRAL_EARNING_RUPEES,
@@ -544,22 +687,21 @@ export async function syncAndGetUserRewards(userId: string) {
     }
   }
 
-  for (const rev of userReviews) {
-    if (!matchedReviewIds.has(rev.id)) {
-      const cleanProdName = (rev.productName || "Potent Product").trim();
+  for (const [revId, revData] of validApprovedReviewMap.entries()) {
+    if (!matchedReviewIds.has(revId)) {
       await db.insert(rewardCoinsHistory).values({
         userId,
-        coins: REVIEW_REWARD_RUPEES,
-        type: `review_reward:${rev.id}:${cleanProdName}`,
-        createdAt: rev.createdAt ?? new Date(),
+        coins: revData.reward,
+        type: `review_reward:${revId}:${revData.name}`,
+        createdAt: new Date(),
       });
-      matchedReviewIds.add(rev.id);
+      matchedReviewIds.add(revId);
       mutated = true;
     }
   }
 
-  // Only credit orders that have a confirmed payment (paymentStatus === "success")
-  // or paid status, and reverse cancelled/returned orders.
+  // Order reward: Added ONLY when the order is delivered!
+  // Reverses if cancelled or returned.
   for (const [ordId, { order: ord, payment: pay }] of orderMap.entries()) {
     const status = String(ord.status || "").toLowerCase();
     const isCancelledOrReturned =
@@ -567,25 +709,23 @@ export async function syncAndGetUserRewards(userId: string) {
       status === "canceled" ||
       status === "returned" ||
       cancelledSubscriptionOrderIds.has(ordId);
-    const isConfirmedPaid =
-      pay?.paymentStatus === "success" ||
-      ["paid", "processing", "shipped", "delivered", "completed"].includes(status);
+    const isDelivered = status === "delivered" || status === "completed";
 
-    if (!isConfirmedPaid && !isCancelledOrReturned) continue;
+    const creditAmount = calculateOrderRewardRupees(ord, pay);
 
-    const creditAmount = calculateOrderRewardRupees(Number(ord.totalAmount || 0));
-
-    if (!seenOrderEarn.has(ordId) && creditAmount > 0) {
-      await db.insert(rewardCoinsHistory).values({
-        userId,
-        orderId: ordId,
-        coins: creditAmount,
-        type: "order_payment",
-        createdAt: ord.createdAt ?? new Date(),
-      });
-      seenOrderEarn.add(ordId);
-      orderEarnAmountMap.set(ordId, creditAmount);
-      mutated = true;
+    if (isDelivered && !isCancelledOrReturned) {
+      if (!seenOrderEarn.has(ordId) && creditAmount > 0) {
+        await db.insert(rewardCoinsHistory).values({
+          userId,
+          orderId: ordId,
+          coins: creditAmount,
+          type: "order_payment",
+          createdAt: ord.updatedAt ?? ord.createdAt ?? new Date(),
+        });
+        seenOrderEarn.add(ordId);
+        orderEarnAmountMap.set(ordId, creditAmount);
+        mutated = true;
+      }
     }
 
     const metaRewardsUsedRupees = Number(
@@ -654,7 +794,7 @@ export async function syncAndGetUserRewards(userId: string) {
     0,
   );
   const balance = Math.max(0, Math.round(rawSum));
-  const referralEarnings = validReferrals.length * REFERRAL_EARNING_RUPEES;
+  const referralEarnings = qualifiedReferralIds.size * REFERRAL_EARNING_RUPEES;
 
   if (
     Number(userRow.rewardOrderCoins ?? -1) !== balance ||
@@ -733,7 +873,7 @@ export function describeRewardHistoryRow(item: {
   if (rawType === "referral_welcome" || rawType.startsWith("referral_welcome:")) {
     return {
       title: "Referral Welcome Credit",
-      subtitle: `₹${REFERRAL_FRIEND_BONUS_RUPEES} cash credit for signing up with friend's referral code`,
+      subtitle: `₹${REFERRAL_FRIEND_BONUS_RUPEES} cash credit on friend's referral`,
       formattedAmount,
       isPositive: true,
       category: "referral" as const,
@@ -746,9 +886,9 @@ export function describeRewardHistoryRow(item: {
     const friendName = parts.length >= 3 ? parts.slice(2).join(":") : "";
     return {
       title: friendName
-        ? `Referral Credit — ${friendName} Joined`
-        : "Referral Credit Earned",
-      subtitle: `₹${REFERRAL_EARNING_RUPEES} cash credit earned from a successful referral`,
+        ? `Referral Reward — ${friendName}'s Order Delivered`
+        : "Referral Reward Earned",
+      subtitle: `₹${REFERRAL_EARNING_RUPEES} cash credit earned (friend's first delivered order of ₹399+)`,
       formattedAmount,
       isPositive: true,
       category: "referral" as const,
@@ -759,7 +899,7 @@ export function describeRewardHistoryRow(item: {
   if (rawType === "birthday_reward" || rawType.startsWith("birthday_reward:")) {
     return {
       title: "Birthday Cash Credit",
-      subtitle: `₹${BIRTHDAY_REWARD_RUPEES} annual birthday bonus (1x per year)`,
+      subtitle: `₹${BIRTHDAY_REWARD_RUPEES} birthday cash credit (valid for 3 months)`,
       formattedAmount,
       isPositive: true,
       category: "birthday" as const,
@@ -770,11 +910,14 @@ export function describeRewardHistoryRow(item: {
   if (rawType === "review_reward" || rawType.startsWith("review_reward:")) {
     const parts = rawType.split(":");
     const productName = parts.length >= 3 ? parts.slice(2).join(":") : "";
+    const isPhotoReview = absRupees >= REVIEW_PHOTO_REWARD_RUPEES;
     return {
       title: productName
         ? `Review Reward — ${productName}`
         : "Product Review Reward",
-      subtitle: `₹${REVIEW_REWARD_RUPEES} cash credit earned for writing a product review`,
+      subtitle: isPhotoReview
+        ? `₹${REVIEW_PHOTO_REWARD_RUPEES} cash credit earned for product review with photo`
+        : `₹${REVIEW_TEXT_REWARD_RUPEES} cash credit earned for product review`,
       formattedAmount,
       isPositive: true,
       category: "review" as const,
@@ -825,8 +968,8 @@ export function describeRewardHistoryRow(item: {
     return {
       title: `Subscription Order Cash Credit ${shortOrder}`.trim(),
       subtitle: item.orderId
-        ? `5% reward earned on subscription order (${item.orderId})`
-        : "5% reward earned on subscription renewal",
+        ? `5% reward earned on delivered subscription order (${item.orderId})`
+        : "5% reward earned on subscription delivery",
       formattedAmount,
       isPositive: true,
       category: "order" as const,
@@ -837,8 +980,8 @@ export function describeRewardHistoryRow(item: {
   return {
     title: `Order Cash Credit Earned ${shortOrder}`.trim(),
     subtitle: item.orderId
-      ? `5% cash credit earned on order (${item.orderId})`
-      : "5% cash credit earned on purchase",
+      ? `5% product credit earned on delivered order (${item.orderId})`
+      : "5% cash credit earned on delivered order",
     formattedAmount,
     isPositive: isPositive,
     category: "order" as const,

@@ -398,11 +398,7 @@ export function CheckoutSummary({
                       height={48}
                       className="h-full w-full object-contain"
                     />
-                    {qty > 1 && (
-                      <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#016271] text-[9px] font-bold text-white shadow-xs">
-                        {qty}
-                      </span>
-                    )}
+                    
                   </div>
 
                   {/* Details: Product, Size, Quantity */}

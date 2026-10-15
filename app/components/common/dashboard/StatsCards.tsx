@@ -1,6 +1,6 @@
 // components/common/dashboard/StatsCards.tsx
 
-import { IconShoppingBag, IconWallet, IconCoin } from "@tabler/icons-react";
+import { IconShoppingBag, IconWallet, IconGift } from "@tabler/icons-react";
 
 export const StatsCards = ({
   stats,
@@ -25,7 +25,7 @@ export const StatsCards = ({
     {
       label: "Rewards Balance",
       value: `₹${Number(stats.rewardBalance ?? 0).toLocaleString("en-IN")}`,
-      icon: IconCoin,
+      icon: IconGift,
     },
   ];
 

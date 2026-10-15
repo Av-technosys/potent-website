@@ -3,7 +3,7 @@ import Footer from "@/app/components/common/Footer";
 import BlogListClient from "./BlogListClient"; // Aapka client component
 import { getBlogs } from "@/helper/blog/action";
 import { Suspense } from "react";
-import Loading from "../../loading";
+import { BlogListSkeleton } from "@/app/components/common/skeletons";
 
 export default async function BlogPage() {
   // Database se live blogs fetch kar rahe hain
@@ -23,7 +23,7 @@ export default async function BlogPage() {
 
         {/* Aapka pura purana UI logic BlogListClient ke andar hai */}
         {/* Humne bas database wala data props mein bhej diya hai */}
-        <Suspense fallback={<Loading />}>
+        <Suspense fallback={<BlogListSkeleton />}>
           <BlogListClient initialBlogs={allBlogs} />
         </Suspense>
       </main>

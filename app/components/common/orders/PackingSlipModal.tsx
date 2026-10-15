@@ -2,7 +2,7 @@
 "use client";
 
 import { useState } from "react";
-import { Printer, Gift, FileText, X } from "lucide-react";
+import { Printer, Gift, FileText, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { formatMixBoxRecipe } from "@/lib/mixYourBox";
 import { formatYatraKitContents } from "@/lib/yatraKit";
+import { formatOrderDate, getItemDisplayDetails } from "@/lib/orderDisplay";
 
 interface PackingSlipModalProps {
   order: any;
@@ -30,6 +31,7 @@ export function PackingSlipModal({
   triggerButton,
 }: PackingSlipModalProps) {
   const [open, setOpen] = useState(false);
+  const [isPrinting, setIsPrinting] = useState(false);
 
   const meta =
     paymentMeta ??
@@ -45,23 +47,204 @@ export function PackingSlipModal({
   const orderItems =
     items.length > 0
       ? items
-      : Array.isArray(order?.items)
+      : Array.isArray(order?.items) && order.items.length > 0
         ? order.items
-        : Array.isArray(order?.order_items)
+        : Array.isArray(order?.order_items) && order.order_items.length > 0
           ? order.order_items
-          : [];
+          : [
+              {
+                id: `fallback-${order?.id || "item"}`,
+                productName: "Potent Hygiene Care Essentials",
+                productVarientName: "Standard Box",
+                quantity: 1,
+                productPrice: Number(order?.totalAmount || meta?.subtotal || 0),
+                price: Number(order?.totalAmount || meta?.subtotal || 0),
+                productSKU: "POTENT-CARE",
+              },
+            ];
+
+  const uniqueSlipId = `printable-parcel-slip-${order?.id || "modal"}`;
 
   const handlePrint = () => {
-    window.print();
+    const slipElement = document.getElementById(uniqueSlipId);
+    if (!slipElement) return;
+
+    setIsPrinting(true);
+
+    // Remove any leftover print iframe from previous prints
+    const oldIframe = document.getElementById("invoice-isolated-print-frame");
+    if (oldIframe) {
+      oldIframe.remove();
+    }
+
+    // Create an isolated hidden iframe with real viewport dimensions to prevent blank page collapse
+    const iframe = document.createElement("iframe");
+    iframe.id = "invoice-isolated-print-frame";
+    iframe.style.position = "fixed";
+    iframe.style.top = "0";
+    iframe.style.left = "0";
+    iframe.style.width = "100%";
+    iframe.style.height = "100%";
+    iframe.style.zIndex = "-99999";
+    iframe.style.opacity = "0";
+    iframe.style.pointerEvents = "none";
+    iframe.style.border = "none";
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow?.document;
+    if (!doc) {
+      setIsPrinting(false);
+      return;
+    }
+
+    // Collect all stylesheets from main document
+    const styleTags = Array.from(
+      document.querySelectorAll("style, link[rel='stylesheet']"),
+    )
+      .map((tag) => tag.outerHTML)
+      .join("\n");
+
+    const shortId = String(order?.id || "order").slice(0, 16);
+    const invoiceTitle = isGift ? `Gift-Slip-${shortId}` : `Invoice-${shortId}`;
+
+    doc.open();
+    doc.write(`
+      <!DOCTYPE html>
+      <html lang="en">
+        <head>
+          <meta charset="utf-8" />
+          <title>${invoiceTitle}</title>
+          ${styleTags}
+          <style>
+            @page {
+              size: A4 portrait;
+              margin: 10mm 15mm;
+            }
+            * {
+              box-sizing: border-box !important;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+            html, body {
+              display: block !important;
+              visibility: visible !important;
+              opacity: 1 !important;
+              margin: 0 !important;
+              padding: 0 !important;
+              background: #ffffff !important;
+              color: #111827 !important;
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
+              font-size: 12px !important;
+              line-height: 1.5 !important;
+            }
+            body * {
+              visibility: visible !important;
+            }
+            .isolated-slip-wrapper {
+              display: block !important;
+              visibility: visible !important;
+              opacity: 1 !important;
+              width: 100% !important;
+              max-width: 800px !important;
+              margin: 0 auto !important;
+              padding: 24px !important;
+              background: #ffffff !important;
+              box-sizing: border-box !important;
+            }
+            .flex { display: flex !important; }
+            .justify-between { justify-content: space-between !important; }
+            .items-start { align-items: flex-start !important; }
+            .items-center { align-items: center !important; }
+            .flex-col { flex-direction: column !important; }
+            .flex-row { flex-direction: row !important; }
+            .gap-1 { gap: 4px !important; }
+            .gap-2 { gap: 8px !important; }
+            .gap-3 { gap: 12px !important; }
+            .gap-4 { gap: 16px !important; }
+            .gap-6 { gap: 24px !important; }
+            .grid { display: grid !important; }
+            .grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+            .text-2xl { font-size: 24px !important; line-height: 28px !important; }
+            .text-lg { font-size: 18px !important; line-height: 24px !important; }
+            .text-sm { font-size: 14px !important; line-height: 20px !important; }
+            .text-xs { font-size: 12px !important; line-height: 16px !important; }
+            .font-black { font-weight: 900 !important; }
+            .font-bold { font-weight: 700 !important; }
+            .font-semibold { font-weight: 600 !important; }
+            .font-medium { font-weight: 500 !important; }
+            .font-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important; }
+            .text-center { text-align: center !important; }
+            .text-right { text-align: right !important; }
+            .text-left { text-align: left !important; }
+            .uppercase { text-transform: uppercase !important; }
+            .italic { font-style: italic !important; }
+            .text-gray-900 { color: #111827 !important; }
+            .text-gray-800 { color: #1f2937 !important; }
+            .text-gray-700 { color: #374151 !important; }
+            .text-gray-600 { color: #4b5563 !important; }
+            .text-gray-500 { color: #6b7280 !important; }
+            .text-gray-400 { color: #9ca3af !important; }
+            .text-emerald-700 { color: #047857 !important; }
+            .border { border: 1px solid #e5e7eb !important; }
+            .border-b { border-bottom: 1px solid #e5e7eb !important; }
+            .border-t { border-top: 1px solid #e5e7eb !important; }
+            .rounded-lg { border-radius: 8px !important; }
+            .rounded-xl { border-radius: 12px !important; }
+            .rounded-md { border-radius: 6px !important; }
+            .bg-white { background-color: #ffffff !important; }
+            .bg-gray-50 { background-color: #f9fafb !important; }
+            .bg-gray-100 { background-color: #f3f4f6 !important; }
+            .bg-slate-100 { background-color: #f1f5f9 !important; }
+            table {
+              width: 100% !important;
+              border-collapse: collapse !important;
+              margin-top: 4px !important;
+            }
+            th, td {
+              padding: 8px 12px !important;
+              border-bottom: 1px solid #f3f4f6 !important;
+            }
+            th {
+              background-color: #f8fafc !important;
+              font-weight: 600 !important;
+              color: #475569 !important;
+            }
+            button, .print\\:hidden, .no-print {
+              display: none !important;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="isolated-slip-wrapper">
+            ${slipElement.innerHTML}
+          </div>
+        </body>
+      </html>
+    `);
+    doc.close();
+
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        try {
+          iframe.contentWindow?.focus();
+          iframe.contentWindow?.print();
+        } catch (err) {
+          console.error("Isolated print failed, falling back to window.print:", err);
+          window.print();
+        } finally {
+          setIsPrinting(false);
+          setTimeout(() => {
+            try {
+              iframe.remove();
+            } catch {}
+          }, 2000);
+        }
+      }, 350);
+    });
   };
 
   const formatDate = (date: any) => {
-    if (!date) return new Date().toLocaleDateString("en-IN");
-    return new Date(date).toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
+    return formatOrderDate(date) || "Recently";
   };
 
   return (
@@ -98,22 +281,39 @@ export function PackingSlipModal({
             ) : (
               <>
                 <FileText className="h-5 w-5 text-[#016271]" />
-                <span>Order Packing Slip</span>
+                <span>Order Invoice &amp; Slip</span>
               </>
             )}
           </DialogTitle>
-          <Button
-            onClick={handlePrint}
-            size="sm"
-            className="flex items-center gap-1.5 bg-[#016271] hover:bg-[#014d59] text-white rounded-lg text-xs font-semibold mr-6"
-          >
-            <Printer className="h-3.5 w-3.5" />
-            Print Slip
-          </Button>
+          <div className="flex items-center gap-2 mr-6 print:hidden">
+            <Button
+              onClick={handlePrint}
+              disabled={isPrinting}
+              size="sm"
+              className="flex items-center gap-1.5 bg-[#016271] hover:bg-[#014d59] text-white rounded-lg text-xs font-semibold cursor-pointer shadow-xs"
+            >
+              <Download className="h-3.5 w-3.5" />
+              <span>{isPrinting ? "Preparing..." : "Download Invoice (PDF)"}</span>
+            </Button>
+            <Button
+              onClick={handlePrint}
+              disabled={isPrinting}
+              variant="outline"
+              size="sm"
+              className="hidden sm:flex items-center gap-1.5 border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg text-xs font-semibold cursor-pointer"
+            >
+              <Printer className="h-3.5 w-3.5" />
+              <span>Print</span>
+            </Button>
+          </div>
         </DialogHeader>
 
-        {/* 🖨️ Printable Slip Container */}
-        <div id="printable-parcel-slip" className="p-6 sm:p-8 bg-white font-sans text-gray-900 border sm:border-slate-200 rounded-xl print:border-0 print:p-0">
+        {/* 🖨️ Printable Slip Container (Unique ID per order to prevent cross-order bleed) */}
+        <div
+          id={uniqueSlipId}
+          data-printable-slip={order?.id || "modal"}
+          className="p-6 sm:p-8 bg-white font-sans text-gray-900 border sm:border-slate-200 rounded-xl print:border-0 print:p-0"
+        >
           {/* Header */}
           <div className="flex justify-between items-start border-b border-gray-200 pb-5">
             <div>
@@ -127,7 +327,7 @@ export function PackingSlipModal({
 
             <div className="text-right">
               <span className="inline-block px-3 py-1 rounded-md text-xs font-bold uppercase tracking-wider bg-slate-100 text-slate-800 border border-slate-200">
-                {isGift ? "🎁 GIFT PARCEL SLIP" : "PACKING SLIP"}
+                {isGift ? "🎁 GIFT PARCEL SLIP" : "INVOICE / PACKING SLIP"}
               </span>
               <p className="text-xs font-mono font-bold mt-1.5 text-gray-900">
                 Order #{String(order?.id || "").slice(0, 16)}
@@ -205,7 +405,7 @@ export function PackingSlipModal({
             </div>
           </div>
 
-          {/* Package Contents Table */}
+          {/* Package Contents Table (ONLY items belonging to this specific order) */}
           <div className="my-5">
             <h2 className="text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
               Package Contents
@@ -224,16 +424,15 @@ export function PackingSlipModal({
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {orderItems.map((item: any, idx: number) => {
-                    const title =
-                      item.productName ||
-                      item.title ||
-                      item.productVarientName ||
-                      "Potent Care Product";
-                    const qty = Number(item.quantity || 1);
+                    const details = getItemDisplayDetails(item);
+                    const title = details.productName;
+                    const size = details.size;
+                    const qty = Number(item.quantity || details.quantity || 1);
                     const price = Number(
                       item.productPrice ||
                         item.price ||
                         item.productVarientPrice ||
+                        details.unitPrice ||
                         0,
                     );
 
@@ -244,6 +443,11 @@ export function PackingSlipModal({
                         </td>
                         <td className="py-3 px-3">
                           <p className="font-bold text-gray-900">{title}</p>
+                          {size && (
+                            <p className="text-[10px] text-gray-500 font-medium">
+                              Size: {size}
+                            </p>
+                          )}
                           {item.productSKU && (
                             <p className="text-[10px] text-gray-400 font-mono mt-0.5">
                               SKU: {item.productSKU}
@@ -325,4 +529,3 @@ export function PackingSlipModal({
     </Dialog>
   );
 }
-

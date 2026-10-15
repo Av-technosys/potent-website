@@ -90,13 +90,19 @@ export async function createReview(reviewData: any) {
         },
       });
 
+      const mediaJson =
+        Array.isArray(reviewData.media) && reviewData.media.length > 0
+          ? JSON.stringify(reviewData.media)
+          : reviewData.varient || null;
+
       await tx.insert(review).values({
         userId,
         productId: resolvedProductId,
         name: userInfo?.name || "Verified Buyer",
         rating: Number(rating),
         message,
-        isAdminApproved: true,
+        varient: mediaJson,
+        isAdminApproved: false,
       });
     });
 
@@ -110,8 +116,11 @@ export async function createReview(reviewData: any) {
 
     return {
       success: true,
-      rewardAdded: REVIEW_REWARD_RUPEES,
+      pendingApproval: true,
+      rewardAdded: 0,
       balance: synced.balance,
+      message:
+        "Review submitted! ₹25 (or ₹50 with photo) will be credited to your Rewards balance once approved by our team.",
     };
   } catch (error) {
     console.error("Failed to create review:", error);
@@ -137,6 +146,7 @@ export async function getProductReviews(slug: string | any) {
         name: review.name,
         email: users.email,
         message: review.message,
+        varient: review.varient,
         productId: review.productId,
         createdAt: review.createdAt,
       })
@@ -149,7 +159,24 @@ export async function getProductReviews(slug: string | any) {
         ),
       );
 
-    return reviews.map((r) => ({ ...r, media: [] }));
+    return reviews.map((r) => {
+      let media: any[] = [];
+      if (r.varient) {
+        try {
+          const parsed = JSON.parse(r.varient);
+          if (Array.isArray(parsed)) {
+            media = parsed.map((m) =>
+              typeof m === "string" ? { mediaURL: m } : m,
+            );
+          } else if (typeof parsed === "string") {
+            media = [{ mediaURL: parsed }];
+          }
+        } catch {
+          media = [{ mediaURL: r.varient }];
+        }
+      }
+      return { ...r, media };
+    });
   } catch (error) {
     return [];
   }
@@ -162,6 +189,7 @@ export async function toggleApproveReview(id: string) {
     const [existingReview] = await db
       .select({
         id: review.id,
+        userId: review.userId,
         rating: review.rating,
         productId: review.productId,
         isAdminApproved: review.isAdminApproved,
@@ -179,8 +207,11 @@ export async function toggleApproveReview(id: string) {
         .update(review)
         .set({ isAdminApproved: true })
         .where(eq(review.id, id));
-
     });
+
+    if (existingReview.userId) {
+      await syncAndGetUserRewards(existingReview.userId);
+    }
 
     revalidatePath("/admin/reviews");
     if (existingReview.productSlug) {
@@ -207,6 +238,7 @@ export async function deleteReview(id: string) {
     const [existingReview] = await db
       .select({
         id: review.id,
+        userId: review.userId,
         rating: review.rating,
         productId: review.productId,
         isAdminApproved: review.isAdminApproved,
@@ -222,6 +254,10 @@ export async function deleteReview(id: string) {
     await db.transaction(async (tx) => {
       await tx.delete(review).where(eq(review.id, id));
     });
+
+    if (existingReview.userId) {
+      await syncAndGetUserRewards(existingReview.userId);
+    }
 
     revalidatePath("/admin/reviews");
     if (existingReview.productSlug) {
@@ -263,6 +299,7 @@ export async function getUserAllReviews() {
         name: review.name,
         email: users.email,
         message: review.message,
+        varient: review.varient,
         productId: review.productId,
         productName: product.name,
         isAdminApproved: review.isAdminApproved,
@@ -273,7 +310,24 @@ export async function getUserAllReviews() {
       .leftJoin(product, eq(review.productId, product.id))
       .where(eq(review.userId, userId));
 
-    return reviews.map((r) => ({ ...r, media: [] }));
+    return reviews.map((r) => {
+      let media: any[] = [];
+      if (r.varient) {
+        try {
+          const parsed = JSON.parse(r.varient);
+          if (Array.isArray(parsed)) {
+            media = parsed.map((m) =>
+              typeof m === "string" ? { mediaURL: m } : m,
+            );
+          } else if (typeof parsed === "string") {
+            media = [{ mediaURL: parsed }];
+          }
+        } catch {
+          media = [{ mediaURL: r.varient }];
+        }
+      }
+      return { ...r, media };
+    });
   } catch (error) {
     return [];
   }

@@ -71,7 +71,7 @@ export default function WhileYoureHereSection({
                   Potent Rewards Club
                 </h3>
                 <p className="mt-0.5 text-xs text-[#5A0E30]/70 leading-snug line-clamp-2">
-                  Earn credits across Ovy &amp; Looway — ₹100 to join.
+                  Earn credits across Ovy &amp; Looway — ₹50 to join.
                 </p>
               </div>
             </div>

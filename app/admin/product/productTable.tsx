@@ -62,7 +62,6 @@ const ProductTable = ({ products, total, currentPage }: any) => {
             <TableHead>Base Price</TableHead>
             <TableHead>Strikethrough Price</TableHead>
             <TableHead>IsCancelable</TableHead>
-            <TableHead>isReturnable</TableHead>
             <TableHead>isDeleted</TableHead>
             <TableHead>Actions</TableHead>
           </TableRow>
@@ -75,8 +74,11 @@ const ProductTable = ({ products, total, currentPage }: any) => {
                 <TableCell>{item.name}</TableCell>
                 <TableCell>₹{item.basePrice}</TableCell>
                 <TableCell>₹{item.strikethroughPrice}</TableCell>
-                <TableCell>{item.isCancelable ? "Yes" : "No"}</TableCell>
-                <TableCell>{item.isReturnable ? "Yes" : "No"}</TableCell>
+                <TableCell>
+                  <span className="inline-flex items-center rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700 border border-emerald-200">
+                    Yes (Before Dispatch)
+                  </span>
+                </TableCell>
                 <TableCell>{item.isDeleted ? "Yes" : "No"}</TableCell>
 
                 <TableCell className="flex gap-2">

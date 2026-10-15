@@ -73,7 +73,7 @@ export const EditAddressForm = ({
         <Label className="text-[12px] font-bold text-gray-400 uppercase ml-1">
           {birthdayLocked
             ? "Birthday (Locked — Set Once)"
-            : "Birthday (Earn ₹100 Birthday Credit)"}
+            : "Birthday (Earn ₹50 Birthday Credit)"}
         </Label>
         <Input
           type="date"

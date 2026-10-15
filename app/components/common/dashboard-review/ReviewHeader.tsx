@@ -6,7 +6,7 @@ export const ReviewHeader = ({ onReviewSuccess }: { onReviewSuccess?: () => void
     <div>
       <h2 className="text-[18px] font-bold text-[#2D3748]">Reviews & Ratings</h2>
       <p className="text-[13px] text-gray-500 font-medium">
-        Share your experience with our products and earn ₹50 cash credit per review
+        Share your experience with our products — earn ₹25 for text, ₹50 with a photo once approved
       </p>
     </div>
     <WriteReviewModal onSuccess={onReviewSuccess} />

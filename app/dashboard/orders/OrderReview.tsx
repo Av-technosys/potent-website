@@ -13,6 +13,11 @@ import { getImageUrl } from "@/lib/imageUrl";
 import { formatMixBoxRecipe } from "@/lib/mixYourBox";
 import { formatYatraKitContents } from "@/lib/yatraKit";
 import {
+  formatOrderDate,
+  getDeliveryHeader,
+  getItemDisplayDetails,
+} from "@/lib/orderDisplay";
+import {
   Card,
   CardContent,
   CardDescription,
@@ -104,7 +109,7 @@ export const OrderReview = ({
 
         if (response.success) {
           toast.success(
-            "Review submitted! ₹50 cash credit added to your Rewards balance.",
+            "Review submitted! ₹25 (or ₹50 with photo) will be credited once approved by our team.",
           );
 
           setRatings((prev) => ({ ...prev, [productVarientId]: 0 }));
@@ -167,21 +172,17 @@ export const OrderReview = ({
                   </div>
                   <p className="text-xs text-gray-500 flex items-center gap-1.5">
                     <Calendar size={12} />
-                    {new Date(orderDetails.createdAt).toLocaleDateString(
-                      "en-IN",
-                      {
-                        day: "2-digit",
-                        month: "short",
-                        year: "numeric",
-                      },
-                    )}
+                    {formatOrderDate(orderDetails.createdAt)}
                   </p>
                 </div>
 
                 {/* Middle Section: Shipping Brief (Uses your City/Pincode) */}
                 <div className="hidden md:flex flex-col borderDetails-l borderDetails-gray-100 pl-6">
                   <p className="text-[10px] uppercase text-gray-400 font-medium tracking-wider">
-                    Shipping To
+                    {getDeliveryHeader(
+                      orderDetails.status === "delivered" ||
+                        orderDetails.status === "completed",
+                    )}
                   </p>
                   {(orderDetails.city || orderDetails.pincode) && (
                     <p className="text-xs font-medium text-gray-700 capitalize">
@@ -215,7 +216,14 @@ export const OrderReview = ({
             </CardTitle>
             <CardDescription className="my-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                {orderDetails?.order_items?.map((item: any, index: number) => {
+                {(
+                  (orderDetails?.order_items && orderDetails.order_items.length > 0)
+                    ? orderDetails.order_items
+                    : (orderDetails?.items && orderDetails.items.length > 0)
+                      ? orderDetails.items
+                      : []
+                ).map((item: any, index: number) => {
+                  const details = getItemDisplayDetails(item);
                   const variantId =
                     item.productVariantId ||
                     item.productId ||
@@ -233,18 +241,23 @@ export const OrderReview = ({
                           <div className="flex gap-3 items-center ">
                             <div className="w-12 h-12  overflow-hidden  relative rounded-md">
                               <Image
-                                src={getImageUrl(item.productImage)}
-                                alt={item.productName}
+                                src={getImageUrl(details.productImage)}
+                                alt={details.productName}
                                 fill
                                 className="object-cover"
                               />
                             </div>
                             <div>
-                              <h2 className="text-lg font-semibold">
-                                {item.productName}
+                              <h2 className="text-sm font-semibold">
+                                {details.productName}
                               </h2>
-                              <p className="text-sm text-muted-foreground">
-                                Quantity : {item.quantity}
+                              {details.size && (
+                                <p className="text-xs text-muted-foreground">
+                                  Size: {details.size}
+                                </p>
+                              )}
+                              <p className="text-xs text-muted-foreground">
+                                Quantity : {details.quantity || item.quantity || 1}
                               </p>
                               {Boolean(item.yatraKit || (item.mixBoxRecipe && item.mixBoxRecipe.type === "yatraKit")) ? (
                                 <div className="mt-1 space-y-0.5">
@@ -262,8 +275,8 @@ export const OrderReview = ({
                               ) : null}
                             </div>
                           </div>
-                          <p className="text-lg font-bold">
-                            ₹{item.productPrice}
+                          <p className="text-base font-bold">
+                            ₹{item.productPrice || details.unitPrice || 0}
                           </p>
                         </div>
 

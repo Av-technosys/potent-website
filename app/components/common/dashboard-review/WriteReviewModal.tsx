@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 
 import {
   Dialog,
@@ -15,9 +16,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 
 import { IconPencil, IconStarFilled } from "@tabler/icons-react";
+import { Camera, X, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-
 import { useRouter } from "next/navigation";
+import { useFileUpload } from "@/helper/useFileUpload";
 
 interface WriteReviewModalProps {
   product?: any;
@@ -38,7 +40,10 @@ export const WriteReviewModal = ({
   const [rating, setRating] = useState(5);
   const [userName, setUserName] = useState("");
   const [comment, setComment] = useState("");
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photoKey, setPhotoKey] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const { upload, uploading } = useFileUpload();
   const router = useRouter();
 
   const productName =
@@ -49,6 +54,29 @@ export const WriteReviewModal = ({
     product?.slug ||
     product?.productSlug ||
     "general";
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const res = await upload(file, "review");
+      if (res?.fileKey) {
+        setPhotoKey(res.fileKey);
+        setPhotoPreview(res.preview || null);
+        toast.success("Photo uploaded! Eligible for ₹50 reward upon approval.");
+      } else {
+        toast.error("Failed to upload photo");
+      }
+    } catch {
+      toast.error("Failed to upload photo");
+    }
+  };
+
+  const removePhoto = () => {
+    setPhotoKey(null);
+    setPhotoPreview(null);
+  };
 
   const submitReview = async () => {
     if (!comment.trim()) {
@@ -70,6 +98,7 @@ export const WriteReviewModal = ({
           productId: productId,
           rating: rating,
           message: comment.trim(),
+          media: photoKey ? [photoKey] : [],
         }),
       });
 
@@ -77,10 +106,14 @@ export const WriteReviewModal = ({
 
       if (response.ok) {
         toast.success(
-          "Review submitted! ₹50 cash credit added to your Rewards balance.",
+          photoKey
+            ? "Review submitted! ₹50 cash credit will be added once approved."
+            : "Review submitted! ₹25 cash credit will be added once approved.",
         );
         setComment("");
         setUserName("");
+        setPhotoKey(null);
+        setPhotoPreview(null);
         setOpen(false);
         onSuccess?.();
         router.refresh();
@@ -116,18 +149,18 @@ export const WriteReviewModal = ({
         )}
       </DialogTrigger>
 
-      <DialogContent className="rounded-xl p-5 sm:max-w-[420px] bg-white">
+      <DialogContent className="rounded-xl p-5 sm:max-w-[440px] bg-white max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-[18px] font-semibold text-[#2D3748]">
             Write a Review
           </DialogTitle>
         </DialogHeader>
 
-        <div className="my-1 rounded-xl bg-[#E9F7F9] p-3.5 text-xs">
+        <div className="my-1 rounded-xl bg-[#E9F7F9] p-3 text-xs">
           <p className="font-bold text-[#2D3748]">{productName}</p>
-          {product?.orderId && (
-            <p className="font-medium text-gray-500 mt-0.5">Order: {product.orderId}</p>
-          )}
+          <p className="font-medium text-[#016271] mt-0.5">
+            Earn ₹25 for text review • ₹50 with a photo (credited on approval)
+          </p>
         </div>
 
         <div className="space-y-4 text-center">
@@ -181,12 +214,62 @@ export const WriteReviewModal = ({
               {comment.length}/500 Characters
             </p>
           </div>
+
+          {/* Photo Upload */}
+          <div className="space-y-1.5 text-left">
+            <label className="text-[14px] font-semibold text-[#333333] flex items-center justify-between">
+              <span>Add a Photo (Optional)</span>
+              <span className="text-xs font-semibold text-teal-700 bg-teal-50 px-2 py-0.5 rounded-full">
+                +₹50 with photo
+              </span>
+            </label>
+
+            {photoPreview ? (
+              <div className="relative inline-block mt-2">
+                <Image
+                  src={photoPreview}
+                  alt="Review photo"
+                  width={100}
+                  height={100}
+                  className="w-24 h-24 object-cover rounded-xl border border-gray-200"
+                />
+                <button
+                  type="button"
+                  onClick={removePhoto}
+                  className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full hover:bg-red-600 shadow-xs"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            ) : (
+              <label className="flex flex-col items-center justify-center border-2 border-dashed border-gray-200 rounded-xl p-3 cursor-pointer hover:bg-gray-50 transition-colors">
+                {uploading ? (
+                  <div className="flex items-center gap-2 text-sm text-gray-500">
+                    <Loader2 className="animate-spin" size={18} />
+                    <span>Uploading photo...</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <Camera size={18} className="text-[#016271]" />
+                    <span>Attach photo for ₹50 reward</span>
+                  </div>
+                )}
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  disabled={uploading}
+                  className="hidden"
+                />
+              </label>
+            )}
+          </div>
         </div>
 
         <div className="mt-4 flex gap-3">
           <Button
             onClick={submitReview}
-            disabled={loading}
+            disabled={loading || uploading}
             className="h-11 flex-1 rounded-xl bg-[#1B8392] font-bold text-white hover:bg-[#016271] cursor-pointer"
           >
             {loading ? "Submitting..." : "Submit Review"}

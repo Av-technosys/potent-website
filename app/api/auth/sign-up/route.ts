@@ -138,14 +138,14 @@ export async function POST(req: Request) {
             })
             .returning();
 
-          // 1. Credit ₹100 Welcome Bonus for joining
+          // 1. Credit ₹50 Welcome Bonus for joining
           await db.insert(rewardCoinsHistory).values({
             userId: userRes.id,
             coins: SIGNUP_BONUS_RUPEES,
             type: "signup_bonus",
           });
 
-          // 2. If signed up with a valid friend's referral code, credit friend bonus & referrer
+          // 2. If signed up with a valid friend's referral code, record referral and friend bonus
           if (isValidReferral && referredUser.id !== userRes.id) {
             await db.insert(rewardCoinsHistory).values({
               userId: userRes.id,
@@ -153,30 +153,14 @@ export async function POST(req: Request) {
               type: "referral_welcome",
             });
 
-            const [insertedRef] = await db
-              .insert(referralCoinHistory)
-              .values({
-                userId: referredUser.id,
-                coins: REFERRAL_EARNING_RUPEES,
-                newUserName: safeName,
-                newUserId: userRes.id,
-                type: "referral",
-              })
-              .returning({ id: referralCoinHistory.id });
-
-            await db.insert(rewardCoinsHistory).values({
+            // Record referral link (referrer gets ₹100 credited when friend's first order of ₹399+ is delivered)
+            await db.insert(referralCoinHistory).values({
               userId: referredUser.id,
               coins: REFERRAL_EARNING_RUPEES,
-              type: `referral_bonus:${insertedRef?.id || userRes.id}:${safeName}`,
+              newUserName: safeName,
+              newUserId: userRes.id,
+              type: "referral",
             });
-
-            await db
-              .update(users)
-              .set({
-                referralCoins: sql`COALESCE(${users.referralCoins}, 0) + ${REFERRAL_EARNING_RUPEES}`,
-                rewardOrderCoins: sql`COALESCE(${users.rewardOrderCoins}, 0) + ${REFERRAL_EARNING_RUPEES}`,
-              })
-              .where(eq(users.id, referredUser.id));
           }
         } else {
           userRes = existingDbUser;

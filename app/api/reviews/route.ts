@@ -122,6 +122,15 @@ export async function POST(req: NextRequest) {
     const reviewerName =
       String(body.name || "").trim() || dbUser.name || "Verified Buyer";
 
+    const mediaList = Array.isArray(body.media)
+      ? body.media
+      : body.fileKey
+        ? [body.fileKey]
+        : body.photoUrl
+          ? [body.photoUrl]
+          : [];
+    const mediaJson = mediaList.length > 0 ? JSON.stringify(mediaList) : null;
+
     const [created] = await db
       .insert(review)
       .values({
@@ -130,7 +139,8 @@ export async function POST(req: NextRequest) {
         productId: resolvedProductId,
         rating,
         message,
-        isAdminApproved: true,
+        varient: mediaJson,
+        isAdminApproved: false, // Rule: Added when we approve the review
       })
       .returning();
 
@@ -139,8 +149,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       review: created,
-      rewardAdded: REVIEW_REWARD_RUPEES,
+      pendingApproval: true,
+      rewardAdded: 0,
       balance: synced.balance,
+      message:
+        "Review submitted! ₹25 (or ₹50 with photo) will be added to your balance once approved.",
     });
   } catch (error) {
     console.error("Failed to create review:", error);

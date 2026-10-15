@@ -35,11 +35,18 @@ export default function Details({ id, initialOrderInfo }: { id: string; initialO
       year: "numeric",
     });
 
+  const orderDate = orderInfo?.order?.createdAt ? formatDate(orderInfo.order.createdAt) : "Pending";
+  const updatedDate = orderInfo?.order?.updatedAt ? formatDate(orderInfo.order.updatedAt) : orderDate;
+  const currentStatus = String(orderInfo?.order?.status || "").toLowerCase();
+
+  const isShipped = ["shipped", "delivered", "completed"].includes(currentStatus);
+  const isDelivered = ["delivered", "completed"].includes(currentStatus);
+
   const steps = [
-    { label: "Order Confirmed", date: "Aug 16, 2023" },
-    { label: "Order Shipped", date: "Aug 22, 2023" },
-    { label: "Out for Delivery", date: "Aug 28, 2023" },
-    { label: "Delivered", date: "Aug 28, 2023" },
+    { label: "Order Confirmed", date: orderDate },
+    { label: "Order Shipped", date: isShipped ? updatedDate : "Pending" },
+    { label: "Out for Delivery", date: isShipped ? "Estimated in 2-4 days" : "Pending" },
+    { label: "Delivered", date: isDelivered ? updatedDate : "Pending" },
   ];
 
   const handleStatusChange = (status: string | undefined) => {

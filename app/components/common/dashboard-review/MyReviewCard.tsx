@@ -34,14 +34,20 @@ export const MyReviewCard = ({ review }: { review: any }) => (
             className={`text-xs ${
               review.isAdminApproved
                 ? "bg-green-100 text-green-700"
-                : "bg-yellow-100 text-gray-600"
+                : "bg-yellow-100 text-amber-700"
             } px-2 py-0.5 rounded-full font-medium`}
           >
-            {review.isAdminApproved ? "Approved" : "Pending"}
+            {review.isAdminApproved ? "Approved" : "Pending Approval"}
           </span>
-          <span className="text-xs bg-emerald-50 text-emerald-700 font-semibold px-2 py-0.5 rounded-full">
-            +₹50 Reward Earned
-          </span>
+          {review.isAdminApproved ? (
+            <span className="text-xs bg-emerald-50 text-emerald-700 font-semibold px-2 py-0.5 rounded-full">
+              +{review?.media?.length > 0 ? "₹50" : "₹25"} Reward Earned
+            </span>
+          ) : (
+            <span className="text-xs bg-amber-50 text-amber-700 font-medium px-2 py-0.5 rounded-full">
+              Reward Pending Approval
+            </span>
+          )}
         </div>
 
         {/* Stars + Time */}

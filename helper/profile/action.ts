@@ -1,8 +1,8 @@
 // helper/user/profile.ts
 "use server"
 import { db } from "@/src/db";
-import { order, users } from "@/src/db/schema";
-import { eq , desc} from "drizzle-orm";
+import { order, users, payment } from "@/src/db/schema";
+import { eq, desc, inArray } from "drizzle-orm";
 import { requireUserWithRefresh } from "@/helper/user/action";
 
 import { syncAndGetUserRewards } from "@/lib/rewards";
@@ -31,16 +31,56 @@ export async function getUserProfile() {
     syncAndGetUserRewards(user.id),
   ]);
 
-  // Exclude unpaid (pending) and cancelled orders from user totals
-  const paidOrders = userOrders.filter((o) =>
-    ["paid", "processing", "shipped", "delivered", "completed"].includes(
-      String(o.status || "").toLowerCase(),
-    ),
-  );
+  const orderIds = userOrders.map((o) => o.id);
+  const paymentRows = orderIds.length
+    ? await db
+        .select()
+        .from(payment)
+        .where(inArray(payment.orderId, orderIds))
+        .orderBy(desc(payment.createdAt))
+    : [];
 
-  const totalOrders = paidOrders.length;
+  const paymentMap = new Map<string, (typeof paymentRows)[0]>();
+  for (const p of paymentRows) {
+    if (p.orderId && !paymentMap.has(p.orderId)) {
+      paymentMap.set(p.orderId, p);
+    }
+  }
 
-  const totalSpent = paidOrders.reduce(
+  // Count and sum ONLY paid orders that were not cancelled or failed
+  const validPaidOrders = userOrders.filter((o) => {
+    const status = String(o.status || "").toLowerCase();
+    if (
+      status === "cancelled" ||
+      status === "canceled" ||
+      status === "failed" ||
+      status === "returned"
+    ) {
+      return false;
+    }
+    const pay = paymentMap.get(o.id);
+    const paymentStatus = String(pay?.paymentStatus || "").toLowerCase();
+
+    // If order status is pending, consider it paid only if gateway/payment succeeded
+    if (status === "pending") {
+      return paymentStatus === "success";
+    }
+
+    // Statuses like paid, processing, shipped, delivered, completed are valid paid orders unless payment failed
+    if (
+      ["paid", "processing", "packed", "shipped", "delivered", "completed"].includes(
+        status,
+      )
+    ) {
+      return paymentStatus !== "failed";
+    }
+
+    return paymentStatus === "success";
+  });
+
+  const totalOrders = validPaidOrders.length;
+
+  const totalSpent = validPaidOrders.reduce(
     (sum, o) => sum + Number(o.totalAmount || 0),
     0,
   );
@@ -56,7 +96,10 @@ export async function getUserProfile() {
       totalSpent,
       rewardBalance: rewards.balance,
     },
-    orders: userOrders.slice(0, 5),
+    orders: userOrders.slice(0, 5).map((o) => ({
+      ...o,
+      paymentStatus: paymentMap.get(o.id)?.paymentStatus || "pending",
+    })),
   };
 }
 export async function updateUserProfile(fullName: string, phone: string) {

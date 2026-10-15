@@ -16,13 +16,11 @@ import {
 import {
   cancelUnpaidOrder,
   createCancelRequest,
-  createReturnRequest,
 } from "@/helper/order/action";
-import { useFileUpload } from "@/helper/useFileUpload";
-import { IconDownload, IconEye, IconRefresh, IconX } from "@tabler/icons-react";
+import { IconDownload, IconEye, IconX } from "@tabler/icons-react";
 import { TrackOrderModal } from "./TrackOrderModal";
 import { RaiseSupportModal } from "./RaiseSupportModal";
-import { ChangeEvent, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import Image from "next/image";
@@ -34,6 +32,14 @@ import { getImageUrl } from "@/lib/imageUrl";
 import { formatMixBoxRecipe } from "@/lib/mixYourBox";
 import { formatYatraKitContents } from "@/lib/yatraKit";
 import { isOvyPadItem, getFreeLinersCount } from "@/lib/cartItemDisplay";
+import {
+  formatOrderStage,
+  getOrderStageBadgeClasses,
+  formatOrderDate,
+  getDeliveryHeader,
+  canTrackOrder,
+  getItemDisplayDetails,
+} from "@/lib/orderDisplay";
 
 export const OrderCard = ({
   order_details,
@@ -47,28 +53,52 @@ export const OrderCard = ({
   // Variable ko yahan define kiya hai taaki niche logic mein issue na aaye
 
   const order = order_details;
-  const items = order_details?.order_items;
+  const items =
+    order_details?.order_items && order_details.order_items.length > 0
+      ? order_details.order_items
+      : order_details?.items && order_details.items.length > 0
+        ? order_details.items
+        : [];
 
   const [paying, setPaying] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const router = useRouter();
 
+  const statusLower = String(order?.status || "").toLowerCase().trim();
+
   const isUnpaid = Boolean(
     order?.isUnpaid ||
-    (order?.status === "pending" &&
+    (statusLower === "pending" &&
       order?.paymentStatus !== "success" &&
       order?.payment?.paymentStatus !== "success"),
   );
 
-  const isDelivered = order?.status === "delivered";
-  const isCanceled = order?.status === "canceled";
+  const isCanceled =
+    statusLower === "canceled" ||
+    statusLower === "cancelled" ||
+    statusLower === "failed" ||
+    order?.cancelRequest?.status === "approved" ||
+    order?.cancelRequest?.status === "refunded";
+
+  const isDelivered = statusLower === "delivered" || statusLower === "completed";
+
+  const isSubscriptionOnly = Boolean(order?.isSubscriptionOnly);
+
+  const canTrack = canTrackOrder({
+    ...order,
+    status: statusLower,
+    isCanceled,
+    isDelivered,
+    isSubscriptionOnly,
+    isUnpaid,
+  });
+
   const canReview =
     !isUnpaid &&
     !isCanceled &&
     ["paid", "processing", "shipped", "delivered", "completed"].includes(
-      order?.status,
+      statusLower,
     );
-  const isSubscriptionOnly = Boolean(order?.isSubscriptionOnly);
   const isGift = Boolean(
     order?.payment?.paymentMeta?.isGift ||
     order?.paymentMeta?.isGift ||
@@ -81,8 +111,10 @@ export const OrderCard = ({
     null;
   const canCancel =
     !isUnpaid &&
+    !isCanceled &&
+    !isDelivered &&
     !isSubscriptionOnly &&
-    ["paid", "processing"].includes(order?.status) &&
+    ["paid", "processing"].includes(statusLower) &&
     !order?.cancelRequest;
 
   const reviewHandler = () => {
@@ -179,33 +211,28 @@ export const OrderCard = ({
   };
 
   return (
-    <Card className="mb-6 overflow-hidden rounded-[20px] border-none bg-white p-0 shadow-sm">
+    <Card className="mb-6 overflow-hidden rounded-[20px] border border-gray-100 bg-white p-0 shadow-xs">
       {/* Header Section: Order ID & Status */}
-      <div className="flex items-start justify-between bg-linear-to-r from-[#FFF1F2] to-[#FFFBEB] p-6 pb-4">
+      <div className="flex items-start justify-between bg-gradient-to-r from-[#FFF1F2] to-[#FFFBEB] p-4 sm:p-6 pb-4">
         <div className="space-y-1">
-          <div className="flex items-center gap-3">
-            <h3 className="text-[16px] font-bold text-[#2D3748]">{order.id}</h3>
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <h3 className="text-sm sm:text-[16px] font-bold text-[#2D3748] break-all">{order.id}</h3>
             <Badge
-              className={`${
-                isUnpaid
-                  ? "border border-amber-300 bg-amber-100 text-amber-800"
-                  : isDelivered
-                  ? "bg-[#DCFCE7] text-[#15824D]"
-                  : isCanceled
-                  ? "bg-red-100 text-red-700"
-                  : "bg-[#DCF7FC] text-[#016271]"
-              } border-none px-2.5 py-0.5 text-[10px] font-bold uppercase shadow-none`}
+              className={`${getOrderStageBadgeClasses(
+                order.status,
+                isUnpaid,
+              )} border-none px-2.5 py-0.5 text-[11px] font-bold shadow-none`}
             >
-              {isUnpaid ? "Payment not completed" : order.status}
+              {formatOrderStage(order.status, isUnpaid)}
             </Badge>
             {isGift && (
-              <Badge className="bg-[#9A5B90] text-white border-none px-2.5 py-0.5 text-[10px] font-bold uppercase shadow-none">
+              <Badge className="bg-[#9A5B90] text-white border-none px-2.5 py-0.5 text-[10px] font-bold shadow-none">
                 🎁 Gift Order
               </Badge>
             )}
           </div>
-          <p className="text-[13px] font-medium text-gray-400">
-            Ordered on {new Date(order.createdAt).toLocaleDateString()}
+          <p className="text-[12px] sm:text-[13px] font-medium text-gray-500">
+            Ordered on {formatOrderDate(order.createdAt)}
           </p>
           {isGift && giftNote && (
             <p className="mt-1 text-[11px] italic text-[#7E4D77]">
@@ -213,11 +240,11 @@ export const OrderCard = ({
             </p>
           )}
         </div>
-        <div className="text-right">
-          <p className="text-[11px] font-bold tracking-tight text-gray-400 uppercase">
+        <div className="text-right shrink-0">
+          <p className="text-[10px] sm:text-[11px] font-bold tracking-tight text-gray-400 uppercase">
             Total Amount
           </p>
-          <p className="text-[18px] font-bold text-[#2D3748]">
+          <p className="text-[16px] sm:text-[18px] font-bold text-[#2D3748]">
             ₹{order.totalAmount}
           </p>
           {isSubscriptionOnly && (
@@ -229,87 +256,124 @@ export const OrderCard = ({
       </div>
 
       {/* Items Section */}
-      <div className="px-6">
+      <div className="px-4 sm:px-6">
         <div className="flex flex-col gap-4">
-          {items?.map((item: any, idx: number) => (
-            <div
-              key={idx}
-              className="flex flex-col gap-3 border-b border-gray-100 py-4 last:border-b-0 md:flex-row md:items-center md:justify-between"
-            >
-              <div className="flex items-start gap-4">
-                <span>{idx + 1}.</span>
-                <div className="relative h-20 w-20 overflow-hidden">
-                  <Image
-                    src={getImageUrl(item.productImage)}
-                    alt="product image"
-                    fill
-                    sizes="80px"
-                    className="object-cover"
-                  />
-                </div>
-                <div>
-                  <p className="text-[14px] font-bold text-[#2D3748]">
-                    {item.productName}
-                  </p>
-                  <p className="text-[12px] font-medium text-gray-400">
-                    Quantity: {item.quantity}
-                  </p>
-                  {Boolean(item.yatraKit || (item.mixBoxRecipe && item.mixBoxRecipe.type === "yatraKit")) ? (
-                    <div className="mt-2 rounded-lg bg-[#EAF6F4] px-3 py-2 text-[12px] font-semibold text-[#116B66] space-y-0.5 border border-[#116B66]/20">
-                      <p>{formatYatraKitContents(item.yatraKit || item.mixBoxRecipe)}</p>
-                      <p className="text-[11px] font-bold text-[#15803D]">
-                        ✓ Free Intimate Wipes ({(item.yatraKit || item.mixBoxRecipe)?.freeWipesCount || 10} wipes) included
+          {items && items.length > 0 ? (
+            items.map((item: any, idx: number) => {
+              const details = getItemDisplayDetails(item);
+              const productName = details.productName;
+              const productImage = details.productImage;
+              const size = details.size;
+
+              return (
+                <div
+                  key={idx}
+                  className="flex flex-col gap-3 border-b border-gray-100 py-4 last:border-b-0 md:flex-row md:items-center md:justify-between"
+                >
+                  <div className="flex items-start gap-3 sm:gap-4">
+                    <span className="text-xs sm:text-sm text-gray-400 mt-1">{idx + 1}.</span>
+                    <div className="relative h-16 w-16 sm:h-20 sm:w-20 shrink-0 aspect-square rounded-lg bg-gray-50 p-1 border border-gray-100 overflow-hidden flex items-center justify-center">
+                      <Image
+                        src={getImageUrl(productImage)}
+                        alt={productName}
+                        width={80}
+                        height={80}
+                        className="h-full w-full object-contain"
+                      />
+                    </div>
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-[13px] sm:text-[14px] font-bold text-[#2D3748]">
+                          {productName}
+                        </p>
+                        {size && (
+                          <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-bold text-gray-700 uppercase">
+                            {size}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] sm:text-[12px] font-medium text-gray-400">
+                        Quantity: {item.quantity || 1}
                       </p>
+                      {Boolean(item.yatraKit || (item.mixBoxRecipe && item.mixBoxRecipe.type === "yatraKit")) ? (
+                        <div className="mt-2 rounded-lg bg-[#EAF6F4] px-3 py-2 text-[12px] font-semibold text-[#116B66] space-y-0.5 border border-[#116B66]/20">
+                          <p>{formatYatraKitContents(item.yatraKit || item.mixBoxRecipe)}</p>
+                          <p className="text-[11px] font-bold text-[#15803D]">
+                            ✓ Free Intimate Wipes ({(item.yatraKit || item.mixBoxRecipe)?.freeWipesCount || 10} wipes) included
+                          </p>
+                        </div>
+                      ) : item.mixBoxRecipe ? (
+                        <div className="mt-2 space-y-1.5">
+                          <div className="rounded-lg bg-gray-50 px-3 py-2 text-[12px] font-semibold text-[#7E4D77]">
+                            <p>{formatMixBoxRecipe(item.mixBoxRecipe)}</p>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="inline-flex items-center gap-1 rounded bg-[#E6F4EA] px-2 py-0.5 text-[11px] font-bold text-[#15803D] border border-[#BFE3CA]">
+                              🎁 +{getFreeLinersCount(item)} Free Liners
+                            </span>
+                          </div>
+                        </div>
+                      ) : isOvyPadItem(item) ? (
+                        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                          <span className="inline-flex items-center gap-1 rounded bg-[#E6F4EA] px-2 py-0.5 text-[11px] font-bold text-[#15803D] border border-[#BFE3CA]">
+                            🎁 +{getFreeLinersCount(item)} Free Liners
+                          </span>
+                        </div>
+                      ) : null}
                     </div>
-                  ) : item.mixBoxRecipe ? (
-                    <div className="mt-2 space-y-1.5">
-                      <div className="rounded-lg bg-gray-50 px-3 py-2 text-[12px] font-semibold text-[#7E4D77]">
-                        <p>{formatMixBoxRecipe(item.mixBoxRecipe)}</p>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="inline-flex items-center gap-1 rounded bg-[#E6F4EA] px-2 py-0.5 text-[11px] font-bold text-[#15803D] border border-[#BFE3CA]">
-                          🎁 +{getFreeLinersCount(item)} Free Liners
-                        </span>
-                      </div>
-                    </div>
-                  ) : isOvyPadItem(item) ? (
-                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                      <span className="inline-flex items-center gap-1 rounded bg-[#E6F4EA] px-2 py-0.5 text-[11px] font-bold text-[#15803D] border border-[#BFE3CA]">
-                        🎁 +{getFreeLinersCount(item)} Free Liners
-                      </span>
-                    </div>
-                  ) : null}
+                  </div>
+                  <div className="flex flex-col items-start gap-2 md:items-end">
+                    <p className="text-[14px] font-bold text-[#2D3748]">
+                      ₹{item.productPrice || details.unitPrice || 0}
+                    </p>
+                  </div>
                 </div>
-              </div>
-              <div className="flex flex-col items-start gap-2 md:items-end">
-                <p className="text-[14px] font-bold text-[#2D3748]">
-                  ₹{item.productPrice}
-                </p>
-                {isDelivered &&
-                  (item.returnRequest ? (
-                    <Badge className="border-none bg-orange-100 text-orange-700">
-                      Return {item.returnRequest.status ?? "pending"}
-                    </Badge>
-                  ) : (
-                    <ReturnRequestDialog orderItem={item} />
-                  ))}
-              </div>
-            </div>
-          ))}
+              );
+            })
+          ) : (
+            (() => {
+              const details = getItemDisplayDetails({
+                productName: order.productName,
+                productVarientName: order.productVarientName,
+                productSKU: order.productSKU,
+                productImage: order.productImage,
+                quantity: 1,
+                productPrice: order.totalAmount,
+              });
+              return (
+                <div className="flex items-center gap-3 py-4">
+                  <div className="relative h-16 w-16 sm:h-20 sm:w-20 shrink-0 aspect-square rounded-lg bg-gray-50 p-1 border border-gray-100 overflow-hidden flex items-center justify-center">
+                    <Image
+                      src={getImageUrl(details.productImage)}
+                      alt={details.productName}
+                      width={80}
+                      height={80}
+                      className="h-full w-full object-contain"
+                    />
+                  </div>
+                  <div>
+                    <p className="text-[14px] font-bold text-[#2D3748]">
+                      {details.productName}
+                    </p>
+                    <p className="text-[12px] font-medium text-gray-400">
+                      Order #{order.id}
+                    </p>
+                  </div>
+                </div>
+              );
+            })()
+          )}
         </div>
       </div>
 
-      {/* Tracking Info Section */}
-      <div className="flex items-center justify-between px-6">
-        <div>
-          {/* <p className="text-[11px] text-gray-400 font-bold uppercase">Tracking Number</p>
-          <p className="text-[14px] font-bold text-[#2D3748] tracking-wide">{order.trackingNum}</p> */}
-        </div>
+      {/* Tracking / Delivery Address Section */}
+      <div className="flex items-center justify-between px-4 sm:px-6 pt-2">
+        <div />
         <div className="text-right">
           <p className="text-[11px] font-bold text-gray-400 uppercase">
-            {isDelivered ? "Delivered At" : "Delivered At"}
+            {getDeliveryHeader(isDelivered)}
           </p>
-          <p className="text-[14px] break-all text-[#2D3748]">
+          <p className="text-[13px] sm:text-[14px] break-all text-[#2D3748]">
             {[order.addressLine1, order.addressLine2]
               .filter(Boolean)
               .join(", ") || "Address not available"}
@@ -323,31 +387,31 @@ export const OrderCard = ({
 
       {/* Unpaid Order Banner */}
       {isUnpaid && (
-        <div className="mx-6 mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3.5 text-xs font-medium text-amber-900">
+        <div className="mx-4 sm:mx-6 mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3.5 text-xs font-medium text-amber-900">
           ⚠️ Payment was not completed for this order. Click <strong>Pay now</strong> to complete your order, or cancel if you no longer need it.
         </div>
       )}
 
-      {/* Action Buttons Section */}
+      {/* Action Buttons Section - One row of buttons on phone */}
       {isUnpaid ? (
-        <div className="flex flex-col gap-3 p-6 sm:flex-row sm:items-center">
+        <div className="flex flex-row items-center gap-2 overflow-x-auto p-4 sm:p-6 no-scrollbar">
           <Button
             onClick={handlePayNow}
             disabled={paying || cancelling}
-            className="flex flex-1 gap-2 rounded-xl bg-[#016271] py-3 text-sm font-bold text-white hover:bg-[#014d59] md:py-5 cursor-pointer shadow-sm"
+            className="flex h-9 sm:h-11 shrink-0 items-center gap-1.5 sm:gap-2 rounded-xl bg-[#016271] px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-bold text-white hover:bg-[#014d59] whitespace-nowrap cursor-pointer shadow-sm sm:shrink sm:flex-1"
           >
-            <CreditCard size={18} />
-            {paying ? "Opening Payment..." : `Pay now (₹${order.totalAmount})`}
+            <CreditCard size={16} />
+            <span>{paying ? "Opening Payment..." : `Pay now (₹${order.totalAmount})`}</span>
           </Button>
 
           <Button
             asChild
             variant="outline"
-            className="flex flex-1 gap-2 rounded-xl border-gray-200 py-3 font-semibold text-gray-700 hover:bg-gray-50 md:py-5"
+            className="flex h-9 sm:h-11 shrink-0 items-center gap-1.5 sm:gap-2 rounded-xl border-gray-200 px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-semibold text-gray-700 hover:bg-gray-50 whitespace-nowrap cursor-pointer sm:shrink sm:flex-1"
           >
             <Link href={`/dashboard/orders/${order.id}`}>
-              <IconEye size={18} stroke={2.5} />
-              View Details
+              <IconEye size={16} stroke={2.5} />
+              <span>View Details</span>
             </Link>
           </Button>
 
@@ -355,16 +419,17 @@ export const OrderCard = ({
             variant="ghost"
             onClick={handleCancelUnpaid}
             disabled={paying || cancelling}
-            className="rounded-xl px-4 py-2.5 text-xs font-semibold text-gray-500 hover:bg-red-50 hover:text-red-600 sm:shrink-0 cursor-pointer"
+            className="flex h-9 sm:h-11 shrink-0 items-center gap-1.5 rounded-xl px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-semibold text-gray-500 hover:bg-red-50 hover:text-red-600 whitespace-nowrap cursor-pointer"
           >
-            {cancelling ? "Cancelling..." : "Cancel Order"}
+            <span>{cancelling ? "Cancelling..." : "Cancel Order"}</span>
           </Button>
         </div>
       ) : (
-        <div className="flex flex-col gap-4 p-6 md:flex-row">
+        <div className="flex flex-row items-center gap-2 overflow-x-auto p-4 sm:p-6 no-scrollbar">
           <Button
             asChild
-            className="flex flex-1 gap-2 rounded-xl border border-[#016271] bg-white py-3 font-bold text-[#016271] hover:bg-[#EAF9FC] md:py-5"
+            variant="outline"
+            className="flex h-9 sm:h-11 shrink-0 items-center gap-1.5 sm:gap-2 rounded-xl border border-[#016271] bg-white px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-semibold text-[#016271] hover:bg-[#EAF9FC] whitespace-nowrap cursor-pointer sm:shrink sm:flex-1"
           >
             <Link
               href={
@@ -373,8 +438,8 @@ export const OrderCard = ({
                   : `/dashboard/orders/${order.id}`
               }
             >
-              <IconEye size={18} stroke={2.5} />
-              {isSubscriptionOnly ? "View Subscription" : "View Details"}
+              <IconEye size={16} stroke={2.5} />
+              <span>{isSubscriptionOnly ? "Subscription" : "View Details"}</span>
             </Link>
           </Button>
 
@@ -385,14 +450,14 @@ export const OrderCard = ({
             triggerButton={
               <Button
                 disabled={isSubscriptionOnly}
-                className="flex flex-1 gap-2 rounded-xl bg-[#016271] py-3 font-bold hover:bg-[#014d59] md:py-5 cursor-pointer text-white"
+                className="flex h-9 sm:h-11 shrink-0 items-center gap-1.5 sm:gap-2 rounded-xl bg-[#016271] px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-semibold text-white hover:bg-[#014d59] whitespace-nowrap cursor-pointer sm:shrink sm:flex-1"
               >
                 {isGift ? (
                   <Gift className="h-4 w-4" />
                 ) : (
-                  <IconDownload size={18} stroke={2.5} />
+                  <IconDownload size={16} stroke={2.5} />
                 )}
-                {isGift ? "Gift Parcel Slip" : "Download Invoice"}
+                <span>{isGift ? "Gift Slip" : "Invoice"}</span>
               </Button>
             }
           />
@@ -402,7 +467,7 @@ export const OrderCard = ({
           {order?.cancelRequest && !isCanceled && (
             <Button
               disabled
-              className="flex-1 rounded-xl bg-orange-100 py-3 font-bold text-orange-700 hover:bg-orange-100 md:py-5"
+              className="flex h-9 sm:h-11 shrink-0 items-center rounded-xl bg-orange-100 px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-semibold text-orange-700 whitespace-nowrap sm:shrink sm:flex-1"
             >
               Cancel {order.cancelRequest.status ?? "pending"}
             </Button>
@@ -411,26 +476,28 @@ export const OrderCard = ({
           {canReview && (
             <Button
               onClick={() => reviewHandler()}
-              className="flex flex-1 gap-2 rounded-xl bg-[#1D4E4E] py-3 font-bold hover:bg-[#1D4E4E] md:py-5 cursor-pointer"
+              className="flex h-9 sm:h-11 shrink-0 items-center gap-1.5 rounded-xl bg-[#1D4E4E] px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-semibold text-white hover:bg-[#153939] whitespace-nowrap cursor-pointer sm:shrink sm:flex-1"
             >
               Review (+₹50)
             </Button>
           )}
 
-          {/* State ke hisab se sahi Modal call hoga */}
-          {!isSubscriptionOnly &&
-            (isDelivered ? (
-              <RaiseSupportModal order={order} />
-            ) : (
-              <TrackOrderModal order={order} />
-            ))}
+          {/* No tracking on cancelled orders */}
+          {canTrack && <TrackOrderModal order={order} />}
+          {isDelivered && !isCanceled && <RaiseSupportModal order={order} />}
         </div>
       )}
     </Card>
   );
 };
 
-function CancelRequestDialog({ orderId }: { orderId: string }) {
+export function CancelRequestDialog({
+  orderId,
+  triggerButton,
+}: {
+  orderId: string;
+  triggerButton?: React.ReactNode;
+}) {
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
   const [isPending, startTransition] = useTransition();
@@ -452,10 +519,12 @@ function CancelRequestDialog({ orderId }: { orderId: string }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="flex flex-1 gap-2 rounded-xl bg-red-50 py-3 font-bold text-red-700 hover:bg-red-100 md:py-5">
-          <IconX size={18} stroke={2.5} />
-          Cancel Order
-        </Button>
+        {triggerButton || (
+          <Button className="flex h-9 sm:h-11 shrink-0 items-center gap-1.5 sm:gap-2 rounded-xl bg-red-50 px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-semibold text-red-700 hover:bg-red-100 whitespace-nowrap cursor-pointer sm:shrink sm:flex-1">
+            <IconX size={16} stroke={2.5} />
+            Cancel Order
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
@@ -490,85 +559,4 @@ function CancelRequestDialog({ orderId }: { orderId: string }) {
   );
 }
 
-function ReturnRequestDialog({ orderItem }: { orderItem: any }) {
-  const [open, setOpen] = useState(false);
-  const [reason, setReason] = useState("");
-  const [imageUrls, setImageUrls] = useState<string[]>([]);
-  const [isPending, startTransition] = useTransition();
-  const { upload, uploading } = useFileUpload();
 
-  const submit = () => {
-    startTransition(async () => {
-      const result = await createReturnRequest(orderItem.id, reason, imageUrls);
-      if (result.success) {
-        toast.success(result.message);
-        setOpen(false);
-      } else {
-        toast.error(result.message);
-      }
-    });
-  };
-
-  const onFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files ?? []);
-    const uploaded = await Promise.all(
-      files.map((file) => upload(file, "return-requests")),
-    );
-    setImageUrls((current) => [
-      ...current,
-      ...uploaded.map((file) => file.fileKey).filter(Boolean),
-    ]);
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button className="flex gap-2 rounded-xl bg-[#1D4E4E] font-bold hover:bg-[#1D4E4E]">
-          <IconRefresh size={16} stroke={2.5} />
-          Return
-        </Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Return Request</DialogTitle>
-          <DialogDescription>
-            Share the issue and upload product images for admin review.
-          </DialogDescription>
-        </DialogHeader>
-        <Textarea
-          value={reason}
-          onChange={(event) => setReason(event.target.value)}
-          placeholder="Reason for return"
-        />
-        <input
-          type="file"
-          multiple
-          accept="image/*"
-          onChange={onFileChange}
-          className="text-sm"
-        />
-        {imageUrls.length > 0 && (
-          <p className="text-muted-foreground text-sm">
-            {imageUrls.length} image uploaded
-          </p>
-        )}
-        <DialogFooter>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => setOpen(false)}
-          >
-            Close
-          </Button>
-          <Button
-            type="button"
-            disabled={isPending || uploading || !reason.trim()}
-            onClick={submit}
-          >
-            Submit Request
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}

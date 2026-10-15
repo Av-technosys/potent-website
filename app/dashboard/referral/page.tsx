@@ -44,11 +44,11 @@ const page = async () => {
     <div className="flex flex-col gap-6">
       <RewardsReferrelHeader
         tittle="Referral Program"
-        description="Share your unique code with friends — you earn ₹200 and they get ₹100"
+        description="Share your unique code with friends — you earn ₹100 and they get ₹100 off"
       />
       <RewardReferrelOverview
         tittle="Total Referral Earnings"
-        description="From successful referrals (added directly to your Rewards Balance)"
+        description="From successful referrals (credited when friend's first order is delivered)"
       />
       <div className="w-full space-y-6">
         <Card className="rounded-2xl">
@@ -74,9 +74,9 @@ const page = async () => {
                 <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-yellow-100">
                   <ShoppingCart className="text-yellow-600" />
                 </div>
-                <p className="font-medium">2. Friend Makes Purchase</p>
+                <p className="font-medium">2. Friend Places Order</p>
                 <p className="text-sm text-gray-500">
-                  They get ₹100 off on orders above ₹500
+                  They get ₹100 off on their first order of ₹399 or more
                 </p>
               </div>
 
@@ -85,9 +85,9 @@ const page = async () => {
                 <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-teal-100">
                   <Gift className="text-teal-600" />
                 </div>
-                <p className="font-medium">3. You Both Earn</p>
+                <p className="font-medium">3. Order Delivered, You Earn</p>
                 <p className="text-sm text-gray-500">
-                  You get ₹200 credit for each successful referral
+                  You get ₹100 credit when their order is delivered (up to 5/month)
                 </p>
               </div>
             </div>

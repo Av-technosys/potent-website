@@ -7,7 +7,7 @@ import { and, or, sql, eq, desc, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
 
 import { revalidatePath } from "next/cache";
-import { cart, cartItem, couponTransaction, orderAction, orderActionImage, paymentGatewayPlans, paymentGatewaySubscription, product, productVariant, review, rewardCoinsHistory, subscriptions } from "@/db/schema";
+import { cart, cartItem, contactUs, couponTransaction, orderAction, orderActionImage, paymentGatewayPlans, paymentGatewaySubscription, product, productVariant, review, rewardCoinsHistory, subscriptions } from "@/db/schema";
 import { order, orderItem, payment, users } from "@/db/schema";
 import { requireUserWithRefresh } from "../user/action";
 import { calculateCheckoutPricingForUser } from "../checkout/action";
@@ -318,11 +318,62 @@ export async function createCancelRequest(orderId: string, userReason: string) {
       return { success: false, message: "This order can no longer be cancelled" };
     }
 
-    const [existing] = await db
+    let refundStatus = "approved";
+
+    // Trigger Razorpay refund if payment exists and was successful
+    const [paymentRow] = await db
       .select()
-      .from(cancelRequest)
-      .where(and(eq(cancelRequest.orderId, orderId), eq(cancelRequest.userId, userId), eq(cancelRequest.requestType, "cance_order")))
+      .from(payment)
+      .where(eq(payment.orderId, orderId))
       .limit(1);
+
+    if (paymentRow?.gatewayPaymentId && paymentRow.paymentStatus === "success") {
+      try {
+        const keyId = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || process.env.RAZORPAY_KEY_ID;
+        const keySecret = process.env.RAZORPAY_KEY_SECRET;
+        if (keyId && keySecret) {
+          const auth = Buffer.from(`${keyId}:${keySecret}`).toString("base64");
+          const refundRes = await fetch(
+            `https://api.razorpay.com/v1/payments/${paymentRow.gatewayPaymentId}/refund`,
+            {
+              method: "POST",
+              headers: {
+                Authorization: `Basic ${auth}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                amount: Math.round(Number(paymentRow.amount || orderRow.totalAmount) * 100),
+                notes: {
+                  orderId,
+                  reason: userReason || "Customer cancellation",
+                },
+              }),
+            },
+          );
+
+          const refundData = await refundRes.json();
+          if (refundRes.ok && refundData.id) {
+            refundStatus = "refunded";
+            await db
+              .update(payment)
+              .set({
+                paymentStatus: "refunded",
+                paymentMeta: {
+                  ...(typeof paymentRow.paymentMeta === "object" ? paymentRow.paymentMeta : {}),
+                  refundId: refundData.id,
+                  refundedAt: new Date().toISOString(),
+                  refundAmount: refundData.amount,
+                },
+              })
+              .where(eq(payment.id, paymentRow.id));
+          } else {
+            console.warn("Razorpay refund response:", refundData);
+          }
+        }
+      } catch (refundErr) {
+        console.warn("Razorpay refund exception:", refundErr);
+      }
+    }
 
     if (!existing) {
       await db.insert(cancelRequest).values({
@@ -330,8 +381,17 @@ export async function createCancelRequest(orderId: string, userReason: string) {
         userId,
         requestType: "cance_order",
         userReason,
-        status: "approved",
+        status: refundStatus as any,
       });
+    } else {
+      await db
+        .update(cancelRequest)
+        .set({
+          status: refundStatus as any,
+          userReason,
+          updatedAt: new Date(),
+        })
+        .where(eq(cancelRequest.id, existing.id));
     }
 
     await changeOrderStatus(orderId, ORDER_STATUS.CANCELED);
@@ -389,6 +449,38 @@ export async function cancelUnpaidOrder(orderId: string) {
   } catch (error) {
     console.error("cancelUnpaidOrder error:", error);
     return { success: false, message: "Failed to cancel unpaid order" };
+  }
+}
+
+export async function submitOrderIssue(orderId: string, issueText: string) {
+  try {
+    const { userId } = await requireUserWithRefresh();
+    if (!issueText || !issueText.trim()) {
+      return { success: false, message: "Please describe your issue." };
+    }
+
+    const [user] = await db
+      .select({ name: users.name, email: users.email, phone: users.phone })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    await db.insert(contactUs).values({
+      name: user?.name || "Customer",
+      email: user?.email || "customer@potenthygiene.com",
+      phone: user?.phone || null,
+      message: `[Order Support Issue #${orderId}]: ${issueText.trim()}`,
+    });
+
+    revalidatePath("/admin/contact-us");
+
+    return {
+      success: true,
+      message: "We've got your message",
+    };
+  } catch (error) {
+    console.error("submitOrderIssue error:", error);
+    return { success: false, message: "Failed to submit issue" };
   }
 }
 
@@ -763,7 +855,9 @@ export async function createPendingCheckoutOrder({
             ? yatraSummary
             : item.mixBoxRecipe
               ? formatMixBoxRecipe(item.mixBoxRecipe, (item.boxCount || item.quantity || 1) * 4)
-              : v?.name ?? p.name,
+              : v?.name
+                ? `${p.name} - ${v.name}`
+                : p.name,
           productVarientSlug: isYatraKit ? "looway-yatra-kit" : p.slug,
           productVarientImage: isYatraKit ? "/looway/yatra-kit-thumb-v2.png" : v?.bannerImage ?? p.bannerImage ?? null,
           productVarientSKU: isYatraKit
@@ -801,6 +895,11 @@ export async function createPendingCheckoutOrder({
           isGift: Boolean(isGift),
           giftNote:
             isGift && giftNote ? String(giftNote).trim().slice(0, 200) : null,
+          shippingAddress: {
+            fullName: address?.fullName ?? address?.name ?? null,
+            phone: address?.phone ?? null,
+            email: address?.email ?? null,
+          },
         },
       });
 
@@ -886,7 +985,14 @@ export async function getOrdersByUserId() {
 
         const variants = variantIds.length
           ? await db
-              .select({ id: productVariant.id, productId: productVariant.productId })
+              .select({
+                id: productVariant.id,
+                productId: productVariant.productId,
+                name: productVariant.name,
+                image: productVariant.bannerImage,
+                price: productVariant.price,
+                sku: productVariant.sku,
+              })
               .from(productVariant)
               .where(inArray(productVariant.id, variantIds))
           : [];
@@ -894,6 +1000,20 @@ export async function getOrdersByUserId() {
         const variantProductMap = new Map(
           variants.map((variant) => [variant.id, variant.productId]),
         );
+        const variantMap = new Map(variants.map((v) => [v.id, v]));
+
+        const productsList = productIds.length
+          ? await db
+              .select({
+                id: product.id,
+                name: product.name,
+                slug: product.slug,
+                bannerImage: product.bannerImage,
+              })
+              .from(product)
+              .where(inArray(product.id, productIds))
+          : [];
+        const productMap = new Map(productsList.map((p) => [p.id, p]));
 
         const [returnRequests, reviews] = items.length
           ? await Promise.all([
@@ -918,6 +1038,56 @@ export async function getOrdersByUserId() {
           orderRow.status === "pending" &&
           linkedPayment?.paymentStatus !== "success";
 
+        const mappedItems =
+          items.length > 0
+            ? items.map((item) => {
+                const v = item.productVariantId ? variantMap.get(item.productVariantId) : null;
+                const prod = v?.productId ? productMap.get(v.productId) : null;
+
+                const isYatraKit = Boolean(
+                  item.mixBoxRecipe && (item.mixBoxRecipe as any).type === "yatraKit",
+                );
+                const fallbackName = isYatraKit
+                  ? "Looway Yatra Kit"
+                  : item.mixBoxRecipe
+                    ? "Mix Your Box"
+                    : prod?.name
+                      ? (v?.name && v.name !== prod.name ? `${prod.name} (${v.name})` : prod.name)
+                      : v?.name || "Ovy Organic Cotton Sanitary Pads";
+                const fallbackImage = isYatraKit
+                  ? "/looway/yatra-kit-thumb-v2.png"
+                  : v?.image || prod?.bannerImage || "/product.png";
+
+                return {
+                  ...item,
+                  productId: v?.productId ?? null,
+                  productName: item.productVarientName || prod?.name || fallbackName,
+                  productSlug: item.productVarientSlug || prod?.slug || "",
+                  productImage: item.productVarientImage || prod?.bannerImage || fallbackImage,
+                  productSKU: item.productVarientSKU || v?.sku || "",
+                  productPrice: item.productVarientPrice || v?.price || 0,
+                  variant: v ?? null,
+                  product: prod ?? null,
+                  returnRequest: returnRequestRow,
+                  review: item.productVariantId
+                    ? reviewMap.get(variantProductMap.get(item.productVariantId) ?? "") ?? null
+                    : null,
+                };
+              })
+            : [
+                {
+                  id: `fallback-${orderRow.id}`,
+                  quantity: 1,
+                  productName: "Ovy Organic Cotton Sanitary Pads",
+                  productSlug: "",
+                  productImage: "/product.png",
+                  productSKU: "OVY-PADS",
+                  productPrice: orderRow.totalAmount || 0,
+                  returnRequest: null,
+                  review: null,
+                },
+              ];
+
         return {
           ...orderRow,
           isUnpaid,
@@ -926,21 +1096,8 @@ export async function getOrdersByUserId() {
             linkedPayment?.paymentStatus ??
             (orderRow.status === "paid" ? "success" : "pending"),
           cancelRequest: cancelRequests[0] ?? null,
-          order_items: items.map((item) => ({
-            ...item,
-            productId: item.productVariantId
-              ? variantProductMap.get(item.productVariantId) ?? null
-              : null,
-            productName: item.productVarientName,
-            productSlug: item.productVarientSlug,
-            productImage: item.productVarientImage,
-            productSKU: item.productVarientSKU,
-            productPrice: item.productVarientPrice,
-            returnRequest: returnRequestRow,
-            review: item.productVariantId
-              ? reviewMap.get(variantProductMap.get(item.productVariantId) ?? "") ?? null
-              : null,
-          })),
+          order_items: mappedItems,
+          items: mappedItems,
         };
       }),
     );
@@ -1029,6 +1186,88 @@ export async function getOrdersByUserId() {
   }
 }
 
+const SIZE_ONLY_SET = new Set(["XS", "S", "M", "L", "XL", "XXL", "XXXL", "XL+"]);
+
+function enrichOrderItems(rawItems: any[], orderTotal: number, linkedSubs: any[] = []) {
+  let items = rawItems;
+
+  if (items.length === 0 && linkedSubs.length > 0) {
+    items = linkedSubs.map((s, idx) => ({
+      id: `sub-item-${s.subscription.id}-${idx}`,
+      productVariantId: s.subscription.productVariantId,
+      quantity: 1,
+      productName: s.product?.name ?? s.variant?.name ?? "Subscription",
+      productVarientName: s.variant?.name ?? "Subscription",
+      productSlug: s.product?.slug ?? null,
+      productImage: s.variant?.bannerImage ?? s.product?.bannerImage ?? "/product.png",
+      productSKU: s.variant?.sku ?? null,
+      productPrice: orderTotal,
+      variant: s.variant ?? null,
+      product: s.product ?? null,
+    }));
+  }
+
+  if (items.length === 0) {
+    items = [
+      {
+        id: `fallback-item`,
+        productVariantId: null,
+        quantity: 1,
+        productName: "Potent Hygiene Essentials",
+        productVarientName: null,
+        productSlug: null,
+        productImage: "/product.png",
+        productSKU: null,
+        productPrice: orderTotal,
+        variant: null,
+        product: null,
+      },
+    ];
+  }
+
+  return items.map((it) => {
+    const rawVar = (it.productVarientName || it.variant?.name || "").trim();
+    const isSize = SIZE_ONLY_SET.has(rawVar.toUpperCase());
+
+    let resolvedProductName = it.product?.name || it.productName;
+    if (!resolvedProductName || SIZE_ONLY_SET.has(resolvedProductName.trim().toUpperCase())) {
+      if (isSize) {
+        resolvedProductName = "Ovy Organic Cotton Sanitary Pads";
+      } else if (rawVar) {
+        resolvedProductName = rawVar;
+      } else {
+        resolvedProductName = "Potent Hygiene Essentials";
+      }
+    }
+
+    let resolvedVariantName = null;
+    if (isSize) {
+      resolvedVariantName = rawVar.toUpperCase();
+    } else if (it.variant?.name && it.variant.name !== resolvedProductName) {
+      resolvedVariantName = it.variant.name;
+    } else if (
+      rawVar &&
+      rawVar !== resolvedProductName &&
+      !rawVar.toLowerCase().includes("box") &&
+      !rawVar.toLowerCase().includes("yatra")
+    ) {
+      resolvedVariantName = rawVar;
+    }
+
+    return {
+      ...it,
+      productName: resolvedProductName,
+      variantName: resolvedVariantName,
+      productImage:
+        it.productImage ||
+        it.productVarientImage ||
+        it.variant?.bannerImage ||
+        it.product?.bannerImage ||
+        "/product.png",
+    };
+  });
+}
+
 export async function getOrderById(orderId: string) {
   const rows = await db
     .select({
@@ -1048,8 +1287,9 @@ export async function getOrderById(orderId: string) {
   if (!rows.length) return null;
 
   const orderData = rows[0].order;
+  const paymentData = rows[0].payment ?? null;
 
-  const items = rows
+  const rawItems = rows
     .filter((r) => r.item)
     .map((r) => ({
       ...r.item,
@@ -1062,17 +1302,165 @@ export async function getOrderById(orderId: string) {
       product: r.product ?? null,
     }));
 
-  const paymentData = rows[0].payment ?? null;
+  const linkedSubs = await db
+    .select({
+      subscription: subscriptions,
+      product: product,
+      variant: productVariant,
+    })
+    .from(subscriptions)
+    .leftJoin(product, eq(subscriptions.productId, product.id))
+    .leftJoin(productVariant, eq(subscriptions.productVariantId, productVariant.id))
+    .where(eq(subscriptions.orderId, orderId));
+
+  const items = enrichOrderItems(rawItems, orderData.totalAmount || 0, linkedSubs);
+
+  const [userRecord] = orderData.userId
+    ? await db
+        .select({ name: users.name, phone: users.phone, email: users.email })
+        .from(users)
+        .where(eq(users.id, orderData.userId))
+        .limit(1)
+    : [null];
+
+  const [cancelAction] = await db
+    .select()
+    .from(orderAction)
+    .where(
+      and(
+        eq(orderAction.orderId, orderId),
+        eq(orderAction.requestType, "cance_order"),
+      ),
+    )
+    .limit(1);
+
+  const meta = (typeof paymentData?.paymentMeta === "object" ? paymentData.paymentMeta : {}) as any;
+  const subtotal = Number(
+    meta?.subtotal ??
+      items.reduce(
+        (acc, it) => acc + Number(it.productPrice || 0) * Number(it.quantity || 1),
+        0,
+      ) ??
+      orderData.totalAmount,
+  );
+  const shipping = Number(
+    meta?.shipping ?? (orderData.totalAmount > subtotal ? orderData.totalAmount - subtotal : 0),
+  );
+  const discount = Number(
+    meta?.discount ??
+      (subtotal + shipping > orderData.totalAmount
+        ? subtotal + shipping - orderData.totalAmount
+        : 0),
+  );
 
   return {
     ...orderData,
     items,
     payment: paymentData,
+    customerName: meta?.shippingAddress?.fullName ?? userRecord?.name ?? "Customer",
+    customerPhone: meta?.shippingAddress?.phone ?? userRecord?.phone ?? null,
+    customerEmail: meta?.shippingAddress?.email ?? userRecord?.email ?? null,
+    cancelRequest: cancelAction ?? null,
+    pricingBreakdown: {
+      subtotal,
+      shipping,
+      discount,
+      coupon: meta?.coupon ?? null,
+      total: orderData.totalAmount,
+    },
   };
 }
 
 export async function getOrderConfirmationById(orderId: string) {
   const { userId } = await requireUserWithRefresh();
+
+  // Support for subscription-only orders
+  if (String(orderId).startsWith("subscription-")) {
+    const rawSubId = String(orderId).replace("subscription-", "");
+    const subRows = await db
+      .select({
+        subscription: subscriptions,
+        gatewaySubscription: paymentGatewaySubscription,
+        plan: paymentGatewayPlans,
+        product: product,
+        variant: productVariant,
+        user: users,
+      })
+      .from(subscriptions)
+      .leftJoin(
+        paymentGatewaySubscription,
+        eq(paymentGatewaySubscription.subscriptionId, subscriptions.id),
+      )
+      .leftJoin(
+        paymentGatewayPlans,
+        eq(paymentGatewaySubscription.planId, paymentGatewayPlans.gatewayPlanId),
+      )
+      .leftJoin(product, eq(subscriptions.productId, product.id))
+      .leftJoin(productVariant, eq(subscriptions.productVariantId, productVariant.id))
+      .leftJoin(users, eq(subscriptions.userId, users.id))
+      .where(and(eq(subscriptions.id, rawSubId), eq(subscriptions.userId, userId)));
+
+    if (!subRows.length) return null;
+
+    const row = subRows[0];
+    const amount =
+      row.plan?.price != null
+        ? Math.round(Number(row.plan.price) / 100)
+        : Number(row.variant?.price ?? 0);
+    const quantity = row.gatewaySubscription?.quantity ?? 1;
+
+    const item = {
+      id: `subscription-item-${row.subscription.id}`,
+      productVariantId: row.subscription.productVariantId,
+      quantity,
+      productName: row.product?.name ?? "Subscription",
+      variantName: row.variant?.name ?? null,
+      productSlug: row.product?.slug ?? null,
+      productImage: row.variant?.bannerImage ?? row.product?.bannerImage ?? "/product.png",
+      productSKU: row.variant?.sku ?? null,
+      productPrice: quantity > 0 ? Math.round(amount / quantity) : amount,
+    };
+
+    return {
+      id: orderId,
+      userId,
+      status: row.subscription.isActive ? ORDER_STATUS.PAID : ORDER_STATUS.CANCELED,
+      addressLine1: null,
+      addressLine2: null,
+      city: null,
+      state: null,
+      pincode: null,
+      totalAmount: amount,
+      createdAt: row.subscription.chargeDate ?? row.subscription.startDate,
+      updatedAt: row.subscription.chargeDate ?? row.subscription.startDate,
+      isSubscriptionOnly: true,
+      subscriptionId: row.subscription.id,
+      items: [item],
+      payment: {
+        gatewayPaymentId: row.gatewaySubscription?.gatewaySubscriptionId ?? "Subscription",
+        modeOfPayment: "Subscription",
+        paymentStatus: row.subscription.isActive ? "success" : "cancelled",
+        amount,
+      },
+      customerName: row.user?.name ?? "Customer",
+      customerPhone: row.user?.phone ?? null,
+      customerEmail: row.user?.email ?? null,
+      cancelRequest: null,
+      pricingBreakdown: {
+        subtotal: amount,
+        shipping: 0,
+        discount: 0,
+        coupon: null,
+        total: amount,
+      },
+      gatewayConfirmation: {
+        confirmed: Boolean(row.subscription.isActive),
+        gatewayPayment: null,
+        gatewaySubscription: row.gatewaySubscription,
+        message: row.subscription.isActive ? "Subscription active" : "Subscription cancelled",
+      },
+    };
+  }
 
   const rows = await db
     .select({
@@ -1093,14 +1481,8 @@ export async function getOrderConfirmationById(orderId: string) {
 
   const orderData = rows[0].order;
   const paymentData = rows[0].payment ?? null;
-  let gatewayConfirmation = {
-    confirmed: paymentData?.paymentStatus === "success",
-    gatewayPayment: null,
-    gatewaySubscription: null,
-    message: paymentData ? "Payment already recorded" : "No payment found",
-  };
 
-  const items = rows
+  const rawItems = rows
     .filter((r) => r.item)
     .map((r) => ({
       ...r.item,
@@ -1113,11 +1495,87 @@ export async function getOrderConfirmationById(orderId: string) {
       product: r.product ?? null,
     }));
 
+  const linkedSubs = await db
+    .select({
+      subscription: subscriptions,
+      product: product,
+      variant: productVariant,
+    })
+    .from(subscriptions)
+    .leftJoin(product, eq(subscriptions.productId, product.id))
+    .leftJoin(productVariant, eq(subscriptions.productVariantId, productVariant.id))
+    .where(eq(subscriptions.orderId, orderId));
+
+  const items = enrichOrderItems(rawItems, orderData.totalAmount || 0, linkedSubs);
+
+  const [currentUser] = await db
+    .select({ name: users.name, phone: users.phone, email: users.email })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+
+  const [cancelAction] = await db
+    .select()
+    .from(orderAction)
+    .where(
+      and(
+        eq(orderAction.orderId, orderId),
+        eq(orderAction.requestType, "cance_order"),
+      ),
+    )
+    .limit(1);
+
+  const meta = (typeof paymentData?.paymentMeta === "object" ? paymentData.paymentMeta : {}) as any;
+  const subtotal = Number(
+    meta?.subtotal ??
+      items.reduce(
+        (acc, it) => acc + Number(it.productPrice || 0) * Number(it.quantity || 1),
+        0,
+      ) ??
+      orderData.totalAmount,
+  );
+  const shipping = Number(
+    meta?.shipping ?? (orderData.totalAmount > subtotal ? orderData.totalAmount - subtotal : 0),
+  );
+  const discount = Number(
+    meta?.discount ??
+      (subtotal + shipping > orderData.totalAmount
+        ? subtotal + shipping - orderData.totalAmount
+        : 0),
+  );
+
+  const isPaid =
+    orderData.status === "paid" ||
+    orderData.status === "processing" ||
+    orderData.status === "packed" ||
+    orderData.status === "shipped" ||
+    orderData.status === "delivered" ||
+    orderData.status === "completed" ||
+    paymentData?.paymentStatus === "success";
+
+  const gatewayConfirmation = {
+    confirmed: isPaid,
+    gatewayPayment: null,
+    gatewaySubscription: null,
+    message: isPaid ? "Payment confirmed" : "Payment pending",
+  };
+
   return {
     ...orderData,
     status: orderData.status,
     items,
     payment: paymentData,
+    customerName: meta?.shippingAddress?.fullName ?? currentUser?.name ?? "Customer",
+    customerPhone: meta?.shippingAddress?.phone ?? currentUser?.phone ?? null,
+    customerEmail: meta?.shippingAddress?.email ?? currentUser?.email ?? null,
+    cancelRequest: cancelAction ?? null,
+    pricingBreakdown: {
+      subtotal,
+      shipping,
+      discount,
+      coupon: meta?.coupon ?? null,
+      total: orderData.totalAmount,
+    },
     gatewayConfirmation,
   };
 }
