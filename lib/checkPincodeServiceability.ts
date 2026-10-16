@@ -35,10 +35,10 @@ export async function checkPincodeServiceability({
   weight?: number;
 }): Promise<DeliveryCheckResult> {
   const pin = String(pincode || "").trim();
-  if (!/^\d{6}$/.test(pin)) {
+  if (!/^[1-9]\d{5}$/.test(pin)) {
     return {
       serviceable: false,
-      message: "Please enter a valid 6-digit Indian PIN code.",
+      message: "This PIN code doesn't exist. Please enter a valid 6-digit PIN code.",
     };
   }
 
@@ -57,11 +57,19 @@ export async function checkPincodeServiceability({
     const payload = await response.json().catch(() => null);
 
     if (!response.ok || !payload?.serviceable) {
+      let msg =
+        payload?.message || "Delivery is currently unavailable for this PIN code.";
+      if (
+        /invalid/i.test(msg) ||
+        /doesn'?t exist/i.test(msg) ||
+        /not exist/i.test(msg) ||
+        payload?.status === 400
+      ) {
+        msg = "This PIN code doesn't exist. Please check and try again.";
+      }
       return {
         serviceable: false,
-        message:
-          payload?.message ||
-          `Delivery is currently unavailable for PIN code ${pin}.`,
+        message: msg,
       };
     }
 

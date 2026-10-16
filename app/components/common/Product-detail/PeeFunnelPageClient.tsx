@@ -38,6 +38,7 @@ import {
   Baby,
 } from "lucide-react";
 import { toast } from "sonner";
+import { checkPincodeServiceability } from "@/lib/checkPincodeServiceability";
 import { addToCart as addToCartAction } from "@/store/cartActions";
 import { getImageUrl } from "@/lib/imageUrl";
 import { useWishlistStore } from "@/store/WishlistStore";
@@ -78,6 +79,7 @@ export default function PeeFunnelPageClient({
     msg: string;
     err?: boolean;
   } | null>(null);
+  const [isCheckingPincode, setIsCheckingPincode] = useState(false);
   const [adding, setAdding] = useState<boolean>(false);
   const [isWishlistUpdating, setIsWishlistUpdating] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState<number>(0);
@@ -389,18 +391,20 @@ export default function PeeFunnelPageClient({
     [mediaItems],
   );
 
-  const handlePincodeCheck = () => {
-    if (!pincode || pincode.trim().length !== 6) {
-      setPincodeResult({
-        msg: "Please enter a valid 6-digit PIN code",
-        err: true,
-      });
-      return;
-    }
-    setPincodeResult({
-      msg: `Delivery available for ${pincode}! Ships within 24 hours.`,
-      err: false,
+  const handlePincodeCheck = async () => {
+    if (isCheckingPincode) return;
+    setIsCheckingPincode(true);
+    setPincodeResult(null);
+    const res = await checkPincodeServiceability({
+      pincode,
+      pickupPincode: product?.pickupPincode,
+      weight: product?.weightKg || 0.3,
     });
+    setPincodeResult({
+      msg: res.message,
+      err: !res.serviceable,
+    });
+    setIsCheckingPincode(false);
   };
 
   const handleAddToCart = async (isBuyNow = false) => {
@@ -967,9 +971,10 @@ export default function PeeFunnelPageClient({
                     <button
                       type="button"
                       onClick={handlePincodeCheck}
-                      className="shrink-0 cursor-pointer rounded-lg bg-[#C21E63] px-4 py-2 text-xs font-bold text-white transition-all hover:bg-[#a81a57]"
+                      disabled={isCheckingPincode}
+                      className="shrink-0 cursor-pointer rounded-lg bg-[#C21E63] px-4 py-2 text-xs font-bold text-white transition-all hover:bg-[#a81a57] disabled:opacity-60"
                     >
-                      Check
+                      {isCheckingPincode ? "Checking..." : "Check"}
                     </button>
                   </div>
                   {pincodeResult && (

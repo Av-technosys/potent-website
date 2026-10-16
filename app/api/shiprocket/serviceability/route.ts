@@ -30,7 +30,7 @@ type ShiprocketCourier = {
 };
 
 function isSixDigitPincode(value: unknown) {
-  return typeof value === "string" && /^\d{6}$/.test(value.trim());
+  return typeof value === "string" && /^[1-9]\d{5}$/.test(value.trim());
 }
 
 function parseDate(value?: string) {
@@ -123,7 +123,11 @@ export async function POST(req: Request) {
 
     if (!isSixDigitPincode(deliveryPincode)) {
       return NextResponse.json(
-        { message: "Enter a valid 6-digit delivery PIN code." },
+        {
+          serviceable: false,
+          message:
+            "This PIN code doesn't exist. Please enter a valid 6-digit PIN code.",
+        },
         { status: 400 },
       );
     }
@@ -158,6 +162,19 @@ export async function POST(req: Request) {
     });
 
     const payload = await response.json().catch(() => null);
+
+    if (
+      payload?.status === 400 ||
+      (typeof payload?.message === "string" &&
+        /invalid.*pincode|pincode.*invalid|invalid.*postcode|postcode.*invalid/i.test(
+          payload.message,
+        ))
+    ) {
+      return NextResponse.json({
+        serviceable: false,
+        message: "This PIN code doesn't exist. Please check and try again.",
+      });
+    }
 
     if (!response.ok) {
       return NextResponse.json(
