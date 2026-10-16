@@ -41,7 +41,11 @@ export default async function Page({ params }: any) {
           />
           <TrustBadges themeColor={themeColor} />
           <AboutProduct variant={product} themeColor={themeColor} />
-          <ProductReviews reviews={reviewWithMedia} />
+          <ProductReviews
+            reviews={reviewWithMedia}
+            product={product}
+            themeColor={themeColor}
+          />
           <ProductFaqSection
             theme={faqTheme}
             faqs={product.productFaqRes}

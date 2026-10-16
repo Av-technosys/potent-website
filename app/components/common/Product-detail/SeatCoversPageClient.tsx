@@ -52,6 +52,8 @@ import { useRouter } from "next/navigation";
 import ProductFaqSection from "./ProductFaqSection";
 import ImageZoomModal from "./ImageZoomModal";
 import { checkPincodeServiceability } from "@/lib/checkPincodeServiceability";
+import ProductReviews from "./productreview";
+import { lowayProductDetailsPage } from "@/const/globalconst";
 
 type Props = {
   product: any;
@@ -86,7 +88,11 @@ const REVIEW_FILTERS = [
   { id: "seniors", label: "Seniors" },
 ];
 
-export default function SeatCoversPageClient({ product, content }: Props) {
+export default function SeatCoversPageClient({
+  product,
+  reviewWithMedia,
+  content,
+}: Props) {
   const router = useRouter();
   const [selectedModeId, setSelectedModeId] = useState<string>("once");
   const [quantity, setQuantity] = useState<number>(1);
@@ -379,7 +385,18 @@ export default function SeatCoversPageClient({ product, content }: Props) {
 
   // Filtered reviews logic
   const filteredReviews = useMemo(() => {
-    const reviews = content?.REVIEWS || [];
+    const dbReviews = (reviewWithMedia || []).map((r: any) => ({
+      name: r.name || "Verified Buyer",
+      stars: Number(r.rating) || 5,
+      quote: r.message,
+      city: "Verified Purchase",
+      group: "all",
+      stage: "Verified Buyer",
+      isDbReview: true,
+      media: r.media,
+    }));
+    const staticReviews = content?.REVIEWS || [];
+    const reviews = [...dbReviews, ...staticReviews];
     if (activeReviewFilter === "all") return reviews;
     if (activeReviewFilter.endsWith("star")) {
       const star = parseInt(activeReviewFilter, 10);
@@ -414,7 +431,7 @@ export default function SeatCoversPageClient({ product, content }: Props) {
           (r.quote && r.quote.toLowerCase().includes("knee")),
       );
     return reviews;
-  }, [content?.REVIEWS, activeReviewFilter]);
+  }, [content?.REVIEWS, reviewWithMedia, activeReviewFilter]);
 
   // Cart action integration with dynamic DB variant resolution
   const handleAddToCart = async () => {
@@ -1023,19 +1040,23 @@ export default function SeatCoversPageClient({ product, content }: Props) {
                   <Truck className="h-4 w-4 text-[#0F6DA6]" />
                   <span>Check Delivery & Pincode Availability</span>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex items-center gap-2">
                   <input
                     type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={6}
                     placeholder="Enter 6-digit PIN code"
                     value={pincode}
-                    onChange={(e) => setPincode(e.target.value)}
-                    className="flex-1 rounded-xl border border-[#D3E4EF] bg-white px-3.5 py-2 text-xs font-medium focus:border-[#0F6DA6] focus:outline-none"
-                    maxLength={6}
+                    onChange={(e) =>
+                      setPincode(e.target.value.replace(/\D/g, ""))
+                    }
+                    className="min-w-0 flex-1 rounded-xl border border-[#D3E4EF] bg-white px-3.5 py-2 text-xs font-medium focus:border-[#0F6DA6] focus:outline-none"
                   />
                   <button
                     onClick={checkPincode}
                     disabled={isCheckingPincode}
-                    className="cursor-pointer rounded-xl bg-[#083B5C] px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-[#0F6DA6] disabled:opacity-60"
+                    className="shrink-0 cursor-pointer rounded-xl bg-[#083B5C] px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-[#0F6DA6] disabled:opacity-60"
                   >
                     {isCheckingPincode ? "Checking..." : "Check"}
                   </button>
@@ -2290,6 +2311,15 @@ export default function SeatCoversPageClient({ product, content }: Props) {
             >
               <ChevronRight className="h-5 w-5" />
             </button>
+          </div>
+
+          {/* Customer Reviews from DB */}
+          <div className="mt-12 border-t border-[#EBE3D7] pt-8">
+            <ProductReviews
+              reviews={reviewWithMedia || []}
+              product={product}
+              themeColor={lowayProductDetailsPage}
+            />
           </div>
         </div>
       </section>

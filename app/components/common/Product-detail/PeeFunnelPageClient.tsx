@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import React, { useMemo, useState, useEffect, useRef } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -36,19 +36,15 @@ import {
   Package,
   Droplets,
   Baby,
-  ZoomIn,
 } from "lucide-react";
 import { toast } from "sonner";
 import { addToCart as addToCartAction } from "@/store/cartActions";
-import { getProductMaxQuantity, getMaxQuantityMessage } from "@/lib/productQuantityLimits";
 import { getImageUrl } from "@/lib/imageUrl";
 import { useWishlistStore } from "@/store/WishlistStore";
 import {
   addToWishlist as addToWishlistAction,
   removeFromWishlist as removeFromWishlistAction,
 } from "@/store/WishlistActions";
-import { useCartStore } from "@/store/cartStore";
-import { FREE_SHIPPING_THRESHOLD } from "@/lib/shippingConfig";
 
 // Import 10 Funnel section components
 import FunnelNoToiletSection from "./FunnelNoToiletSection";
@@ -56,14 +52,12 @@ import FunnelHowItWorksSection from "./FunnelHowItWorksSection";
 import FunnelGuideSection from "./FunnelGuideSection";
 import FunnelWhereToUseSection from "./FunnelWhereToUseSection";
 import FunnelWhoItsForSection from "./FunnelWhoItsForSection";
-import ImageZoomModal from "./ImageZoomModal";
 import FunnelPackAndSpecsSection from "./FunnelPackAndSpecsSection";
 import FunnelUseItSafelySection from "./FunnelUseItSafelySection";
 import FunnelMarketComparisonSection from "./FunnelMarketComparisonSection";
 import FunnelReviewsSection from "./FunnelReviewsSection";
 import FunnelFaqSection from "./FunnelFaqSection";
 import WhileYoureHereSection from "./WhileYoureHereSection";
-import { checkPincodeServiceability } from "@/lib/checkPincodeServiceability";
 
 type Props = {
   product: any;
@@ -71,14 +65,14 @@ type Props = {
   content: any;
 };
 
-export default function PeeFunnelPageClient({ product, content }: Props) {
+export default function PeeFunnelPageClient({
+  product,
+  reviewWithMedia,
+  content,
+}: Props) {
   const router = useRouter();
   const [selectedModeId, setSelectedModeId] = useState<string>("once");
   const [quantity, setQuantity] = useState<number>(1);
-  const maxQuantity = getProductMaxQuantity({
-    ...product,
-    slug: product?.slug || "looway-pee-funnel",
-  });
   const [pincode, setPincode] = useState<string>("");
   const [pincodeResult, setPincodeResult] = useState<{
     msg: string;
@@ -94,7 +88,7 @@ export default function PeeFunnelPageClient({ product, content }: Props) {
         i.productId === product?.id ||
         i.productId === product?.slug ||
         i.slug === product?.slug ||
-        i.slug === "looway-pee-funnel"
+        i.slug === "looway-pee-funnel",
     );
   }, [wishlistItems, product]);
 
@@ -195,7 +189,8 @@ export default function PeeFunnelPageClient({ product, content }: Props) {
             const el = document.getElementById("how-it-works");
             if (el) {
               const yOffset = -90;
-              const y = el.getBoundingClientRect().top + window.pageYOffset + yOffset;
+              const y =
+                el.getBoundingClientRect().top + window.pageYOffset + yOffset;
               window.scrollTo({ top: y, behavior: "smooth" });
             }
           }, 350);
@@ -259,7 +254,6 @@ export default function PeeFunnelPageClient({ product, content }: Props) {
           flag,
           sku: v.sku || "LOOWAY-FUNNEL-01",
           image: v.bannerImage || product?.bannerImage || "",
-          isInStock: v.isInStock !== false && v.is_in_stock !== false,
         };
       });
       return map;
@@ -294,70 +288,13 @@ export default function PeeFunnelPageClient({ product, content }: Props) {
     () => packKeys[1] || packKeys[0] || "p2",
   );
 
-  // Restore pack from URL on mount/reload
-  useEffect(() => {
-    if (typeof window === "undefined" || packKeys.length === 0) return;
-    const params = new URLSearchParams(window.location.search);
-    const packParam = params.get("pack")?.toLowerCase();
-    const hash = window.location.hash.toLowerCase().replace("#", "");
-    const target = packParam || hash;
-
-    if (target) {
-      if (packs[target]) {
-        setSelectedPackId(target);
-      } else {
-        const found = Object.keys(packs).find((k) => {
-          const p = packs[k];
-          const name = (p.name || "").toLowerCase();
-          return target.includes(String(p.funnels)) || name.includes(target);
-        });
-        if (found) setSelectedPackId(found);
-      }
-    }
-  }, [packs, packKeys]);
-
-  const handleSelectPack = (packId: string) => {
-    setSelectedPackId(packId);
-    setSelectedImageIndex(0);
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      params.set("pack", packId);
-      window.history.replaceState(null, "", `${window.location.pathname}?${params.toString()}`);
-    }
-  };
-
-  const [isZoomOpen, setIsZoomOpen] = useState(false);
-  const touchStartXRef = useRef<number | null>(null);
-  const touchStartYRef = useRef<number | null>(null);
-
-  const handleHeroTouchStart = (e: React.TouchEvent) => {
-    touchStartXRef.current = e.touches[0].clientX;
-    touchStartYRef.current = e.touches[0].clientY;
-  };
-
-  const handleHeroTouchEnd = (e: React.TouchEvent, totalImages: number) => {
-    if (touchStartXRef.current === null || touchStartYRef.current === null) return;
-    const diffX = e.changedTouches[0].clientX - touchStartXRef.current;
-    const diffY = e.changedTouches[0].clientY - touchStartYRef.current;
-    if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 40) {
-      if (diffX < 0) {
-        setSelectedImageIndex((prev) => (prev < totalImages - 1 ? prev + 1 : 0));
-      } else {
-        setSelectedImageIndex((prev) => (prev > 0 ? prev - 1 : totalImages - 1));
-      }
-    }
-    touchStartXRef.current = null;
-    touchStartYRef.current = null;
-  };
-
   useEffect(() => {
     if (!packs[selectedPackId] && packKeys.length > 0) {
       setSelectedPackId(packKeys[0]);
     }
   }, [packs, selectedPackId, packKeys]);
 
-  const selectedPack =
-    packs[selectedPackId] ||
+  const selectedPack = packs[selectedPackId] ||
     Object.values(packs)[0] || {
       id: "p1",
       name: "Pack of 1",
@@ -369,50 +306,41 @@ export default function PeeFunnelPageClient({ product, content }: Props) {
 
   const packBasePrice = selectedPack?.price || Number(product?.price) || 299;
   const mrpPrice =
-    selectedPack?.mrp || Number(product?.mrp) || Math.round(packBasePrice * 1.25);
+    selectedPack?.mrp ||
+    Number(product?.mrp) ||
+    Math.round(packBasePrice * 1.25);
   const unitPrice = packBasePrice;
   const totalPrice = unitPrice * quantity;
   const totalMrp = mrpPrice * quantity;
   const totalSavings = totalMrp - totalPrice;
-
-  const cartSubtotal = useCartStore((state) => state.subtotal());
-  const effectiveShippingTotal = Math.max(totalPrice, cartSubtotal);
-  const isFreeShipping = effectiveShippingTotal >= FREE_SHIPPING_THRESHOLD;
-  const amountNeededForFreeShipping = Math.max(0, FREE_SHIPPING_THRESHOLD - effectiveShippingTotal);
-
-  const isOutOfStock = Boolean(
-    selectedPack?.variantId
-      ? selectedPack.isInStock === false
-      : variantsList.length > 0
-        ? variantsList.every((v: any) => v.isInStock === false || v.is_in_stock === false)
-        : product?.isInStock === false || product?.is_in_stock === false,
-  );
 
   // Labeled Media Thumbnails
   const mediaItems = useMemo(() => {
     const defaultLabels = ["Funnel", "Standing", "Soft", "In"];
     const rawList: { url: string; label: string }[] = [];
 
-    if (selectedPack?.image) {
-      rawList.push({ url: getImageUrl(selectedPack.image), label: selectedPack.name || "Funnel" });
-    }
     if (product?.bannerImage) {
       rawList.push({ url: getImageUrl(product.bannerImage), label: "Funnel" });
     }
     if (Array.isArray(product?.productMediaRes)) {
-      product.productMediaRes.forEach((item: any) => {
-        const url = item?.mediaURL || item?.image || item?.url || item?.bannerImage;
+      product.productMediaRes.forEach((item: any, idx: number) => {
+        const url =
+          item?.mediaURL || item?.image || item?.url || item?.bannerImage;
         if (url) {
           rawList.push({
             url: getImageUrl(url),
-            label: item?.title || item?.name || defaultLabels[rawList.length % 4],
+            label:
+              item?.title || item?.name || defaultLabels[rawList.length % 4],
           });
         }
       });
     }
     if (Array.isArray(product?.productImages)) {
       product.productImages.forEach((img: any) => {
-        const url = typeof img === "string" ? img : img?.image || img?.url || img?.bannerImage;
+        const url =
+          typeof img === "string"
+            ? img
+            : img?.image || img?.url || img?.bannerImage;
         if (url) {
           rawList.push({
             url: getImageUrl(url),
@@ -454,42 +382,41 @@ export default function PeeFunnelPageClient({ product, content }: Props) {
       }
     }
     return result;
-  }, [product, selectedPack]);
+  }, [product]);
 
-  const mediaList = useMemo(() => mediaItems.map((item) => item.url), [mediaItems]);
+  const mediaList = useMemo(
+    () => mediaItems.map((item) => item.url),
+    [mediaItems],
+  );
 
-  const [isCheckingPincode, setIsCheckingPincode] = useState(false);
-  const handlePincodeCheck = async () => {
-    if (isCheckingPincode) return;
-    setIsCheckingPincode(true);
-    setPincodeResult(null);
-    const res = await checkPincodeServiceability({
-      pincode,
-      pickupPincode: product?.pickupPincode,
-      weight: product?.weightKg || 0.2,
-    });
-    setPincodeResult({
-      msg: res.message,
-      err: !res.serviceable,
-    });
-    setIsCheckingPincode(false);
-  };
-
-  const handleAddToCart = async () => {
-    if (isOutOfStock) {
-      toast.error("This item is currently out of stock.");
+  const handlePincodeCheck = () => {
+    if (!pincode || pincode.trim().length !== 6) {
+      setPincodeResult({
+        msg: "Please enter a valid 6-digit PIN code",
+        err: true,
+      });
       return;
     }
+    setPincodeResult({
+      msg: `Delivery available for ${pincode}! Ships within 24 hours.`,
+      err: false,
+    });
+  };
+
+  const handleAddToCart = async (isBuyNow = false) => {
     try {
       setAdding(true);
-      const targetVariantId = selectedPack.variantId || product?.productVariants?.[0]?.id;
+      const targetVariantId =
+        selectedPack.variantId || product?.productVariants?.[0]?.id;
       const success = await addToCartAction({
         productId: product?.id || product?._id || "looway-pee-funnel",
         productVariantId: targetVariantId,
-        sku: selectedPack?.sku || product?.productVariants?.[0]?.sku || "LOOWAY-FUNNEL-01",
+        sku:
+          selectedPack?.sku ||
+          product?.productVariants?.[0]?.sku ||
+          "LOOWAY-FUNNEL-01",
         slug: product?.slug || "looway-pee-funnel",
         title: `${product?.title || product?.name || "Looway Reusable Stand-to-Pee Funnel"} (${selectedPack?.name || "Pack"})`,
-        variantName: selectedPack?.name,
         image: mediaList[0] || "/looway-funnel-demo.jpg",
         price: unitPrice,
         quantity: quantity,
@@ -500,12 +427,18 @@ export default function PeeFunnelPageClient({ product, content }: Props) {
       });
 
       if (success !== false) {
-        toast.success(`Added ${quantity}x ${selectedPack?.name || "Pack"} to your bag!`, {
-          action: {
-            label: "View Bag",
-            onClick: () => router.push("/cart"),
+        toast.success(
+          `Added ${quantity}x ${selectedPack?.name || "Pack"} to your bag!`,
+          {
+            action: {
+              label: "View Bag",
+              onClick: () => router.push("/cart"),
+            },
           },
-        });
+        );
+        if (isBuyNow) {
+          router.push("/cart");
+        }
       }
     } catch (err: any) {
       toast.error(err.message || "Failed to add to cart.");
@@ -514,36 +447,8 @@ export default function PeeFunnelPageClient({ product, content }: Props) {
     }
   };
 
-  const handleBuyNow = () => {
-    if (isOutOfStock) {
-      toast.error("This item is currently out of stock.");
-      return;
-    }
-    const targetVariantId = selectedPack.variantId || product?.productVariants?.[0]?.id;
-    const directItem = {
-      productId: product?.id || product?._id || "looway-pee-funnel",
-      productVariantId: targetVariantId,
-      sku: selectedPack?.sku || product?.productVariants?.[0]?.sku || "LOOWAY-FUNNEL-01",
-      slug: product?.slug || "looway-pee-funnel",
-      title: `${product?.title || product?.name || "Looway Reusable Stand-to-Pee Funnel"} (${selectedPack?.name || "Pack"})`,
-      variantName: selectedPack?.name,
-      image: mediaList[0] || "/looway-funnel-demo.jpg",
-      price: unitPrice,
-      quantity: quantity,
-      isQuantityChangable: true,
-      purchaseType: "one_time",
-      subscriptionType: null,
-      isSubscribed: false,
-    };
-    window.sessionStorage.setItem(
-      "potent-direct-checkout",
-      JSON.stringify(directItem),
-    );
-    router.push("/checkout?mode=direct");
-  };
-
   return (
-    <div className="min-h-screen bg-[#fcf8f3] text-[#5A0E30] font-sans antialiased selection:bg-[#C21E63] selection:text-white">
+    <div className="min-h-screen bg-[#fcf8f3] font-sans text-[#5A0E30] antialiased selection:bg-[#C21E63] selection:text-white">
       {/* Top Checkerboard Pattern Strap */}
       <div
         className="mb-8 h-3 w-full border-b border-[#5A0E30]/10"
@@ -558,26 +463,25 @@ export default function PeeFunnelPageClient({ product, content }: Props) {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-12">
           {/* Breadcrumbs */}
           <nav className="mb-4 flex items-center gap-2 text-xs font-medium text-[#5A0E30]/60">
-            <Link href="/" className="hover:text-[#C21E63] transition-colors">
+            <Link href="/" className="transition-colors hover:text-[#C21E63]">
               Home
             </Link>
             <span>/</span>
-            <Link href="/looway" className="hover:text-[#C21E63] transition-colors">
+            <Link
+              href="/looway"
+              className="transition-colors hover:text-[#C21E63]"
+            >
               Looway
             </Link>
             <span>/</span>
-            <span className="text-[#C21E63] font-bold">Pee Funnel</span>
+            <span className="font-bold text-[#C21E63]">Pee Funnel</span>
           </nav>
 
           <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-12 lg:gap-12">
             {/* LEFT COLUMN: STICKY GALLERY */}
-            <div className="lg:col-span-6 lg:sticky lg:top-24">
+            <div className="lg:sticky lg:top-24 lg:col-span-6">
               {/* Main Image Container */}
-              <div
-                onTouchStart={handleHeroTouchStart}
-                onTouchEnd={(e) => handleHeroTouchEnd(e, mediaList.length)}
-                className="group relative aspect-square w-full overflow-hidden rounded-[24px] border-2 border-dashed border-[#C21E63]/20 bg-[#FDEEF4]/40 shadow-xs transition-all"
-              >
+              <div className="relative aspect-square w-full overflow-hidden rounded-[24px] border-2 border-dashed border-[#C21E63]/20 bg-[#FDEEF4]/40 shadow-xs transition-all">
                 {/* Floating Badges */}
                 <div className="absolute top-4 left-4 z-10 flex flex-col gap-1.5">
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-[#F4C430] px-3 py-1 text-[11px] font-extrabold text-[#5A0E30] shadow-2xs">
@@ -590,30 +494,15 @@ export default function PeeFunnelPageClient({ product, content }: Props) {
                   </span>
                 </div>
 
-                {/* Top-Right Zoom Button */}
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIsZoomOpen(true);
-                  }}
-                  aria-label="Enlarge image"
-                  title="Enlarge image"
-                  className="absolute top-4 right-16 z-20 flex h-10 w-10 cursor-pointer items-center justify-center rounded-full bg-white/90 text-[#C21E63] shadow-md backdrop-blur-xs transition-all hover:scale-105 hover:bg-white"
-                >
-                  <ZoomIn className="h-5 w-5" />
-                </button>
-
                 {/* Wishlist Heart Button */}
                 <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleToggleWishlist();
-                  }}
+                  onClick={handleToggleWishlist}
                   disabled={isWishlistUpdating}
                   aria-pressed={isWishlisted}
                   className={`absolute top-4 right-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/90 shadow-md backdrop-blur-xs transition-all hover:scale-105 ${
-                    isWishlisted ? "text-red-500 bg-white" : "text-[#5A0E30]/60 hover:text-[#C21E63]"
+                    isWishlisted
+                      ? "bg-white text-red-500"
+                      : "text-[#5A0E30]/60 hover:text-[#C21E63]"
                   }`}
                   aria-label="Save to Wishlist"
                 >
@@ -625,10 +514,12 @@ export default function PeeFunnelPageClient({ product, content }: Props) {
                 {/* Image */}
                 <div className="relative h-full w-full">
                   <Image
-                    src={mediaList[selectedImageIndex] || "/looway-funnel-demo.jpg"}
+                    src={
+                      mediaList[selectedImageIndex] || "/looway-funnel-demo.jpg"
+                    }
                     alt={product?.title || "Looway Pee Funnel"}
                     fill
-                    className="object-contain p-6 transition-transform duration-500 group-hover:scale-105"
+                    className="object-contain p-6 transition-transform duration-500 hover:scale-105"
                     priority
                     sizes="(max-width: 768px) 100vw, 550px"
                   />
@@ -638,25 +529,23 @@ export default function PeeFunnelPageClient({ product, content }: Props) {
                 {mediaList.length > 1 && (
                   <>
                     <button
-                      onClick={(e) => {
-                        e.stopPropagation();
+                      onClick={() =>
                         setSelectedImageIndex((prev) =>
                           prev === 0 ? mediaList.length - 1 : prev - 1,
-                        );
-                      }}
-                      className="absolute top-1/2 left-3 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white text-[#C21E63] shadow-md hover:bg-[#FDEEF4] transition-all"
+                        )
+                      }
+                      className="absolute top-1/2 left-3 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white text-[#C21E63] shadow-md transition-all hover:bg-[#FDEEF4]"
                       aria-label="Previous image"
                     >
                       <ChevronLeft className="h-5 w-5 stroke-[2.5]" />
                     </button>
                     <button
-                      onClick={(e) => {
-                        e.stopPropagation();
+                      onClick={() =>
                         setSelectedImageIndex((prev) =>
                           prev === mediaList.length - 1 ? 0 : prev + 1,
-                        );
-                      }}
-                      className="absolute top-1/2 right-3 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white text-[#C21E63] shadow-md hover:bg-[#FDEEF4] transition-all"
+                        )
+                      }
+                      className="absolute top-1/2 right-3 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white text-[#C21E63] shadow-md transition-all hover:bg-[#FDEEF4]"
                       aria-label="Next image"
                     >
                       <ChevronRight className="h-5 w-5 stroke-[2.5]" />
@@ -673,7 +562,7 @@ export default function PeeFunnelPageClient({ product, content }: Props) {
                     <button
                       key={idx}
                       onClick={() => setSelectedImageIndex(idx)}
-                      className={`group relative flex flex-col items-center justify-between rounded-2xl p-2 sm:p-3 text-center transition-all cursor-pointer ${
+                      className={`group relative flex cursor-pointer flex-col items-center justify-between rounded-2xl p-2 text-center transition-all sm:p-3 ${
                         isActive
                           ? "border-2 border-[#C21E63] bg-[#FDEEF4] shadow-xs"
                           : "border-2 border-dashed border-[#C21E63]/30 bg-[#FDEEF4]/30 hover:border-[#C21E63] hover:bg-white"
@@ -689,7 +578,7 @@ export default function PeeFunnelPageClient({ product, content }: Props) {
                         />
                       </div>
                       <span
-                        className={`mt-1.5 text-[10.5px] sm:text-xs font-bold leading-tight ${
+                        className={`mt-1.5 text-[10.5px] leading-tight font-bold sm:text-xs ${
                           isActive ? "text-[#C21E63]" : "text-[#5A0E30]/70"
                         }`}
                       >
@@ -711,7 +600,7 @@ export default function PeeFunnelPageClient({ product, content }: Props) {
               </div>
 
               {/* Product Title */}
-              <h1 className="mt-3 font-serif text-3xl font-extrabold tracking-tight text-[#5A0E30] sm:text-4xl lg:text-[46px] leading-tight">
+              <h1 className="mt-3 font-serif text-3xl leading-tight font-extrabold tracking-tight text-[#5A0E30] sm:text-4xl lg:text-[46px]">
                 Pee Funnel
               </h1>
 
@@ -736,7 +625,7 @@ export default function PeeFunnelPageClient({ product, content }: Props) {
               {/* Rating Row (Clickable smooth-scroll to #reviews) */}
               <a
                 href="#reviews"
-                className="mt-3.5 flex items-center gap-2 text-xs font-semibold text-[#5A0E30]/80 group cursor-pointer w-fit"
+                className="group mt-3.5 flex w-fit cursor-pointer items-center gap-2 text-xs font-semibold text-[#5A0E30]/80"
               >
                 <div className="flex items-center text-[#F4C430]">
                   <Star className="h-4 w-4 fill-[#F4C430]" />
@@ -749,43 +638,50 @@ export default function PeeFunnelPageClient({ product, content }: Props) {
                   4.8 out of 5
                 </span>
                 <span className="text-[#5A0E30]/40">•</span>
-                <span className="underline decoration-dotted underline-offset-4 group-hover:text-[#C21E63] font-bold">
+                <span className="font-bold underline decoration-dotted underline-offset-4 group-hover:text-[#C21E63]">
                   121 verified reviews
                 </span>
               </a>
 
               {/* Feature Chips Row 2 */}
               <div className="mt-3.5 flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-[#FDEEF4]/80 border border-[#C21E63]/20 px-3 py-1 text-[11.5px] font-bold text-[#C21E63]">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-[#C21E63]/20 bg-[#FDEEF4]/80 px-3 py-1 text-[11.5px] font-bold text-[#C21E63]">
                   <Check className="h-3.5 w-3.5 stroke-[3]" />
                   Pee standing up
                 </span>
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-[#FDEEF4]/80 border border-[#C21E63]/20 px-3 py-1 text-[11.5px] font-bold text-[#C21E63]">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-[#C21E63]/20 bg-[#FDEEF4]/80 px-3 py-1 text-[11.5px] font-bold text-[#C21E63]">
                   <Check className="h-3.5 w-3.5 stroke-[3]" />
                   Leak-free seal
                 </span>
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-[#FDEEF4]/80 border border-[#C21E63]/20 px-3 py-1 text-[11.5px] font-bold text-[#C21E63]">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-[#C21E63]/20 bg-[#FDEEF4]/80 px-3 py-1 text-[11.5px] font-bold text-[#C21E63]">
                   <ShieldCheck className="h-3.5 w-3.5" />
                   For women &amp; girls
                 </span>
               </div>
 
               {/* Lede Paragraph */}
-              <p className="mt-4 text-xs sm:text-sm leading-relaxed text-[#5A0E30]/75 font-normal max-w-xl">
-                Stand up. Stay clean. Go anywhere. The Looway Pee Funnel lets you pee standing up — no squatting over a filthy public toilet, no undressing on a road trip, no skin ever touching a dirty seat. Soft silicone, an ergonomic leak-free seal, slips into its own cotton pouch. Your hygiene, your rules.
+              <p className="mt-4 max-w-xl text-xs leading-relaxed font-normal text-[#5A0E30]/75 sm:text-sm">
+                Stand up. Stay clean. Go anywhere. The Looway Pee Funnel lets
+                you pee standing up — no squatting over a filthy public toilet,
+                no undressing on a road trip, no skin ever touching a dirty
+                seat. Soft silicone, an ergonomic leak-free seal, slips into its
+                own cotton pouch. Your hygiene, your rules.
               </p>
 
               {/* Reassurance Banner Box */}
               <div className="mt-4 flex items-start gap-2.5 rounded-2xl border border-[#C21E63]/20 bg-[#FDEEF4]/60 p-3.5 text-xs text-[#5A0E30]">
-                <CheckCircle2 className="h-4 w-4 shrink-0 text-[#C21E63] mt-0.5" />
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#C21E63]" />
                 <span>
-                  <strong>One size, shaped to fit most bodies.</strong> Nervous it&apos;s tricky? One practice run at home and almost every woman nails it — a little spill while practising is completely normal.
+                  <strong>One size, shaped to fit most bodies.</strong> Nervous
+                  it&apos;s tricky? One practice run at home and almost every
+                  woman nails it — a little spill while practising is completely
+                  normal.
                 </span>
               </div>
 
               {/* CHOOSE YOUR PACK SELECTOR */}
               <div className="mt-6">
-                <div className="flex items-center justify-between mb-2">
+                <div className="mb-2 flex items-center justify-between">
                   <span className="text-xs font-extrabold tracking-wider text-[#5A0E30] uppercase">
                     CHOOSE YOUR PACK
                   </span>
@@ -801,22 +697,18 @@ export default function PeeFunnelPageClient({ product, content }: Props) {
                     return (
                       <button
                         key={pk.id}
-                        onClick={() => handleSelectPack(pk.id)}
-                        className={`relative flex flex-col justify-between rounded-2xl border-2 p-3.5 sm:p-4 text-left transition-all cursor-pointer ${
+                        onClick={() => setSelectedPackId(pk.id)}
+                        className={`relative flex cursor-pointer flex-col justify-between rounded-2xl border-2 p-3.5 text-left transition-all sm:p-4 ${
                           isSelected
                             ? "border-[#C21E63] bg-[#FDEEF4] shadow-sm"
                             : "border-[#EAD6DC] bg-white hover:border-[#C21E63]"
                         }`}
                       >
-                        {pk.flag ? (
+                        {pk.flag && (
                           <span className="absolute -top-2.5 right-3 rounded-full bg-[#F4C430] px-2.5 py-0.5 text-[9.5px] font-extrabold text-[#5A0E30] uppercase shadow-2xs">
                             {pk.flag}
                           </span>
-                        ) : pk.isInStock === false ? (
-                          <span className="absolute -top-2.5 right-3 rounded-full bg-stone-200 px-2.5 py-0.5 text-[9.5px] font-bold text-stone-600 uppercase shadow-2xs">
-                            Out of stock
-                          </span>
-                        ) : null}
+                        )}
 
                         <div>
                           <div className="font-serif text-base font-bold text-[#5A0E30]">
@@ -827,7 +719,7 @@ export default function PeeFunnelPageClient({ product, content }: Props) {
                           </div>
                         </div>
 
-                        <div className="mt-3 border-t border-[#EAD6DC]/60 pt-2 flex items-baseline justify-between">
+                        <div className="mt-3 flex items-baseline justify-between border-t border-[#EAD6DC]/60 pt-2">
                           <div className="font-serif text-lg font-extrabold text-[#C21E63]">
                             ₹{pk.price}
                           </div>
@@ -844,7 +736,7 @@ export default function PeeFunnelPageClient({ product, content }: Props) {
               {/* Quiz Banner Bar */}
               <a
                 href="#guide"
-                className="mt-4 flex items-center justify-between rounded-2xl border-2 border-dashed border-[#C21E63]/40 bg-white p-3 px-4 text-xs font-bold text-[#C21E63] hover:bg-[#FDEEF4]/50 transition-colors"
+                className="mt-4 flex items-center justify-between rounded-2xl border-2 border-dashed border-[#C21E63]/40 bg-white p-3 px-4 text-xs font-bold text-[#C21E63] transition-colors hover:bg-[#FDEEF4]/50"
               >
                 <span>❓ Not sure how many? Take the 30-second quiz</span>
                 <ArrowRight className="h-4 w-4" />
@@ -872,27 +764,26 @@ export default function PeeFunnelPageClient({ product, content }: Props) {
                 </div>
 
                 <div className="mt-1 text-xs text-[#5A0E30]/60">
-                  ≈ ₹{(totalPrice / (selectedPack?.funnels * quantity || 1)).toFixed(0)} per funnel
+                  ≈ ₹
+                  {(
+                    totalPrice / (selectedPack?.funnels * quantity || 1)
+                  ).toFixed(0)}{" "}
+                  per funnel
                 </div>
 
                 {/* Quantity Stepper & Chips */}
                 <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-3">
-                  <div className="flex flex-col">
-                    <span className="text-xs font-bold text-[#5A0E30] uppercase">
-                      HOW MANY?
-                    </span>
-                    <span className="text-[11px] font-semibold text-[#5A0E30]/70">
-                      Maximum {maxQuantity} per order
-                    </span>
-                  </div>
+                  <span className="text-xs font-bold text-[#5A0E30] uppercase">
+                    HOW MANY?
+                  </span>
 
                   <div className="flex items-center gap-3">
-                    <div className="hidden sm:flex gap-1">
-                      {Array.from({ length: Math.min(maxQuantity, 3) }, (_, i) => i + 1).map((num) => (
+                    <div className="hidden gap-1 sm:flex">
+                      {[1, 2, 3].map((num) => (
                         <button
                           key={num}
                           onClick={() => setQuantity(num)}
-                          className={`h-8 w-8 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                          className={`h-8 w-8 cursor-pointer rounded-lg text-xs font-bold transition-all ${
                             quantity === num
                               ? "bg-[#C21E63] text-white"
                               : "border border-[#EAD6DC] bg-white text-[#5A0E30] hover:border-[#C21E63]"
@@ -907,7 +798,7 @@ export default function PeeFunnelPageClient({ product, content }: Props) {
                       <button
                         onClick={() => setQuantity((q) => Math.max(1, q - 1))}
                         disabled={quantity <= 1}
-                        className="flex h-8 w-8 items-center justify-center rounded-lg text-lg font-bold text-[#C21E63] hover:bg-white disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer"
+                        className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-lg font-bold text-[#C21E63] hover:bg-white disabled:opacity-30 disabled:hover:bg-transparent"
                       >
                         -
                       </button>
@@ -915,15 +806,8 @@ export default function PeeFunnelPageClient({ product, content }: Props) {
                         {quantity}
                       </span>
                       <button
-                        onClick={() => {
-                          if (quantity >= maxQuantity) {
-                            toast.info(getMaxQuantityMessage(maxQuantity));
-                            return;
-                          }
-                          setQuantity((q) => q + 1);
-                        }}
-                        disabled={quantity >= maxQuantity}
-                        className="flex h-8 w-8 items-center justify-center rounded-lg text-lg font-bold text-[#C21E63] hover:bg-white disabled:opacity-30 disabled:hover:bg-transparent cursor-pointer"
+                        onClick={() => setQuantity((q) => q + 1)}
+                        className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-lg font-bold text-[#C21E63] hover:bg-white"
                       >
                         +
                       </button>
@@ -934,148 +818,158 @@ export default function PeeFunnelPageClient({ product, content }: Props) {
                 {/* 3 Reassurance Row */}
                 <div className="mt-3.5 flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 pt-3 text-[11.5px] font-bold text-[#5A0E30]/75">
                   <span className="inline-flex items-center gap-1">
-                    <ShieldCheck className="h-3.5 w-3.5 text-[#C21E63]" /> Leak-free seal
+                    <ShieldCheck className="h-3.5 w-3.5 text-[#C21E63]" />{" "}
+                    Leak-free seal
                   </span>
                   <span className="inline-flex items-center gap-1">
-                    <Check className="h-3.5 w-3.5 text-[#C21E63]" /> Soft silicone
+                    <Check className="h-3.5 w-3.5 text-[#C21E63]" /> Soft
+                    silicone
                   </span>
                   <span className="inline-flex items-center gap-1">
-                    <Clock className="h-3.5 w-3.5 text-[#C21E63]" /> Reusable for years
+                    <Clock className="h-3.5 w-3.5 text-[#C21E63]" /> Reusable
+                    for years
                   </span>
                 </div>
 
                 {/* Delivery Expectation Line */}
                 <div className="mt-3 flex items-center gap-2 text-xs font-semibold text-[#5A0E30]/80">
-                  <Truck className="h-4 w-4 text-[#C21E63] shrink-0" />
+                  <Truck className="h-4 w-4 shrink-0 text-[#C21E63]" />
                   <span>
-                    <strong>Ships in 24 hrs</strong> · get it by <strong>Mon, 12 Oct – Wed, 14 Oct</strong>
+                    <strong>Ships in 24 hrs</strong> · get it by{" "}
+                    <strong>Mon, 12 Oct – Wed, 14 Oct</strong>
                   </span>
                 </div>
 
                 {/* CTAs */}
                 <div className="mt-4 space-y-2">
-                  {isOutOfStock ? (
-                    <button
-                      type="button"
-                      disabled
-                      className="w-full flex items-center justify-center gap-2 rounded-xl bg-gray-200 py-3.5 px-4 text-sm font-bold text-gray-500 shadow-none cursor-not-allowed"
-                    >
-                      Out of stock
-                    </button>
-                  ) : (
-                    <>
-                      <button
-                        onClick={handleAddToCart}
-                        disabled={adding}
-                        className="w-full flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#C21E63] py-3.5 px-4 text-sm font-bold text-white shadow-md transition-all hover:bg-[#a81a57] active:scale-[0.98] disabled:opacity-60"
-                      >
-                        <ShoppingBag className="h-4 w-4" />
-                        <span>{adding ? "Adding..." : `Add to Cart — ₹${totalPrice}`}</span>
-                      </button>
+                  <button
+                    onClick={() => handleAddToCart(false)}
+                    disabled={adding}
+                    className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#C21E63] px-4 py-3.5 text-sm font-bold text-white shadow-md transition-all hover:bg-[#a81a57] active:scale-[0.98] disabled:opacity-60"
+                  >
+                    <ShoppingBag className="h-4 w-4" />
+                    <span>
+                      {adding ? "Adding..." : `Add to Cart — ₹${totalPrice}`}
+                    </span>
+                  </button>
 
-                      <button
-                        onClick={handleBuyNow}
-                        disabled={adding}
-                        className="w-full flex cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-[#450A25] py-3.5 px-4 text-sm font-bold text-white transition-all hover:bg-[#32061A] active:scale-[0.98]"
-                      >
-                        <Truck className="h-4 w-4 text-[#F4C430]" />
-                        <span>Buy now</span>
-                      </button>
-                    </>
-                  )}
+                  <button
+                    onClick={() => handleAddToCart(true)}
+                    disabled={adding}
+                    className="flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-[#450A25] px-4 py-3.5 text-sm font-bold text-white transition-all hover:bg-[#32061A] active:scale-[0.98]"
+                  >
+                    <Truck className="h-4 w-4 text-[#F4C430]" />
+                    <span>Buy now</span>
+                  </button>
 
                   <button
                     onClick={handleToggleWishlist}
                     disabled={isWishlistUpdating}
                     aria-pressed={isWishlisted}
-                    className={`w-full flex cursor-pointer items-center justify-center gap-2 rounded-full border border-[#EAD6DC] bg-white py-2.5 text-xs font-semibold transition-all hover:border-[#C21E63] ${
-                      isWishlisted ? "text-red-500 border-red-300" : "text-[#5A0E30]"
+                    className={`flex w-full cursor-pointer items-center justify-center gap-2 rounded-full border border-[#EAD6DC] bg-white py-2.5 text-xs font-semibold transition-all hover:border-[#C21E63] ${
+                      isWishlisted
+                        ? "border-red-300 text-red-500"
+                        : "text-[#5A0E30]"
                     }`}
                   >
                     <Heart
                       className={`h-4 w-4 ${isWishlisted ? "fill-red-500 text-red-500" : "text-[#5A0E30]"}`}
                     />
-                    <span>{isWishlisted ? "Saved to wishlist" : "Save to wishlist"}</span>
+                    <span>
+                      {isWishlisted ? "Saved to wishlist" : "Save to wishlist"}
+                    </span>
                   </button>
                 </div>
 
                 {/* Shipping Micro-copy */}
                 <p className="mt-3 text-center text-[11px] leading-relaxed text-[#5A0E30]/60">
-                  Free shipping over ₹{FREE_SHIPPING_THRESHOLD} · ships in 24 hrs · secure checkout. If it&apos;s not right, <strong>we&apos;ll make it right</strong>. Questions? Email <a href="mailto:care@potenthygiene.com" className="text-[#C21E63] underline">care@potenthygiene.com</a>
-                  <span className="block mt-1 font-bold">
-                    {isFreeShipping ? (
-                      <span className="text-emerald-700 font-extrabold">🎉 Free shipping unlocked!</span>
-                    ) : (
-                      <span className="text-[#C21E63]">📈 Add ₹{amountNeededForFreeShipping} for free shipping</span>
-                    )}
+                  Free shipping over ₹399 · ships in 24 hrs · secure checkout.
+                  If it&apos;s not right,{" "}
+                  <strong>we&apos;ll make it right</strong>. Questions? Email{" "}
+                  <a
+                    href="mailto:care@potenthygiene.com"
+                    className="text-[#C21E63] underline"
+                  >
+                    care@potenthygiene.com
+                  </a>
+                  <span className="mt-1 block font-bold text-[#C21E63]">
+                    📈 Add ₹300 for free shipping
                   </span>
                 </p>
 
                 {/* Potent Rewards Banner */}
-                <Link
-                  href="/dashboard/security"
-                  className="mt-4 flex items-center justify-between rounded-xl bg-[#FDEEF4] p-3 text-xs text-[#5A0E30] transition hover:bg-[#FADDE8]"
-                >
+                <div className="mt-4 flex items-center justify-between rounded-xl bg-[#FDEEF4] p-3 text-xs text-[#5A0E30]">
                   <div className="flex items-center gap-2">
                     <span className="text-base">⭐</span>
                     <span>
-                      In the <strong>Potent Rewards Club</strong>? Your credits apply at checkout. Not yet a member? <strong>Join free</strong> — earn across Ovy &amp; Looway.
+                      In the <strong>Potent Rewards Club</strong>? Your credits
+                      apply at checkout. Not yet a member?{" "}
+                      <strong>Join free</strong> — earn across Ovy &amp; Looway.
                     </span>
                   </div>
                   <ArrowRight className="h-4 w-4 shrink-0 text-[#C21E63]" />
-                </Link>
+                </div>
 
                 {/* SHOP WITH CONFIDENCE */}
                 <div className="mt-5 border-t border-gray-100 pt-4">
-                  <span className="text-[11px] font-extrabold tracking-wider text-[#5A0E30] uppercase block mb-2.5">
+                  <span className="mb-2.5 block text-[11px] font-extrabold tracking-wider text-[#5A0E30] uppercase">
                     SHOP WITH CONFIDENCE
                   </span>
 
                   <div className="space-y-1.5 text-xs font-semibold text-[#5A0E30]/80">
                     <div className="flex items-center gap-2">
-                      <ShieldCheck className="h-4 w-4 text-[#C21E63]" /> Body-safe soft silicone
+                      <ShieldCheck className="h-4 w-4 text-[#C21E63]" />{" "}
+                      Body-safe soft silicone
                     </div>
                     <div className="flex items-center gap-2">
-                      <MapPin className="h-4 w-4 text-[#C21E63]" /> Woman-founded · Made for India
+                      <MapPin className="h-4 w-4 text-[#C21E63]" />{" "}
+                      Woman-founded · Made for India
                     </div>
                     <div className="flex items-center gap-2">
-                      <Check className="h-4 w-4 text-[#C21E63]" /> Free shipping over ₹399
+                      <Check className="h-4 w-4 text-[#C21E63]" /> Free shipping
+                      over ₹399
                     </div>
                   </div>
 
-                  <div className="mt-3 rounded-xl border border-[#EAD6DC] bg-[#fcf8f3] p-3 space-y-1.5 text-[11.5px] text-[#5A0E30]/75">
+                  <div className="mt-3 space-y-1.5 rounded-xl border border-[#EAD6DC] bg-[#fcf8f3] p-3 text-[11.5px] text-[#5A0E30]/75">
                     <div className="flex items-center gap-2 font-bold text-[#5A0E30]">
-                      <Truck className="h-4 w-4 text-[#C21E63]" /> Get it by Mon, 12 Oct – Wed, 14 Oct · ships in 24 hrs, tracked
+                      <Truck className="h-4 w-4 text-[#C21E63]" /> Get it by
+                      Mon, 12 Oct – Wed, 14 Oct · ships in 24 hrs, tracked
                     </div>
                     <div className="flex items-start gap-2 text-[11px] leading-snug text-[#5A0E30]/65">
-                      <Info className="h-3.5 w-3.5 shrink-0 text-[#C21E63] mt-0.5" />
-                      For hygiene &amp; safety, this personal-care product can&apos;t be returned or exchanged once shipped - damaged or wrong items are replaced free
+                      <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#C21E63]" />
+                      For hygiene &amp; safety, this personal-care product
+                      can&apos;t be returned or exchanged once shipped - damaged
+                      or wrong items are replaced free
                     </div>
                   </div>
                 </div>
 
                 {/* PIN CODE CHECKER */}
                 <div className="mt-5 rounded-xl border border-[#EAD6DC] bg-[#FDEEF4]/40 p-3.5">
-                  <div className="flex items-center gap-2 text-xs font-bold text-[#5A0E30] mb-2">
+                  <div className="mb-2 flex items-center gap-2 text-xs font-bold text-[#5A0E30]">
                     <MapPin className="h-4 w-4 text-[#C21E63]" />
                     <span>Check delivery time</span>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex items-center gap-2">
                     <input
                       type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
                       maxLength={6}
                       placeholder="Enter 6-digit PIN code"
                       value={pincode}
-                      onChange={(e) => setPincode(e.target.value)}
-                      className="flex-1 rounded-lg border border-[#EAD6DC] bg-white px-3 py-2 text-xs outline-none focus:border-[#C21E63]"
+                      onChange={(e) =>
+                        setPincode(e.target.value.replace(/\D/g, ""))
+                      }
+                      className="min-w-0 flex-1 rounded-lg border border-[#EAD6DC] bg-white px-3 py-2 text-xs outline-none focus:border-[#C21E63]"
                     />
                     <button
                       type="button"
                       onClick={handlePincodeCheck}
-                      disabled={isCheckingPincode}
-                      className="rounded-lg bg-[#C21E63] px-4 py-2 text-xs font-bold text-white hover:bg-[#a81a57] transition-all cursor-pointer disabled:opacity-60"
+                      className="shrink-0 cursor-pointer rounded-lg bg-[#C21E63] px-4 py-2 text-xs font-bold text-white transition-all hover:bg-[#a81a57]"
                     >
-                      {isCheckingPincode ? "Checking..." : "Check"}
+                      Check
                     </button>
                   </div>
                   {pincodeResult && (
@@ -1092,70 +986,115 @@ export default function PeeFunnelPageClient({ product, content }: Props) {
                 {/* SECURE CHECKOUT FOOTER */}
                 <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 pt-3 text-[11px] text-[#5A0E30]/60">
                   <span className="flex items-center gap-1 font-semibold text-[#5A0E30]">
-                    <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" /> Secure checkout
+                    <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />{" "}
+                    Secure checkout
                   </span>
                   <div className="flex flex-wrap items-center gap-1 text-[10px] font-bold">
-                    <span className="rounded bg-gray-100 px-1.5 py-0.5">UPI</span>
-                    <span className="rounded bg-gray-100 px-1.5 py-0.5">Razorpay</span>
-                    <span className="rounded bg-gray-100 px-1.5 py-0.5">Visa</span>
-                    <span className="rounded bg-gray-100 px-1.5 py-0.5">Mastercard</span>
-                    <span className="rounded bg-gray-100 px-1.5 py-0.5">RuPay</span>
-                    <span className="rounded bg-gray-100 px-1.5 py-0.5">Net banking</span>
+                    <span className="rounded bg-gray-100 px-1.5 py-0.5">
+                      UPI
+                    </span>
+                    <span className="rounded bg-gray-100 px-1.5 py-0.5">
+                      Razorpay
+                    </span>
+                    <span className="rounded bg-gray-100 px-1.5 py-0.5">
+                      Visa
+                    </span>
+                    <span className="rounded bg-gray-100 px-1.5 py-0.5">
+                      Mastercard
+                    </span>
+                    <span className="rounded bg-gray-100 px-1.5 py-0.5">
+                      RuPay
+                    </span>
+                    <span className="rounded bg-gray-100 px-1.5 py-0.5">
+                      Net banking
+                    </span>
                   </div>
                 </div>
               </div>
 
               {/* WHAT'S IN THE BOX SECTION */}
-              <div id="specs" className="mt-6 rounded-2xl border border-[#EAD6DC] bg-white p-4">
-                <div className="flex items-center justify-between border-b border-gray-100 pb-2.5 mb-3">
+              <div
+                id="specs"
+                className="mt-6 rounded-2xl border border-[#EAD6DC] bg-white p-4"
+              >
+                <div className="mb-3 flex items-center justify-between border-b border-gray-100 pb-2.5">
                   <span className="text-xs font-extrabold tracking-wider text-[#5A0E30] uppercase">
                     WHAT&apos;S IN THE BOX
                   </span>
-                  <span className="text-xs text-[#5A0E30]/60 font-medium">
+                  <span className="text-xs font-medium text-[#5A0E30]/60">
                     1 funnel + cotton pouch
                   </span>
                 </div>
-                <div className="flex items-center justify-between text-xs py-1.5">
+                <div className="flex items-center justify-between py-1.5 text-xs">
                   <span className="font-bold text-[#5A0E30]">1 Pee Funnel</span>
                   <span className="font-semibold text-[#C21E63]">silicone</span>
-                  <span className="text-[#5A0E30]/70">Soft, flexible silicone</span>
+                  <span className="text-[#5A0E30]/70">
+                    Soft, flexible silicone
+                  </span>
                 </div>
               </div>
 
               {/* QUICK SPECS GRID */}
               <div className="mt-4 rounded-2xl border border-[#EAD6DC] bg-white p-4">
-                <div className="flex items-center justify-between border-b border-gray-100 pb-2.5 mb-3">
+                <div className="mb-3 flex items-center justify-between border-b border-gray-100 pb-2.5">
                   <span className="text-xs font-extrabold tracking-wider text-[#5A0E30] uppercase">
                     QUICK SPECS
                   </span>
-                  <a href="#specs" className="text-xs font-bold text-[#C21E63] underline">
+                  <a
+                    href="#specs"
+                    className="text-xs font-bold text-[#C21E63] underline"
+                  >
                     Show all
                   </a>
                 </div>
                 <div className="grid grid-cols-2 gap-3 text-xs">
                   <div className="rounded-xl bg-[#fcf8f3] p-2.5">
-                    <span className="text-[10.5px] text-[#5A0E30]/60 block">Material</span>
-                    <span className="font-bold text-[#5A0E30]">Soft silicone</span>
+                    <span className="block text-[10.5px] text-[#5A0E30]/60">
+                      Material
+                    </span>
+                    <span className="font-bold text-[#5A0E30]">
+                      Soft silicone
+                    </span>
                   </div>
                   <div className="rounded-xl bg-[#fcf8f3] p-2.5">
-                    <span className="text-[10.5px] text-[#5A0E30]/60 block">Reusable</span>
-                    <span className="font-bold text-[#5A0E30]">Yes — lasts years</span>
+                    <span className="block text-[10.5px] text-[#5A0E30]/60">
+                      Reusable
+                    </span>
+                    <span className="font-bold text-[#5A0E30]">
+                      Yes — lasts years
+                    </span>
                   </div>
                   <div className="rounded-xl bg-[#fcf8f3] p-2.5">
-                    <span className="text-[10.5px] text-[#5A0E30]/60 block">Seal</span>
-                    <span className="font-bold text-[#5A0E30]">Ergonomic, leak-free</span>
+                    <span className="block text-[10.5px] text-[#5A0E30]/60">
+                      Seal
+                    </span>
+                    <span className="font-bold text-[#5A0E30]">
+                      Ergonomic, leak-free
+                    </span>
                   </div>
                   <div className="rounded-xl bg-[#fcf8f3] p-2.5">
-                    <span className="text-[10.5px] text-[#5A0E30]/60 block">Pouch</span>
-                    <span className="font-bold text-[#5A0E30]">Cotton (included)</span>
+                    <span className="block text-[10.5px] text-[#5A0E30]/60">
+                      Pouch
+                    </span>
+                    <span className="font-bold text-[#5A0E30]">
+                      Cotton (included)
+                    </span>
                   </div>
                   <div className="rounded-xl bg-[#fcf8f3] p-2.5">
-                    <span className="text-[10.5px] text-[#5A0E30]/60 block">Size</span>
-                    <span className="font-bold text-[#5A0E30]">Compact — pocket-size</span>
+                    <span className="block text-[10.5px] text-[#5A0E30]/60">
+                      Size
+                    </span>
+                    <span className="font-bold text-[#5A0E30]">
+                      Compact — pocket-size
+                    </span>
                   </div>
                   <div className="rounded-xl bg-[#fcf8f3] p-2.5">
-                    <span className="text-[10.5px] text-[#5A0E30]/60 block">Use type</span>
-                    <span className="font-bold text-[#5A0E30]">External only</span>
+                    <span className="block text-[10.5px] text-[#5A0E30]/60">
+                      Use type
+                    </span>
+                    <span className="font-bold text-[#5A0E30]">
+                      External only
+                    </span>
                   </div>
                 </div>
               </div>
@@ -1165,42 +1104,62 @@ export default function PeeFunnelPageClient({ product, content }: Props) {
       </section>
 
       {/* FULL-WIDTH SPEC STRIP */}
-      <section className="w-full bg-[#C21E63] text-white py-6 my-8">
+      <section className="my-8 w-full bg-[#C21E63] py-6 text-white">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-12">
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5 sm:gap-6 items-center">
+          <div className="grid grid-cols-2 items-center gap-3.5 sm:grid-cols-3 sm:gap-6 lg:grid-cols-5">
             <div className="flex items-center gap-2.5 sm:gap-3">
-              <Droplets className="h-6 w-6 sm:h-7 sm:w-7 text-[#F4C430] shrink-0" />
+              <Droplets className="h-6 w-6 shrink-0 text-[#F4C430] sm:h-7 sm:w-7" />
               <div>
-                <div className="font-serif font-bold text-sm sm:text-lg text-white leading-tight">Silicone</div>
-                <div className="text-[11px] sm:text-xs text-white/85">Soft &amp; body-safe</div>
+                <div className="font-serif text-sm leading-tight font-bold text-white sm:text-lg">
+                  Silicone
+                </div>
+                <div className="text-[11px] text-white/85 sm:text-xs">
+                  Soft &amp; body-safe
+                </div>
               </div>
             </div>
             <div className="flex items-center gap-2.5 sm:gap-3">
-              <ShieldCheck className="h-6 w-6 sm:h-7 sm:w-7 text-[#F4C430] shrink-0" />
+              <ShieldCheck className="h-6 w-6 shrink-0 text-[#F4C430] sm:h-7 sm:w-7" />
               <div>
-                <div className="font-serif font-bold text-sm sm:text-lg text-white leading-tight">Leak-free</div>
-                <div className="text-[11px] sm:text-xs text-white/85">Ergonomic seal</div>
+                <div className="font-serif text-sm leading-tight font-bold text-white sm:text-lg">
+                  Leak-free
+                </div>
+                <div className="text-[11px] text-white/85 sm:text-xs">
+                  Ergonomic seal
+                </div>
               </div>
             </div>
             <div className="flex items-center gap-2.5 sm:gap-3">
-              <Clock className="h-6 w-6 sm:h-7 sm:w-7 text-[#F4C430] shrink-0" />
+              <Clock className="h-6 w-6 shrink-0 text-[#F4C430] sm:h-7 sm:w-7" />
               <div>
-                <div className="font-serif font-bold text-sm sm:text-lg text-white leading-tight">Reusable</div>
-                <div className="text-[11px] sm:text-xs text-white/85">Lasts for years</div>
+                <div className="font-serif text-sm leading-tight font-bold text-white sm:text-lg">
+                  Reusable
+                </div>
+                <div className="text-[11px] text-white/85 sm:text-xs">
+                  Lasts for years
+                </div>
               </div>
             </div>
             <div className="flex items-center gap-2.5 sm:gap-3">
-              <Package className="h-6 w-6 sm:h-7 sm:w-7 text-[#F4C430] shrink-0" />
+              <Package className="h-6 w-6 shrink-0 text-[#F4C430] sm:h-7 sm:w-7" />
               <div>
-                <div className="font-serif font-bold text-sm sm:text-lg text-white leading-tight">Compact</div>
-                <div className="text-[11px] sm:text-xs text-white/85">Slips into any bag</div>
+                <div className="font-serif text-sm leading-tight font-bold text-white sm:text-lg">
+                  Compact
+                </div>
+                <div className="text-[11px] text-white/85 sm:text-xs">
+                  Slips into any bag
+                </div>
               </div>
             </div>
-            <div className="flex items-center gap-2.5 sm:gap-3 col-span-2 sm:col-span-1">
-              <ShoppingBag className="h-6 w-6 sm:h-7 sm:w-7 text-[#F4C430] shrink-0" />
+            <div className="col-span-2 flex items-center gap-2.5 sm:col-span-1 sm:gap-3">
+              <ShoppingBag className="h-6 w-6 shrink-0 text-[#F4C430] sm:h-7 sm:w-7" />
               <div>
-                <div className="font-serif font-bold text-sm sm:text-lg text-white leading-tight">1 funnel</div>
-                <div className="text-[11px] sm:text-xs text-white/85">Per pack + pouch</div>
+                <div className="font-serif text-sm leading-tight font-bold text-white sm:text-lg">
+                  1 funnel
+                </div>
+                <div className="text-[11px] text-white/85 sm:text-xs">
+                  Per pack + pouch
+                </div>
               </div>
             </div>
           </div>
@@ -1210,9 +1169,9 @@ export default function PeeFunnelPageClient({ product, content }: Props) {
       {/* SECONDARY STICKY NAV STRAP (Sticky underneath website header) */}
       <nav
         style={{ top: `${headerHeight}px` }}
-        className="sticky z-40 w-full border-y border-[#EAD6DC] bg-[#fcf8f3]/95 backdrop-blur-md shadow-2xs transition-[top] duration-150 py-2.5"
+        className="sticky z-40 w-full border-y border-[#EAD6DC] bg-[#fcf8f3]/95 py-2.5 shadow-2xs backdrop-blur-md transition-[top] duration-150"
       >
-        <div className="mx-auto flex max-w-7xl items-center justify-start sm:justify-center gap-2 sm:gap-3 px-4 overflow-x-auto no-scrollbar [::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+        <div className="no-scrollbar mx-auto flex max-w-7xl items-center justify-start gap-2 overflow-x-auto px-4 [-ms-overflow-style:none] [scrollbar-width:none] sm:justify-center sm:gap-3 [::-webkit-scrollbar]:hidden">
           {[
             { id: "guide", label: "Guide" },
             { id: "where-to-use", label: "Where to use" },
@@ -1224,10 +1183,10 @@ export default function PeeFunnelPageClient({ product, content }: Props) {
             <a
               key={nav.id}
               href={`#${nav.id}`}
-              className={`rounded-full px-4 py-1.5 text-xs font-bold transition-all whitespace-nowrap ${
+              className={`rounded-full px-4 py-1.5 text-xs font-bold whitespace-nowrap transition-all ${
                 activeNavId === nav.id
                   ? "bg-[#C21E63] text-white shadow-2xs"
-                  : "bg-white text-[#5A0E30]/80 border border-[#EAD6DC] hover:border-[#C21E63]"
+                  : "border border-[#EAD6DC] bg-white text-[#5A0E30]/80 hover:border-[#C21E63]"
               }`}
             >
               {nav.label}
@@ -1245,18 +1204,12 @@ export default function PeeFunnelPageClient({ product, content }: Props) {
       <FunnelPackAndSpecsSection />
       <FunnelUseItSafelySection />
       <FunnelMarketComparisonSection />
-      <FunnelReviewsSection />
-      <WhileYoureHereSection brandTheme="looway" />
-      <FunnelFaqSection faqs={product?.productFaqRes} content={content} />
-
-      <ImageZoomModal
-        isOpen={isZoomOpen}
-        onClose={() => setIsZoomOpen(false)}
-        images={mediaList}
-        currentIndex={selectedImageIndex}
-        onNavigate={setSelectedImageIndex}
-        alt={product?.title || "Looway Pee Funnel"}
+      <FunnelReviewsSection
+        submittedReviews={reviewWithMedia || []}
+        product={product}
       />
+      <FunnelFaqSection />
+      <WhileYoureHereSection brandTheme="looway" />
     </div>
   );
 }

@@ -138,7 +138,11 @@ const REVIEW_FILTERS = [
   { id: "seniors", label: "Seniors & Caregiving" },
 ];
 
-export default function PeePukeBagsPageClient({ product, content }: Props) {
+export default function PeePukeBagsPageClient({
+  product,
+  reviewWithMedia,
+  content,
+}: Props) {
   const router = useRouter();
   const [selectedModeId, setSelectedModeId] = useState<string>("once");
   const [quantity, setQuantity] = useState<number>(1);
@@ -1441,21 +1445,23 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
                     <MapPin className="h-4 w-4 text-[#0E5C3A]" />
                     Check delivery time
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex items-center gap-2">
                     <input
                       type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
                       maxLength={6}
                       placeholder="Enter 6-digit PIN code"
                       value={pincode}
                       onChange={(e) =>
                         setPincode(e.target.value.replace(/\D/g, ""))
                       }
-                      className="flex-1 rounded-xl border border-[#E4DED0] bg-white px-4 py-2.5 text-xs font-semibold text-[#17271E] focus:border-[#0E5C3A] focus:outline-none"
+                      className="min-w-0 flex-1 rounded-xl border border-[#E4DED0] bg-white px-3.5 py-2.5 text-xs font-semibold text-[#17271E] placeholder:text-[#17271E]/40 focus:border-[#0E5C3A] focus:outline-none"
                     />
                     <button
                       onClick={handleCheckPincode}
                       disabled={isCheckingPincode}
-                      className="rounded-xl bg-[#0E5C3A] px-5 py-2.5 text-xs font-bold text-white transition-all hover:bg-[#0B4D31] disabled:opacity-60 cursor-pointer"
+                      className="shrink-0 rounded-xl bg-[#0E5C3A] px-4 py-2.5 text-xs font-bold text-white transition-all hover:bg-[#0B4D31] disabled:opacity-60 cursor-pointer"
                     >
                       {isCheckingPincode ? "Checking..." : "Check"}
                     </button>
@@ -1775,8 +1781,10 @@ export default function PeePukeBagsPageClient({ product, content }: Props) {
 
       {/* ========================================================================= */}
       {/* 10. LOOWAY REVIEWS SECTION (NEW COMPONENT)                               */}
-      {/* ========================================================================= */}
-      <LoowayReviewsSection />
+      <LoowayReviewsSection
+        submittedReviews={reviewWithMedia || []}
+        product={product}
+      />
 
       {/* ========================================================================= */}
       {/* 11. FAQS SECTION (DYNAMIC FROM DB/ADMIN)                                  */}

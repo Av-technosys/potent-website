@@ -69,14 +69,15 @@ export default function ProductReviews({ reviews, product, themeColor }: any) {
             </div>
           </div>
 
-          <WriteReviewModal
+          {/* Write a review button hidden on PDP as requested */}
+          {/* <WriteReviewModal
             product={product}
             btnStyle={{
               borderColor: darkColor,
               color: darkColor,
             }}
             btnClassName="mt-6 px-5 py-2 text-sm border rounded-full hover:bg-teal-50 transition bg-transparent font-medium cursor-pointer inline-flex items-center gap-2"
-          />
+          /> */}
         </div>
 
         {/* RIGHT - Breakdown */}

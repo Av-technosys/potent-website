@@ -2018,6 +2018,8 @@ export default function OvyTeenPageClient({
                 <MapPin className="h-5 w-5 shrink-0 text-[#9A5B90]" />
                 <input
                   type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   maxLength={6}
                   value={pincode}
                   onChange={(e) =>
@@ -2700,15 +2702,13 @@ export default function OvyTeenPageClient({
         <OvyPromos onOpenQuiz={() => setQuizOpen(true)} />
 
         {/* Product Reviews Section */}
-        {reviewWithMedia && (
-          <section className="mt-16 border-t border-[#1A150F]/10 pt-12">
-            <ProductReviews
-              reviews={reviewWithMedia}
-              product={product}
-              themeColor={ovyProductDetailsPage}
-            />
-          </section>
-        )}
+        <section className="mt-16 border-t border-[#1A150F]/10 pt-12">
+          <ProductReviews
+            reviews={reviewWithMedia || []}
+            product={product}
+            themeColor={ovyProductDetailsPage}
+          />
+        </section>
 
         {/* FAQS SECTION (DYNAMIC FROM DB/ADMIN) */}
         <ProductFaqSection
@@ -2868,8 +2868,9 @@ export default function OvyTeenPageClient({
 
       {/* Mobile Sticky Buy Bar */}
       <div
+        id="pdp-sticky-buy-bar"
         className={`fixed right-0 bottom-[56px] md:bottom-0 left-0 z-40 flex items-center justify-between gap-3 border-t border-[#1A150F]/10 bg-white/95 p-3 shadow-lg backdrop-blur-md transition-transform duration-300 lg:hidden ${
-          showStickyBar ? "translate-y-0 pointer-events-auto" : "translate-y-[115%] pointer-events-none"
+          showStickyBar ? "translate-y-0 pointer-events-auto pdp-sticky-active" : "translate-y-[115%] pointer-events-none"
         }`}
       >
         {activeKit.isComingSoon ? (

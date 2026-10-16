@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   ArrowRight,
   CheckCircle2,
@@ -24,7 +24,6 @@ import {
   Star,
   Truck,
   X,
-  ZoomIn,
 } from "lucide-react";
 import Image from "next/image";
 import { addToCart as addToCartAction } from "@/store/cartActions";
@@ -37,9 +36,6 @@ import SizeSelectorBox from "./sizeSelectorBox";
 import WhatsInside from "./WhatsInside";
 import OvyComparison from "./OvyComparison";
 import OvyPromos from "./OvyPromos";
-import LinersPackAndSpecs from "./LinersPackAndSpecs";
-import PantyPackAndSpecs from "./PantyPackAndSpecs";
-import ImageZoomModal from "./ImageZoomModal";
 import { toast } from "sonner";
 import { getImageUrl } from "@/lib/imageUrl";
 import {
@@ -48,19 +44,14 @@ import {
   getPdpSubscriptionPlans,
 } from "@/lib/pdpSubscriptionRules";
 import {
-  MIX_BOX_DEFAULT_RECIPE,
   calculateMixBoxPricing,
-  formatMixBoxRecipe,
-  getMixBoxAdjustmentMessage,
   normalizeMixBoxRecipe,
   normalizePadSize,
-  type MixBoxRecipe,
   type MixBoxSelection,
 } from "@/lib/mixYourBox";
 import {
   calculateCycleSyncSchedule,
   getMinimumCycleSyncPeriodDate,
-  getTodayDateInputValue,
 } from "@/lib/cycleSync";
 import {
   applyDiscounts,
@@ -96,17 +87,8 @@ type DeliveryStatus =
       courier?: never;
     };
 
-export default function ProductDetailPage({
-  productInfo,
-  themeColor,
-}: any) {
+export default function ProductDetailPage({ productInfo, themeColor }: any) {
   const router = useRouter();
-  const searchParams = useSearchParams();
-
-  const slug = productInfo?.slug || "";
-  const isLiners = slug === "ovy-liners" || slug.includes("liner");
-  const isPanty = slug === "ovy-panty" || slug.includes("panty") || slug.includes("panties");
-  const isPads = !isLiners && !isPanty && (slug === "ovy-pads" || slug.includes("pad") || Boolean(productInfo?.isMixBox));
 
   const variantsList = Array.isArray(productInfo?.productVariants)
     ? productInfo.productVariants
@@ -117,13 +99,13 @@ export default function ProductDetailPage({
   const getPickedVariantSelection = (variant: any) => [
     {
       name: variant?.name || productInfo?.name,
-      quantity: isPads ? 21 : isPanty ? 8 : (variant?.name?.includes("80") ? 80 : variant?.name?.includes("40") ? 40 : 60),
+      quantity: 21,
       price: Number(variant?.price || 0),
     },
   ];
 
-  const defaultSize = defaultVariant.size || defaultVariant.name || (isPads ? "XL (280mm)" : isPanty ? "M-XL" : "Pack of 60");
-  const defaultFlow = defaultVariant.flowType || (isPads ? "Medium to Heavy Flow" : isPanty ? "Waist ~28–44 in • Fits most" : "190mm • Ultra-thin (~1mm)");
+  const defaultSize = defaultVariant.size || "XL (280mm)";
+  const defaultFlow = defaultVariant.flowType || "Medium to Heavy Flow";
 
   const [selectedPlanType, setSelectedPlanType] = useState("pickSize");
   const [selectedVarient, setSelectedVarient] = useState<any>(
@@ -135,19 +117,16 @@ export default function ProductDetailPage({
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<any>(BUY_ONCE_PLAN);
   const [cycleSync, setCycleSync] = useState({
-    lastPeriodDate: "",
-    cycleLength: "28",
-    periodLength: "5",
-    consentAccepted: false,
+    nextPeriodDate: "",
+    cycleLength: 28,
   });
   const [activeVariant, setActiveVariant] = useState(defaultVariant);
-  const initialImage = isPanty
-    ? "/ovy/panty-box.jpg"
-    : defaultVariant?.bannerImage ||
-      defaultVariant?.image ||
-      productInfo?.bannerImage ||
-      productInfo?.productMediaRes?.[0]?.mediaURL ||
-      (isLiners ? "/products/liners.jpg" : "");
+  const initialImage =
+    defaultVariant?.bannerImage ||
+    defaultVariant?.image ||
+    productInfo?.bannerImage ||
+    productInfo?.productMediaRes?.[0]?.mediaURL ||
+    "";
   const [activeImage, setActiveImage] = useState(initialImage);
   const [deliveryPincode, setDeliveryPincode] = useState("");
   const [deliveryStatus, setDeliveryStatus] = useState<DeliveryStatus>({
@@ -160,7 +139,10 @@ export default function ProductDetailPage({
   const [isWishlistUpdating, setIsWishlistUpdating] = useState(false);
   const isWishlisted = useMemo(() => {
     return wishlistItems.some(
-      (i: any) => i.productId === productInfo?.id || i.productId === productInfo?.slug || i.slug === productInfo?.slug
+      (i: any) =>
+        i.productId === productInfo?.id ||
+        i.productId === productInfo?.slug ||
+        i.slug === productInfo?.slug,
     );
   }, [wishlistItems, productInfo]);
 
@@ -202,13 +184,6 @@ export default function ProductDetailPage({
   });
   const [showSizeCompare, setShowSizeCompare] = useState(false);
   const [showStickyBar, setShowStickyBar] = useState(false);
-  const mainButtonsRef = useRef<HTMLDivElement>(null);
-  const hasScrolledInitialRef = useRef(false);
-  const selectedPlanTypeRef = useRef(selectedPlanType);
-
-  useEffect(() => {
-    selectedPlanTypeRef.current = selectedPlanType;
-  }, [selectedPlanType]);
 
   const staticContent = useMemo(
     () => getProductStaticContent(productInfo),
@@ -220,59 +195,39 @@ export default function ProductDetailPage({
     staticContent,
   );
   const canCustomizeBox = Boolean(
-    isPads && (
-      productInfo?.isMixBox ||
-      productInfo?.slug === "ovy-pads" ||
-      productInfo?.hasVarientBox
-    )
+    productInfo?.isMixBox ||
+    productInfo?.hasVarientBox ||
+    productInfo?.slug === "ovy-pads" ||
+    (Array.isArray(productInfo?.prodcutVarientBoxRes) &&
+      productInfo.prodcutVarientBoxRes.length > 0) ||
+    (Array.isArray(productInfo?.productVariants) &&
+      productInfo.productVariants.length > 1),
   );
   const isMixBoxCheckout = canCustomizeBox && selectedPlanType === "mixYourBox";
   const isQuantityChangable = !isMixBoxCheckout;
   const staticVariantInfo = getStaticVariantInfo(staticContent, staticSizeKey);
 
   const productImages = useMemo(() => {
-    if (isPanty) {
-      return ["/ovy/panty-box.jpg"];
-    }
     const list = [
       activeVariant?.bannerImage,
       activeVariant?.image,
       productInfo?.bannerImage,
-      ...(productInfo?.productMediaRes || []).map((item: any) => item?.mediaURL),
-      ...(isLiners ? ["/products/liners.jpg", "/ovy/liner-cotton.jpg", "/ovy/liner-feather.jpg"] : []),
+      ...(productInfo?.productMediaRes || []).map(
+        (item: any) => item?.mediaURL,
+      ),
     ].filter(Boolean);
     return Array.from(new Set(list));
-  }, [activeVariant, productInfo, isPanty, isLiners]);
+  }, [activeVariant, productInfo]);
 
   const displayDescription =
     getStaticShortText(staticVariantInfo, staticContent) ||
     activeVariant?.description ||
-    productInfo?.description ||
-    (isLiners
-      ? "A thin, everyday layer that sits in your underwear and keeps it clean between periods — for normal daily discharge, spotting before or after your period, and light bladder leaks. 190mm length and ultra-thin ~1mm, individually wrapped."
-      : isPanty
-        ? "A pad, reimagined as underwear you simply step into — single-use and disposable, never washed. Super-absorbent holding as much as 5 pads for up to 10–12 hours, with 360° leak protection yet genuinely super-thin under clothes."
-        : "Rash-free, toxin-free organic sanitary pads with a super-absorbent SAP gel core & 100% biodegradable disposal bags. Dermatologically tested and pH-balanced for total peace of mind.");
-
-  const defaultBullets = isLiners
-    ? [
-        "Ultra-thin ~1mm — you forget it’s there",
-        "Breathable, cottony-soft top sheet",
-        "190mm length — everyday coverage",
-        "Fragrance-free & dye-free — gentle on skin",
-        "Individually wrapped — easy to carry",
-        "Secure adhesive — stays put through the day",
-      ]
-    : isPanty
-      ? [
-          "Super-absorbent — holds as much as 5 regular pads, for up to 10–12 hours",
-          "One panty = 2–3 pad changes — no mid-day swaps in public washrooms",
-          "Genuinely super-thin — feels like normal underwear, not a bulky diaper",
-          "Full 360° coverage — leak-resistant back and soft leak-guard sides",
-          "Worn like underwear — no pad to place, no wings, no adhesive",
-          "Each panty individually sealed in its own soft wrapper",
-        ]
-      : [
+    productInfo?.description;
+  const displayHighlights =
+    getStaticBullets(staticVariantInfo).length > 0
+      ? getStaticBullets(staticVariantInfo)
+      : activeVariant?.highlights ||
+        productInfo?.highlights || [
           "100% Organic Top Sheet — Soft, breathable & rash-free",
           "Super Absorbent SAP Gel Core for maximum leak protection",
           "Includes 100% Biodegradable Disposal Bags with every pad",
@@ -281,18 +236,16 @@ export default function ProductDetailPage({
           "Zero Chlorine, Fragrances, Parabens or Synthetic Dyes",
         ];
 
-  const displayHighlights =
-    getStaticBullets(staticVariantInfo).length > 0
-      ? getStaticBullets(staticVariantInfo)
-      : activeVariant?.highlights || productInfo?.highlights || defaultBullets;
-
   const staticSpecs = getStaticSpecs(staticContent, staticSizeKey);
-  const quickSpecs = staticSpecs.length > 0 ? staticSpecs.slice(0, 4) : [
-    { label: "Top Sheet", value: "100% Organic Cotton" },
-    { label: "Absorbency Core", value: "Super-absorbent SAP Gel" },
-    { label: "Disposal", value: "100% Biodegradable Bags" },
-    { label: "Skin Safety", value: "pH-balanced, Toxin-free" },
-  ];
+  const quickSpecs =
+    staticSpecs.length > 0
+      ? staticSpecs.slice(0, 4)
+      : [
+          { label: "Top Sheet", value: "100% Organic Cotton" },
+          { label: "Absorbency Core", value: "Super-absorbent SAP Gel" },
+          { label: "Disposal", value: "100% Biodegradable Bags" },
+          { label: "Skin Safety", value: "pH-balanced, Toxin-free" },
+        ];
 
   const maxBoxes = getMaxBoxes(
     staticContent,
@@ -300,126 +253,62 @@ export default function ProductDetailPage({
   );
   const freeShippingThreshold = getFreeShippingThreshold(
     staticContent,
-    399,
+    productInfo?.freeShippingOver || 399,
   );
 
-  const isOutOfStock = Boolean(
-    activeVariant
-      ? activeVariant.isInStock === false ||
-        activeVariant.is_in_stock === false
-      : variantsList.length > 0
-        ? variantsList.every(
-            (v: any) => v.isInStock === false || v.is_in_stock === false,
-          )
-        : productInfo?.isInStock === false || productInfo?.is_in_stock === false,
-  );
+  const availableSubscriptionPlans = getPdpSubscriptionPlans(productInfo);
+  const shownSubscriptionPlans = [BUY_ONCE_PLAN, ...availableSubscriptionPlans];
 
-  const availableSubscriptionPlans = isOutOfStock
-    ? []
-    : getPdpSubscriptionPlans(productInfo);
-  const shownSubscriptionPlans =
-    isOutOfStock || availableSubscriptionPlans.length === 0
-      ? []
-      : [BUY_ONCE_PLAN, ...availableSubscriptionPlans];
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const searchParams = new URLSearchParams(window.location.search);
+    const planParam = searchParams.get("plan");
+    const hash = window.location.hash;
 
-  const getInitialMixBoxSizes = (variants: any[]) => {
-    let targetRecipe = MIX_BOX_DEFAULT_RECIPE;
-    if (typeof window !== "undefined") {
-      try {
-        const saved = window.localStorage.getItem("ovy_mix_your_box_recipe");
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          const l = Number(parsed?.L) || 0;
-          const xl = Number(parsed?.XL) || 0;
-          const xlPlus = Number(parsed?.["XL+"]) || 0;
-          if (l + xl + xlPlus === 21) {
-            targetRecipe = { L: l, XL: xl, "XL+": xlPlus };
-          }
+    if (
+      planParam === "mixYourBox" ||
+      planParam === "mix-your-box" ||
+      hash === "#mix-your-box" ||
+      hash === "#mix-box" ||
+      hash === "#mixYourBox"
+    ) {
+      if (canCustomizeBox) {
+        setSelectedPlanType("mixYourBox");
+        const variants =
+          productInfo?.prodcutVarientBoxRes ||
+          productInfo?.productVariants ||
+          [];
+        if (variants.length > 0) {
+          const baseQuantity = Math.floor(21 / Math.max(variants.length, 1));
+          let remaining = 21;
+          const selectedVarientInfo = variants.map(
+            (item: any, index: number) => {
+              const qty =
+                index === variants.length - 1 ? remaining : baseQuantity;
+              remaining -= qty;
+              return {
+                name: item.name,
+                quantity: qty,
+                price: Number(item.price || 0),
+              };
+            },
+          );
+          setCartSizes(selectedVarientInfo);
+          setSelectedVarient(selectedVarientInfo);
+          setTotal(21);
         }
-      } catch {
-        // fallback
+      }
+    } else if (planParam === "cycleSync" || hash === "#cycle-sync") {
+      const cycleSyncPlan = shownSubscriptionPlans.find(
+        (p: any) =>
+          p.subscriptionType === "cycle_sync" || p.id === "cycle_sync",
+      );
+      if (cycleSyncPlan) {
+        setSelectedPlan(cycleSyncPlan);
+        setIsSubscribed(true);
       }
     }
-
-    return variants.map((item: any) => {
-      const padSize = normalizePadSize(`${item.size ?? ""} ${item.name ?? ""}`);
-      const qty = padSize ? targetRecipe[padSize] ?? 0 : 0;
-      return {
-        ...item,
-        name: item.name,
-        size: item.size || item.name,
-        quantity: qty,
-        price: Number(item.price || 0),
-      };
-    });
-  };
-
-  const switchToTab = (tab: "pickSize" | "mixYourBox", pushToHistory = true) => {
-    if (tab === "mixYourBox") {
-      if (!canCustomizeBox) return;
-      setSelectedPlanType("mixYourBox");
-      selectedPlanTypeRef.current = "mixYourBox";
-      const variants =
-        productInfo?.prodcutVarientBoxRes ||
-        productInfo?.productVariants ||
-        variantsList ||
-        [];
-      if (variants.length > 0) {
-        const selectedVarientInfo = getInitialMixBoxSizes(variants);
-        setCartSizes(selectedVarientInfo);
-        setSelectedVarient(selectedVarientInfo);
-        setTotal(selectedVarientInfo.reduce((acc: number, i: any) => acc + (i.quantity || 0), 0));
-      }
-      if (typeof window !== "undefined") {
-        const currentParams = new URLSearchParams(window.location.search);
-        currentParams.delete("plan");
-        const searchStr = currentParams.toString() ? `?${currentParams.toString()}` : "";
-        const targetUrl = `${window.location.pathname}${searchStr}#mix`;
-        if (pushToHistory) {
-          window.history.pushState({ tab: "mixYourBox" }, "", targetUrl);
-        } else {
-          window.history.replaceState({ tab: "mixYourBox" }, "", targetUrl);
-        }
-      }
-    } else {
-      setSelectedPlanType("pickSize");
-      selectedPlanTypeRef.current = "pickSize";
-      const targetVariant = activeVariant || variantsList[0] || productInfo;
-      if (targetVariant) {
-        setSelectedVarient(getPickedVariantSelection(targetVariant));
-        setSelectedSize(targetVariant.size || targetVariant.name || "");
-        if (targetVariant.flowType) setSelectedFlow(targetVariant.flowType);
-        if (targetVariant.bannerImage || targetVariant.image) {
-          setActiveImage(targetVariant.bannerImage || targetVariant.image);
-        }
-      }
-      if (typeof window !== "undefined") {
-        const currentParams = new URLSearchParams(window.location.search);
-        currentParams.delete("plan");
-        const sizeKey = resolveStaticSizeKey(
-          targetVariant?.size || targetVariant?.name,
-          targetVariant,
-          staticContent,
-        );
-        const hash =
-          sizeKey && staticContent?.SIZES?.[sizeKey]?.hash
-            ? staticContent.SIZES[sizeKey].hash
-            : targetVariant?.size
-              ? `#${targetVariant.size.split(" ")[0].toLowerCase()}`
-              : "#pick-size";
-        if (sizeKey) {
-          currentParams.set("size", sizeKey.toLowerCase());
-        }
-        const searchStr = currentParams.toString() ? `?${currentParams.toString()}` : "";
-        const targetUrl = `${window.location.pathname}${searchStr}${hash}`;
-        if (pushToHistory) {
-          window.history.pushState({ tab: "pickSize" }, "", targetUrl);
-        } else {
-          window.history.replaceState({ tab: "pickSize" }, "", targetUrl);
-        }
-      }
-    }
-  };
+  }, [canCustomizeBox, shownSubscriptionPlans, productInfo]);
 
   const subscriptionType = selectedPlan?.subscriptionType ?? "buy_once";
   const purchaseType =
@@ -437,17 +326,9 @@ export default function ProductDetailPage({
       .filter(Boolean) as MixBoxSelection[],
   );
   const cycleSyncSchedule =
-    subscriptionType === "cycle_sync"
-      ? calculateCycleSyncSchedule({
-          lastPeriodDate: cycleSync.lastPeriodDate,
-          cycleLength: cycleSync.cycleLength,
-          periodLength: cycleSync.periodLength,
-          consentAccepted: cycleSync.consentAccepted,
-        })
+    subscriptionType === "cycle_sync" && cycleSync.nextPeriodDate
+      ? calculateCycleSyncSchedule(cycleSync)
       : null;
-  const isCycleSyncReady =
-    subscriptionType !== "cycle_sync" ||
-    Boolean(cycleSyncSchedule?.valid && cycleSync.consentAccepted);
 
   const effectivePurchaseType = purchaseType;
   const effectiveSubscriptionType =
@@ -455,37 +336,24 @@ export default function ProductDetailPage({
       ? subscriptionType
       : null;
 
-  // Subscriptions: Monthly & Cycle Sync: 1 box per delivery. Every 2 months: up to 2 boxes. One-time: up to 3 boxes.
-  const maxMixBoxesAllowed =
-    effectiveSubscriptionType === "monthly" || effectiveSubscriptionType === "cycle_sync"
-      ? 1
-      : effectiveSubscriptionType === "every_2_months"
-        ? 2
-        : 3;
-
-  useEffect(() => {
-    if (isMixBoxCheckout && quantity > maxMixBoxesAllowed) {
-      setQuantity(maxMixBoxesAllowed);
-    }
-  }, [isMixBoxCheckout, quantity, maxMixBoxesAllowed]);
-
   const mixBoxPricing = isMixBoxCheckout
     ? calculateMixBoxPricing({
         recipe: mixBoxRecipe,
         setPrice: activeVariant?.price || 349,
-        boxCount: quantity,
-        purchaseType: effectivePurchaseType,
-        subscriptionType: effectiveSubscriptionType,
+        purchaseType: "one_time",
+        subscriptionType: null,
       })
     : null;
 
   const subscriptionDiscount = effectiveSubscriptionType
-    ? getPdpSubscriptionDiscount(effectiveSubscriptionType, productInfo) / 100
+    ? getPdpSubscriptionDiscount(effectiveSubscriptionType) / 100
     : 0;
   const volumeDiscount = isMixBoxCheckout
     ? 0
     : getVolumeDiscount(staticContent, quantity);
-  const baseVariantPrice = Number(activeVariant?.price || productInfo?.price || 349);
+  const baseVariantPrice = Number(
+    activeVariant?.price || productInfo?.price || 349,
+  );
   const discountedVariantPrice = applyDiscounts(
     baseVariantPrice,
     subscriptionDiscount,
@@ -493,16 +361,12 @@ export default function ProductDetailPage({
   );
   const effectiveUnitPrice = isMixBoxCheckout
     ? mixBoxPricing?.valid
-      ? applyDiscounts(mixBoxPricing.price / quantity, subscriptionDiscount)
-      : null
+      ? applyDiscounts(mixBoxPricing.price, subscriptionDiscount)
+      : 0
     : discountedVariantPrice;
   const currentOrderValue = isMixBoxCheckout
-    ? mixBoxPricing?.valid
-      ? applyDiscounts(mixBoxPricing.price, subscriptionDiscount)
-      : null
-    : typeof effectiveUnitPrice === "number"
-      ? effectiveUnitPrice * quantity
-      : 0;
+    ? effectiveUnitPrice
+    : effectiveUnitPrice * quantity;
   const baseOrderValueForPlan = isMixBoxCheckout
     ? mixBoxPricing?.valid
       ? mixBoxPricing.price
@@ -511,9 +375,7 @@ export default function ProductDetailPage({
 
   const totalAmount = useMemo(() => {
     if (isMixBoxCheckout) {
-      return mixBoxPricing?.valid && typeof currentOrderValue === "number"
-        ? currentOrderValue
-        : null;
+      return mixBoxPricing?.valid ? currentOrderValue : "NA";
     }
     return currentOrderValue;
   }, [currentOrderValue, isMixBoxCheckout, mixBoxPricing]);
@@ -523,190 +385,87 @@ export default function ProductDetailPage({
   );
 
   const syncHash = (sizeKey: string | null) => {
-    if (!sizeKey || typeof window === "undefined") return;
-    const currentParams = new URLSearchParams(window.location.search);
-    currentParams.delete("plan");
-    currentParams.set("size", sizeKey.toLowerCase());
+    if (
+      !sizeKey ||
+      typeof window === "undefined" ||
+      selectedPlanType === "mixYourBox"
+    )
+      return;
     const hash =
       staticContent?.SIZES?.[sizeKey]?.hash || `#${sizeKey.toLowerCase()}`;
     window.history.replaceState(
       null,
       "",
-      `${window.location.pathname}?${currentParams.toString()}${hash}`,
+      `${window.location.pathname}${window.location.search}${hash}`,
     );
+    window.dispatchEvent(new Event("hashchange"));
   };
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    let isMainIntersecting = false;
-
-    const updateStickyBar = () => {
-      // If the main buttons are visible anywhere on screen, HIDE sticky bar
-      if (isMainIntersecting) {
-        setShowStickyBar(false);
-        return;
-      }
-      if (mainButtonsRef.current) {
-        const rect = mainButtonsRef.current.getBoundingClientRect();
-        // Only show if user has scrolled down past the main buttons (bottom < 0)
-        setShowStickyBar(rect.bottom < 0);
-      }
-    };
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        isMainIntersecting = entry.isIntersecting;
-        updateStickyBar();
-      },
-      { threshold: 0 }
-    );
-
-    if (mainButtonsRef.current) {
-      observer.observe(mainButtonsRef.current);
+    if (typeof window !== "undefined") {
+      const handleScroll = () => {
+        if (window.scrollY > 450) {
+          setShowStickyBar(true);
+        } else {
+          setShowStickyBar(false);
+        }
+      };
+      window.addEventListener("scroll", handleScroll);
+      return () => window.removeEventListener("scroll", handleScroll);
     }
-
-    window.addEventListener("scroll", updateStickyBar, { passive: true });
-    window.addEventListener("resize", updateStickyBar, { passive: true });
-    updateStickyBar();
-
-    return () => {
-      observer.disconnect();
-      window.removeEventListener("scroll", updateStickyBar);
-      window.removeEventListener("resize", updateStickyBar);
-    };
   }, []);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const syncStateWithUrl = (isInitial = false) => {
-      const hash = window.location.hash.toLowerCase();
-      const currentParams = new URLSearchParams(window.location.search);
-      const planParam = currentParams.get("plan");
-
-      const isMix =
-        hash === "#mix" ||
-        hash === "#mix-your-box" ||
-        hash === "#mix-box" ||
-        hash === "#mixyourbox" ||
-        planParam === "mixYourBox" ||
-        planParam === "mix-your-box" ||
-        planParam === "mix";
-
-      if (isMix) {
-        if (canCustomizeBox) {
-          setSelectedPlanType("mixYourBox");
-          selectedPlanTypeRef.current = "mixYourBox";
-          const variants =
-            productInfo?.prodcutVarientBoxRes ||
-            productInfo?.productVariants ||
-            variantsList ||
-            [];
-          if (variants.length > 0 && (!cartSizes || cartSizes.length === 0 || total === 0)) {
-            const selectedVarientInfo = getInitialMixBoxSizes(variants);
-            setCartSizes(selectedVarientInfo);
-            setSelectedVarient(selectedVarientInfo);
-            setTotal(selectedVarientInfo.reduce((acc: number, i: any) => acc + (i.quantity || 0), 0));
-          }
-        }
-        if (isInitial && !hasScrolledInitialRef.current) {
-          hasScrolledInitialRef.current = true;
-          setTimeout(() => {
-            document
-              .getElementById("starter")
-              ?.scrollIntoView({ behavior: "smooth", block: "start" });
-          }, 300);
-        }
-      } else {
-        // Tab is NOT mix
-        if (isPads && canCustomizeBox && selectedPlanTypeRef.current === "mixYourBox") {
-          setSelectedPlanType("pickSize");
-          selectedPlanTypeRef.current = "pickSize";
-          const targetVariant = activeVariant || variantsList[0] || productInfo;
-          if (targetVariant) {
-            setSelectedVarient(getPickedVariantSelection(targetVariant));
-          }
-        }
-
-        if (planParam === "cycleSync" || hash === "#cycle-sync") {
-          const cycleSyncPlan = shownSubscriptionPlans.find(
-            (p: any) =>
-              p.subscriptionType === "cycle_sync" || p.id === "cycle_sync",
-          );
-          if (cycleSyncPlan) {
-            setSelectedPlan(cycleSyncPlan);
-            setIsSubscribed(true);
-          }
-        }
-
-        if (isInitial && (hash === "#starter" || currentParams.has("starter")) && !hasScrolledInitialRef.current) {
-          hasScrolledInitialRef.current = true;
-          setTimeout(() => {
-            document
-              .getElementById("starter")
-              ?.scrollIntoView({ behavior: "smooth", block: "start" });
-          }, 300);
-        }
+    if (typeof window !== "undefined") {
+      const hash = window.location.hash;
+      const search = window.location.search;
+      if (
+        hash === "#starter" ||
+        hash.includes("starter") ||
+        search.includes("starter") ||
+        hash.includes("mix-your-box") ||
+        hash.includes("mix-box") ||
+        search.includes("mixYourBox") ||
+        search.includes("mix-your-box")
+      ) {
+        setTimeout(() => {
+          document
+            .getElementById("starter")
+            ?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }, 350);
       }
-    };
-
-    syncStateWithUrl(true);
-
-    const onPop = () => syncStateWithUrl(false);
-    const onHash = () => syncStateWithUrl(false);
-
-    window.addEventListener("popstate", onPop);
-    window.addEventListener("hashchange", onHash);
-
-    return () => {
-      window.removeEventListener("popstate", onPop);
-      window.removeEventListener("hashchange", onHash);
-    };
-  }, [canCustomizeBox, isPads, productInfo, variantsList, shownSubscriptionPlans]);
+    }
+  }, []);
 
   useEffect(() => {
-    if (!staticContent || typeof window === "undefined" || variantsList.length === 0) return;
+    if (!staticContent || typeof window === "undefined") return;
+    const hashOrSearch = `${window.location.hash} ${window.location.search}`;
+    const hashSizeKey = resolveStaticSizeKey(
+      hashOrSearch,
+      activeVariant,
+      staticContent,
+    );
+    const hashVariant = variantsList.find(
+      (variant: any) =>
+        resolveStaticSizeKey(variant.size, variant, staticContent) ===
+        hashSizeKey,
+    );
 
-    const applyUrlSize = () => {
-      const hash = window.location.hash.toLowerCase();
-      if (hash.includes("mix") || selectedPlanTypeRef.current === "mixYourBox") return;
-
-      const currentParams = new URLSearchParams(window.location.search);
-      const sizeParam = currentParams.get("size");
-
-      const targetStr = [sizeParam, hash, window.location.search].filter(Boolean).join(" ");
-      if (!targetStr.trim()) return;
-
-      const requestedKey = resolveStaticSizeKey(targetStr, null, staticContent);
-      if (!requestedKey) return;
-
-      const matchedVariant = variantsList.find(
-        (v: any) =>
-          resolveStaticSizeKey(v.size || v.name || v.sku, null, staticContent) ===
-          requestedKey,
-      );
-
-      if (matchedVariant) {
-        setActiveVariant(matchedVariant);
-        setSelectedVarient(getPickedVariantSelection(matchedVariant));
-        setSelectedSize(matchedVariant.size || matchedVariant.name || "");
-        if (matchedVariant.flowType) setSelectedFlow(matchedVariant.flowType);
-        if (matchedVariant.bannerImage || matchedVariant.image) {
-          setActiveImage(matchedVariant.bannerImage || matchedVariant.image);
-        }
+    if (hashVariant && hashVariant.id !== activeVariant?.id) {
+      setSelectedSize(hashVariant.size || selectedSize);
+      setSelectedFlow(hashVariant.flowType || selectedFlow);
+      setActiveVariant(hashVariant);
+      if (hashVariant.bannerImage || hashVariant.image) {
+        setActiveImage(hashVariant.bannerImage || hashVariant.image);
       }
-    };
+    } else {
+      syncHash(staticSizeKey);
+    }
+  }, [staticContent, variantsList]);
 
-    applyUrlSize();
-
-    window.addEventListener("hashchange", applyUrlSize);
-    window.addEventListener("popstate", applyUrlSize);
-    return () => {
-      window.removeEventListener("hashchange", applyUrlSize);
-      window.removeEventListener("popstate", applyUrlSize);
-    };
-  }, [staticContent, variantsList, searchParams]);
+  useEffect(() => {
+    syncHash(staticSizeKey);
+  }, [staticSizeKey]);
 
   useEffect(() => {
     if (!canCustomizeBox && selectedPlanType === "mixYourBox") {
@@ -719,49 +478,35 @@ export default function ProductDetailPage({
     }
   }, [canCustomizeBox, selectedPlanType, productInfo?.prodcutVarientBoxRes]);
 
-  useEffect(() => {
-    if (variantsList.length > 0) {
-      const currentId = activeVariant?.id;
-      const matched = variantsList.find((v: any) => v.id === currentId) || variantsList[0];
-      if (matched && (matched.isInStock !== activeVariant?.isInStock || matched.id !== activeVariant?.id)) {
-        setActiveVariant(matched);
+  const addToCart = async () => {
+    if (isMixBoxCheckout) {
+      if (!mixBoxPricing?.valid) {
+        toast.error(
+          mixBoxPricing?.message ??
+            "Complete your box before adding it to cart.",
+        );
+        return;
       }
     }
-  }, [productInfo, variantsList]);
 
-  const addToCart = async () => {
-    if (isOutOfStock) {
-      toast.error("This item is currently out of stock.");
-      return false;
-    }
-
-    if (effectivePurchaseType === "subscription") {
-      await handleBuyNow();
-      return false;
-    }
-
-    if (isMixBoxCheckout) {
-      if (!mixBoxPricing?.valid || total !== 21) {
+    if (subscriptionType === "cycle_sync") {
+      if (!cycleSyncSchedule?.valid) {
         toast.error(
-          getMixBoxAdjustmentMessage(total) ||
-            "Complete your box (21 pads) before adding it to cart.",
+          cycleSyncSchedule?.message ?? "Enter valid Cycle Sync details.",
         );
-        return false;
+        return;
       }
     }
 
     const result = await addToCartAction({
       productId: productInfo.id,
       productVariantId: activeVariant?.id,
-      sku: isMixBoxCheckout ? "MIX-BOX" : (activeVariant?.sku || `${selectedSize}-${selectedFlow}`),
+      sku: activeVariant?.sku || `${selectedSize}-${selectedFlow}`,
       slug: productInfo?.slug || "",
-      title: isMixBoxCheckout ? "Mix Your Box" : (activeVariant?.name || productInfo?.name),
-      variantName: isMixBoxCheckout
-        ? formatMixBoxRecipe(mixBoxRecipe)
-        : (activeVariant?.name || (selectedSize ? `Size: ${selectedSize}` : undefined)),
-      price: isMixBoxCheckout ? (activeVariant?.price || 349) : (typeof effectiveUnitPrice === "number" ? effectiveUnitPrice : 349),
+      title: activeVariant?.name || productInfo?.name,
+      price: typeof effectiveUnitPrice === "number" ? effectiveUnitPrice : 349,
       selectedPlan: selectedPlan,
-      isSubscribed: false,
+      isSubscribed: effectivePurchaseType === "subscription",
       image:
         activeVariant?.bannerImage ||
         activeVariant?.image ||
@@ -772,29 +517,26 @@ export default function ProductDetailPage({
       mixBoxRecipe: isMixBoxCheckout ? mixBoxRecipe : undefined,
       totalPads:
         isMixBoxCheckout && mixBoxPricing?.valid
-          ? 21 * quantity
-          : isPads
-            ? 21 * quantity
-            : undefined,
+          ? mixBoxPricing.totalPads
+          : undefined,
       boxCount:
         isMixBoxCheckout && mixBoxPricing?.valid
-          ? quantity
-          : isPads
-            ? quantity
-            : undefined,
+          ? mixBoxPricing.boxCount
+          : undefined,
       freeLiners:
         isMixBoxCheckout && mixBoxPricing?.valid
-          ? 4 * quantity
-          : isPads
-            ? 4 * quantity
-            : undefined,
-      purchaseType: "one_time",
-      subscriptionType: null,
+          ? mixBoxPricing.freeLiners
+          : undefined,
+      purchaseType: effectivePurchaseType,
+      subscriptionType: effectiveSubscriptionType,
+      cycleSync:
+        effectiveSubscriptionType === "cycle_sync" ? cycleSync : undefined,
       isQuantityChangable: isQuantityChangable,
-      quantity: quantity,
+      quantity: isMixBoxCheckout ? 1 : quantity,
       ...(isMixBoxCheckout ? { uuid: crypto.randomUUID() } : {}),
     });
 
+    toast.success("Added to cart!");
     return result;
   };
 
@@ -805,79 +547,25 @@ export default function ProductDetailPage({
   };
 
   const handleBuyNow = async () => {
-    if (isOutOfStock) {
-      toast.error("This item is currently out of stock.");
-      return;
-    }
-
     if (effectivePurchaseType !== "subscription") {
-      if (isMixBoxCheckout && (!mixBoxPricing?.valid || total !== 21)) {
-        toast.error(
-          getMixBoxAdjustmentMessage(total) || "Complete your box (21 pads) before checkout.",
-        );
-        return;
-      }
-      const directItem = {
-        productId: productInfo.id,
-        productVariantId: activeVariant?.id,
-        sku: isMixBoxCheckout ? "MIX-BOX" : (activeVariant?.sku || `${selectedSize}-${selectedFlow}`),
-        slug: productInfo?.slug || "",
-        title: isMixBoxCheckout ? "Mix Your Box" : (activeVariant?.name || productInfo?.name),
-        variantName: isMixBoxCheckout
-          ? formatMixBoxRecipe(mixBoxRecipe)
-          : (activeVariant?.name || (selectedSize ? `Size: ${selectedSize}` : undefined)),
-        image:
-          activeVariant?.bannerImage ||
-          activeVariant?.image ||
-          productInfo?.bannerImage ||
-          "/product.png",
-        price: isMixBoxCheckout ? (activeVariant?.price || 349) : (typeof effectiveUnitPrice === "number" ? effectiveUnitPrice : 349),
-        originalPrice: activeVariant?.strikethroughPrice,
-        quantity: isMixBoxCheckout ? quantity : quantity,
-        mixBoxRecipe: isMixBoxCheckout ? mixBoxRecipe : undefined,
-        totalPads:
-          isMixBoxCheckout && mixBoxPricing?.valid
-            ? 21 * quantity
-            : isPads
-              ? 21 * quantity
-              : undefined,
-        boxCount:
-          isMixBoxCheckout && mixBoxPricing?.valid
-            ? quantity
-            : isPads
-              ? quantity
-              : undefined,
-        freeLiners:
-          isMixBoxCheckout && mixBoxPricing?.valid
-            ? 4 * quantity
-            : isPads
-              ? 4 * quantity
-              : undefined,
-        purchaseType: "one_time",
-      };
-      window.sessionStorage.setItem(
-        "potent-direct-checkout",
-        JSON.stringify(directItem),
-      );
-      router.push("/checkout?mode=direct");
+      const added = await addToCart();
+      if (added) router.push("/checkout");
       return;
     }
 
-    if (isMixBoxCheckout && (!mixBoxPricing?.valid || total !== 21)) {
+    if (isMixBoxCheckout && !mixBoxPricing?.valid) {
       toast.error(
-        mixBoxPricing?.message || getMixBoxAdjustmentMessage(total) || "Complete your box (21 pads) before checkout.",
+        mixBoxPricing?.message ?? "Complete your box before checkout.",
       );
       return;
     }
 
     if (
       effectiveSubscriptionType === "cycle_sync" &&
-      (!cycleSyncSchedule?.valid || !cycleSync.consentAccepted)
+      !cycleSyncSchedule?.valid
     ) {
       toast.error(
-        !cycleSyncSchedule?.valid
-          ? cycleSyncSchedule?.message ?? "Enter valid Cycle Sync details."
-          : "Please confirm you are 18 or older, or have a parent or guardian's permission.",
+        cycleSyncSchedule?.message ?? "Enter valid Cycle Sync details.",
       );
       return;
     }
@@ -887,39 +575,25 @@ export default function ProductDetailPage({
       JSON.stringify({
         productId: productInfo.id,
         productVariantId: activeVariant?.id,
-        quantity: isMixBoxCheckout ? quantity : quantity,
+        quantity: isMixBoxCheckout ? 1 : quantity,
         subscriptionType: effectiveSubscriptionType,
         selectedPlan,
         plan: selectedPlan,
         mixBoxRecipe: isMixBoxCheckout ? mixBoxRecipe : undefined,
         totalPads:
           isMixBoxCheckout && mixBoxPricing?.valid
-            ? 21 * quantity
-            : isPads
-              ? 21 * quantity
-              : undefined,
+            ? mixBoxPricing.totalPads
+            : undefined,
         boxCount:
           isMixBoxCheckout && mixBoxPricing?.valid
-            ? quantity
-            : isPads
-              ? quantity
-              : undefined,
+            ? mixBoxPricing.boxCount
+            : undefined,
         freeLiners:
           isMixBoxCheckout && mixBoxPricing?.valid
-            ? 4 * quantity
-            : isPads
-              ? 4 * quantity
-              : undefined,
-        cycleSync:
-          effectiveSubscriptionType === "cycle_sync" && cycleSyncSchedule?.valid
-            ? {
-                lastPeriodDate: cycleSync.lastPeriodDate,
-                nextPeriodDate: cycleSyncSchedule.nextPeriodDateString,
-                cycleLength: cycleSyncSchedule.cycleLength,
-                periodLength: cycleSyncSchedule.periodLength,
-                consentAccepted: cycleSync.consentAccepted,
-              }
+            ? mixBoxPricing.freeLiners
             : undefined,
+        cycleSync:
+          effectiveSubscriptionType === "cycle_sync" ? cycleSync : undefined,
       }),
     );
 
@@ -957,7 +631,8 @@ export default function ProductDetailPage({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           deliveryPincode: pincode,
-          pickupPincode: activeVariant?.pickupPincode || productInfo?.pickupPincode,
+          pickupPincode:
+            activeVariant?.pickupPincode || productInfo?.pickupPincode,
           weight: activeVariant?.weightKg || productInfo?.weightKg || 0.3,
           cod: false,
         }),
@@ -998,13 +673,18 @@ export default function ProductDetailPage({
 
   const handleVariantChange = (variant: any) => {
     setActiveVariant(variant);
-    setSelectedVarient(getPickedVariantSelection(variant));
-    setSelectedSize(variant.size || variant.name || "");
+    if (variant.size) setSelectedSize(variant.size);
     if (variant.flowType) setSelectedFlow(variant.flowType);
     if (variant.bannerImage || variant.image) {
       setActiveImage(variant.bannerImage || variant.image);
     }
-    syncHash(resolveStaticSizeKey(variant.size || variant.name, variant, staticContent));
+    syncHash(
+      resolveStaticSizeKey(
+        variant.size || variant.name,
+        variant,
+        staticContent,
+      ),
+    );
   };
 
   const formatCycleDate = (date: Date) =>
@@ -1024,17 +704,13 @@ export default function ProductDetailPage({
   const minimumCycleSyncPeriodDate = formatDateInputValue(
     getMinimumCycleSyncPeriodDate(),
   );
-  const todayDateInputValue = getTodayDateInputValue();
 
   // Gallery Prev / Next navigation
-  const [isZoomOpen, setIsZoomOpen] = useState(false);
-  const touchStartXRef = useRef<number | null>(null);
-  const touchStartYRef = useRef<number | null>(null);
-
   const currentImageIndex = productImages.indexOf(activeImage);
   const handlePrevImage = () => {
     if (productImages.length <= 1) return;
-    const nextIdx = currentImageIndex <= 0 ? productImages.length - 1 : currentImageIndex - 1;
+    const nextIdx =
+      currentImageIndex <= 0 ? productImages.length - 1 : currentImageIndex - 1;
     setActiveImage(productImages[nextIdx]);
   };
   const handleNextImage = () => {
@@ -1043,52 +719,14 @@ export default function ProductDetailPage({
     setActiveImage(productImages[nextIdx]);
   };
 
-  const handleHeroTouchStart = (e: React.TouchEvent) => {
-    touchStartXRef.current = e.touches[0].clientX;
-    touchStartYRef.current = e.touches[0].clientY;
-  };
-
-  const handleHeroTouchEnd = (e: React.TouchEvent) => {
-    if (touchStartXRef.current === null || touchStartYRef.current === null) return;
-    const diffX = e.changedTouches[0].clientX - touchStartXRef.current;
-    const diffY = e.changedTouches[0].clientY - touchStartYRef.current;
-    if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 40) {
-      if (diffX < 0) {
-        handleNextImage();
-      } else {
-        handlePrevImage();
-      }
-    }
-    touchStartXRef.current = null;
-    touchStartYRef.current = null;
-  };
-
   // Quiz Recommendation Calculation
   const recommendedQuizResult = useMemo(() => {
     const { flow, leaks, duration } = quizAnswers;
-
-    // 1. Heavy flow or frequent leaks always leads to XL+ (320mm)
-    if (flow === "heavy" || flow === "extra_heavy" || leaks === "often") {
-      const match = variantsList.find(
-        (v: any) =>
-          v.size?.includes("320") ||
-          v.name?.includes("XL+") ||
-          v.sku?.toLowerCase().includes("xlplus") ||
-          v.size?.toLowerCase().includes("xl+"),
-      );
-      return {
-        size: "XL+ (320mm)",
-        badge: "BEST MATCH FOR HEAVY FLOW",
-        why: "Maximum length (320mm) with dual leak guards to give you complete protection during heavy flow days and overnight peace of mind.",
-        type: "pickSize",
-        variantSize: "XL+ (320mm)",
-        price: Number(match?.price || 349),
-        image: match?.bannerImage || match?.image || activeVariant?.bannerImage || productInfo?.bannerImage,
-      };
-    }
-
-    // 2. Variable flow across cycle days or long cycle leads to Mix Your Box
-    if (flow === "variable" || (duration === "7+" && flow !== "heavy")) {
+    if (
+      flow === "variable" ||
+      duration === "7+" ||
+      (flow === "heavy" && duration === "5-7")
+    ) {
       return {
         size: "Mix Your Box",
         badge: "RECOMMENDED FOR YOUR CYCLE",
@@ -1099,16 +737,24 @@ export default function ProductDetailPage({
         image: activeVariant?.bannerImage || productInfo?.bannerImage,
       };
     }
-
-    // 3. Light flow leads to L (240mm)
+    if (flow === "extra_heavy" || leaks === "often") {
+      const match = variantsList.find((v: any) => v.size?.includes("320"));
+      return {
+        size: "XL+ (320mm)",
+        badge: "BEST MATCH FOR HEAVY FLOW",
+        why: "Maximum length (320mm) with dual leak guards to give you complete protection during heavy flow days and overnight peace of mind.",
+        type: "pickSize",
+        variantSize: "XL+ (320mm)",
+        price: Number(match?.price || 349),
+        image:
+          match?.bannerImage ||
+          match?.image ||
+          activeVariant?.bannerImage ||
+          productInfo?.bannerImage,
+      };
+    }
     if (flow === "light") {
-      const match = variantsList.find(
-        (v: any) =>
-          v.size?.includes("240") ||
-          v.name?.includes("L ") ||
-          v.sku?.toLowerCase().includes("size-l") ||
-          v.size?.toLowerCase().includes("240mm"),
-      );
+      const match = variantsList.find((v: any) => v.size?.includes("240"));
       return {
         size: "L (240mm)",
         badge: "BEST MATCH FOR LIGHT FLOW",
@@ -1116,18 +762,14 @@ export default function ProductDetailPage({
         type: "pickSize",
         variantSize: "L (240mm)",
         price: Number(match?.price || 299),
-        image: match?.bannerImage || match?.image || activeVariant?.bannerImage || productInfo?.bannerImage,
+        image:
+          match?.bannerImage ||
+          match?.image ||
+          activeVariant?.bannerImage ||
+          productInfo?.bannerImage,
       };
     }
-
-    // 4. Default / Regular / Medium flow leads to XL (280mm)
-    const match = variantsList.find(
-      (v: any) =>
-        v.size?.includes("280") ||
-        (v.name?.includes("XL") && !v.name?.includes("XL+")) ||
-        v.sku?.toLowerCase().includes("size-xl") ||
-        v.size?.toLowerCase().includes("280mm"),
-    );
+    const match = variantsList.find((v: any) => v.size?.includes("280"));
     return {
       size: "XL (280mm)",
       badge: "MOST POPULAR CHOICE",
@@ -1135,7 +777,11 @@ export default function ProductDetailPage({
       type: "pickSize",
       variantSize: "XL (280mm)",
       price: Number(match?.price || 349),
-      image: match?.bannerImage || match?.image || activeVariant?.bannerImage || productInfo?.bannerImage,
+      image:
+        match?.bannerImage ||
+        match?.image ||
+        activeVariant?.bannerImage ||
+        productInfo?.bannerImage,
     };
   }, [quizAnswers, activeVariant, productInfo, variantsList]);
 
@@ -1143,28 +789,28 @@ export default function ProductDetailPage({
     if (recommendedQuizResult.type === "mixYourBox") {
       if (canCustomizeBox) {
         setSelectedPlanType("mixYourBox");
-        const variants =
-          productInfo?.prodcutVarientBoxRes ||
-          productInfo?.productVariants ||
-          [];
-        if (variants.length > 0) {
-          const selectedVarientInfo = getInitialMixBoxSizes(variants);
-          setCartSizes(selectedVarientInfo);
-          setSelectedVarient(selectedVarientInfo);
-          setTotal(selectedVarientInfo.reduce((acc: number, i: any) => acc + (i.quantity || 0), 0));
-        }
+        const variants = productInfo.prodcutVarientBoxRes || [];
+        const baseQuantity = Math.floor(21 / Math.max(variants.length, 1));
+        let remaining = 21;
+        const selectedVarientInfo = variants.map((item: any, index: number) => {
+          const qty = index === variants.length - 1 ? remaining : baseQuantity;
+          remaining -= qty;
+          return {
+            name: item.name,
+            quantity: qty,
+            price: Number(item.price || 0),
+          };
+        });
+        setCartSizes(selectedVarientInfo);
+        setSelectedVarient(selectedVarientInfo);
+        setTotal(21);
       }
     } else {
       setSelectedPlanType("pickSize");
       const targetSize = recommendedQuizResult.variantSize;
       const match = variantsList.find(
         (v: any) =>
-          v.size === targetSize ||
-          v.name?.includes(targetSize?.split(" ")[0]) ||
-          (targetSize?.includes("XL+") &&
-            (v.name?.includes("XL+") ||
-              v.size?.includes("320") ||
-              v.sku?.toLowerCase().includes("xlplus"))),
+          v.size === targetSize || v.name?.includes(targetSize?.split(" ")[0]),
       );
       if (match) {
         handleVariantChange(match);
@@ -1179,15 +825,12 @@ export default function ProductDetailPage({
     const targetVariant =
       variantsList.find(
         (v: any) =>
-          v.size === targetSize ||
-          v.name?.includes(targetSize?.split(" ")[0]) ||
-          (targetSize?.includes("XL+") &&
-            (v.name?.includes("XL+") ||
-              v.size?.includes("320") ||
-              v.sku?.toLowerCase().includes("xlplus"))),
+          v.size === targetSize || v.name?.includes(targetSize?.split(" ")[0]),
       ) || activeVariant;
 
-    const basePrice = Number(recommendedQuizResult.price || targetVariant?.price || 349);
+    const basePrice = Number(
+      recommendedQuizResult.price || targetVariant?.price || 349,
+    );
 
     await addToCartAction({
       productId: productInfo.id,
@@ -1195,15 +838,14 @@ export default function ProductDetailPage({
       sku: targetVariant?.sku || `${recommendedQuizResult.size}`,
       slug: productInfo?.slug || "",
       title: `${targetVariant?.name || productInfo?.name} (${recommendedQuizResult.size})`,
-      variantName: targetVariant?.name || `Size: ${recommendedQuizResult.size}`,
       price: basePrice,
       selectedPlan: BUY_ONCE_PLAN,
       isSubscribed: false,
-      image: recommendedQuizResult.image || targetVariant?.bannerImage || "/product.png",
+      image:
+        recommendedQuizResult.image ||
+        targetVariant?.bannerImage ||
+        "/product.png",
       quantity: 1,
-      totalPads: isPads ? 21 : undefined,
-      boxCount: isPads ? 1 : undefined,
-      freeLiners: isPads ? 4 : undefined,
       isQuantityChangable: true,
       purchaseType: "one_time",
       subscriptionType: null,
@@ -1214,86 +856,110 @@ export default function ProductDetailPage({
   };
 
   return (
-    <div id="starter" className="max-w-[1180px] mx-auto px-3.5 sm:px-6 lg:px-8 pt-4 sm:pt-10 pb-16">
-      {/* Top View Toggle: Pick a Size vs Mix Your Box — ONLY for Pads */}
-      {isPads && canCustomizeBox && (
-        <div className="mx-auto mb-6 sm:mb-8 flex justify-center">
-          <div className="inline-flex gap-1 rounded-full border border-gray-200/80 bg-white p-1 shadow-xs" role="tablist">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={selectedPlanType === "pickSize"}
-              onClick={() => switchToTab("pickSize")}
-              className={`inline-flex cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold transition-all ${
-                selectedPlanType === "pickSize"
+    <div
+      id="starter"
+      className="mx-auto max-w-[1180px] px-3.5 pt-4 pb-16 sm:px-6 sm:pt-10 lg:px-8"
+    >
+      {/* Top View Toggle: Pick a Size vs Mix Your Box */}
+      <div className="mx-auto mb-6 flex justify-center sm:mb-8">
+        <div
+          className="inline-flex gap-1 rounded-full border border-gray-200/80 bg-white p-1 shadow-xs"
+          role="tablist"
+        >
+          <button
+            type="button"
+            role="tab"
+            aria-selected={selectedPlanType === "pickSize"}
+            onClick={() => {
+              setSelectedPlanType("pickSize");
+              const firstVariant = variantsList[0] || productInfo;
+              setSelectedVarient(getPickedVariantSelection(firstVariant));
+              handleVariantChange(firstVariant);
+            }}
+            className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all sm:px-5 sm:py-2.5 sm:text-sm ${
+              selectedPlanType === "pickSize"
+                ? "bg-[#9A5B90] text-white shadow-xs"
+                : "text-[#1A150F]/70 hover:text-[#1A150F]"
+            }`}
+          >
+            <Sparkles className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+            Pick a Size
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={selectedPlanType === "mixYourBox"}
+            disabled={!canCustomizeBox}
+            onClick={() => {
+              if (!canCustomizeBox) return;
+              setSelectedPlanType("mixYourBox");
+              const variants = productInfo.prodcutVarientBoxRes || [];
+              const baseQuantity = Math.floor(
+                21 / Math.max(variants.length, 1),
+              );
+              let remaining = 21;
+              const selectedVarientInfo = variants.map(
+                (item: any, index: number) => {
+                  const qty =
+                    index === variants.length - 1 ? remaining : baseQuantity;
+                  remaining -= qty;
+                  return {
+                    name: item.name,
+                    quantity: qty,
+                    price: Number(item.price || 0),
+                  };
+                },
+              );
+              setCartSizes(selectedVarientInfo);
+              setSelectedVarient(selectedVarientInfo);
+              setTotal(
+                selectedVarientInfo.reduce(
+                  (s: number, i: any) => s + i.quantity,
+                  0,
+                ),
+              );
+            }}
+            className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all sm:px-5 sm:py-2.5 sm:text-sm ${
+              !canCustomizeBox
+                ? "cursor-not-allowed text-black/40"
+                : selectedPlanType === "mixYourBox"
                   ? "bg-[#9A5B90] text-white shadow-xs"
-                  : "text-[#1A150F]/70 hover:text-[#1A150F]"
-              }`}
-            >
-              <Sparkles className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-              Pick a Size
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={selectedPlanType === "mixYourBox"}
-              disabled={!canCustomizeBox}
-              onClick={() => switchToTab("mixYourBox")}
-              className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold transition-all ${
-                !canCustomizeBox
-                  ? "cursor-not-allowed text-black/40"
-                  : selectedPlanType === "mixYourBox"
-                    ? "bg-[#9A5B90] text-white shadow-xs"
-                    : "cursor-pointer text-[#1A150F]/70 hover:text-[#1A150F]"
-              }`}
-            >
-              <PackageCheck className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-              Mix Your Box
-              {!canCustomizeBox && (
-                <span className="ml-0.5 rounded-full bg-[#F3E6F0] px-1.5 py-0.5 font-sans text-[9px] sm:text-[10px] font-extrabold uppercase tracking-wider text-[#7E4D77]">
-                  Soon
-                </span>
-              )}
-            </button>
-          </div>
+                  : "cursor-pointer text-[#1A150F]/70 hover:text-[#1A150F]"
+            }`}
+          >
+            <PackageCheck className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+            Mix Your Box
+            {!canCustomizeBox && (
+              <span className="ml-0.5 rounded-full bg-[#F3E6F0] px-1.5 py-0.5 font-sans text-[9px] font-extrabold tracking-wider text-[#7E4D77] uppercase sm:text-[10px]">
+                Soon
+              </span>
+            )}
+          </button>
         </div>
-      )}
+      </div>
 
       {/* Main PDP Grid (Aligned 12 Column Layout like Looway) */}
       <div className="grid grid-cols-1 items-start gap-6 sm:gap-8 lg:grid-cols-12 lg:gap-12">
         {/* LEFT COLUMN: Gallery & Product Badges (6 Columns out of 12) */}
-        <div className="lg:col-span-6 static lg:sticky lg:top-24 space-y-4 sm:space-y-6">
+        <div className="static space-y-4 sm:space-y-6 lg:sticky lg:top-24 lg:col-span-6">
           <div>
-            <div
-              onTouchStart={handleHeroTouchStart}
-              onTouchEnd={handleHeroTouchEnd}
-              className="relative aspect-[4/5] w-full overflow-hidden rounded-2xl sm:rounded-3xl border border-gray-200/80 bg-[#FBF1FB] shadow-xs flex items-center justify-center p-3 sm:p-6 group"
-            >
-              <div className="absolute top-3 left-3 sm:top-4 sm:left-4 z-10 flex flex-col gap-1.5">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/90 px-2.5 sm:px-3.5 py-1 sm:py-1.5 text-[11px] sm:text-xs font-semibold text-[#7E4D77] shadow-xs backdrop-blur-xs">
-                  <CheckCircle2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-[#7E4D77]" /> 100% Organic Cotton • Dermatologically Tested
+            <div className="relative flex aspect-[4/5] w-full items-center justify-center overflow-hidden rounded-2xl border border-gray-200/80 bg-[#FBF1FB] p-3 shadow-xs sm:rounded-3xl sm:p-6">
+              <div className="absolute top-3 left-3 z-10 flex flex-col gap-1.5 sm:top-4 sm:left-4">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-semibold text-[#7E4D77] shadow-xs backdrop-blur-xs sm:px-3.5 sm:py-1.5 sm:text-xs">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-[#7E4D77] sm:h-4 sm:w-4" />{" "}
+                  100% Organic Cotton • Dermatologically Tested
                 </span>
               </div>
-
-              {/* Top-Right Zoom Button */}
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsZoomOpen(true);
-                }}
-                className="absolute top-3 right-3 sm:top-4 sm:right-4 z-20 flex h-9 w-9 sm:h-10 sm:w-10 cursor-pointer items-center justify-center rounded-full bg-white/90 text-gray-700 shadow-md backdrop-blur-xs transition-all hover:scale-110 hover:bg-white hover:text-[#7E4D77]"
-                aria-label="Enlarge image"
-                title="Enlarge image"
-              >
-                <ZoomIn className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
-              </button>
 
               {activeImage ? (
                 <div className="relative h-full w-full p-4 sm:p-6">
                   <Image
                     src={getImageUrl(activeImage)}
-                    alt={activeVariant?.name || productInfo?.name || "Ovy Organic Pad"}
+                    alt={
+                      activeVariant?.name ||
+                      productInfo?.name ||
+                      "Ovy Organic Pad"
+                    }
                     fill
                     priority
                     sizes="(max-width: 1024px) 100vw, 50vw"
@@ -1301,11 +967,11 @@ export default function ProductDetailPage({
                   />
                 </div>
               ) : (
-                <div className="grid h-full place-items-center p-6 sm:p-8 text-center text-gray-500">
+                <div className="grid h-full place-items-center p-6 text-center text-gray-500 sm:p-8">
                   <div>
-                    <Sparkles className="mx-auto mb-2 h-7 w-7 sm:h-8 sm:w-8 text-[#9A5B90]" />
+                    <Sparkles className="mx-auto mb-2 h-7 w-7 text-[#9A5B90] sm:h-8 sm:w-8" />
                     <p className="font-semibold text-gray-900">
-                      {productInfo?.name || (isLiners ? "Ovy Daily Liners" : isPanty ? "Ovy Period Panties" : "Ovy Organic Pad")}
+                      Ovy Organic Pad
                     </p>
                   </div>
                 </div>
@@ -1316,7 +982,7 @@ export default function ProductDetailPage({
                   <button
                     type="button"
                     onClick={handlePrevImage}
-                    className="absolute top-1/2 left-2 sm:left-3 z-10 flex h-8 w-8 sm:h-10 sm:w-10 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border border-gray-200 bg-white/90 text-[#1A150F] shadow-md transition-all hover:scale-105 hover:bg-white"
+                    className="absolute top-1/2 left-2 z-10 flex h-8 w-8 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border border-gray-200 bg-white/90 text-[#1A150F] shadow-md transition-all hover:scale-105 hover:bg-white sm:left-3 sm:h-10 sm:w-10"
                     aria-label="Previous image"
                   >
                     <ChevronLeft className="h-4 w-4 sm:h-5 sm:w-5" />
@@ -1324,7 +990,7 @@ export default function ProductDetailPage({
                   <button
                     type="button"
                     onClick={handleNextImage}
-                    className="absolute top-1/2 right-2 sm:right-3 z-10 flex h-8 w-8 sm:h-10 sm:w-10 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border border-gray-200 bg-white/90 text-[#1A150F] shadow-md transition-all hover:scale-105 hover:bg-white"
+                    className="absolute top-1/2 right-2 z-10 flex h-8 w-8 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border border-gray-200 bg-white/90 text-[#1A150F] shadow-md transition-all hover:scale-105 hover:bg-white sm:right-3 sm:h-10 sm:w-10"
                     aria-label="Next image"
                   >
                     <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5" />
@@ -1332,62 +998,69 @@ export default function ProductDetailPage({
                 </>
               )}
 
-              <span className="absolute bottom-3 sm:bottom-4 left-1/2 z-10 -translate-x-1/2 font-caveat text-lg sm:text-xl whitespace-nowrap text-[#7E4D77]/90">
-                {isLiners
-                  ? "breathable, ultra-thin & gentle on skin"
-                  : isPanty
-                    ? "360° leak protection & super-absorbent"
-                    : "soft, rash-free & super absorbent"}
+              <span className="font-caveat absolute bottom-3 left-1/2 z-10 -translate-x-1/2 text-lg whitespace-nowrap text-[#7E4D77]/90 sm:bottom-4 sm:text-xl">
+                soft, rash-free & super absorbent
               </span>
             </div>
 
             {/* Thumbnails */}
             {productImages.length > 1 && (
-              <div className="no-scrollbar mt-3 sm:mt-4 flex gap-2.5 sm:gap-3 overflow-x-auto pb-1">
-                {productImages.slice(0, 5).map((imgUrl: string, idx: number) => (
-                  <button
-                    key={`${imgUrl}-${idx}`}
-                    type="button"
-                    aria-selected={activeImage === imgUrl}
-                    onClick={() => setActiveImage(imgUrl)}
-                    className={`relative h-16 w-16 sm:h-20 sm:w-20 shrink-0 cursor-pointer overflow-hidden rounded-xl sm:rounded-2xl border-2 bg-[#F4F1E8] transition-all ${
-                      activeImage === imgUrl ? "border-[#9A5B90] ring-2 ring-[#9A5B90]/20 opacity-100" : "border-gray-200/80 opacity-70 hover:opacity-100"
-                    }`}
-                  >
-                    <Image
-                      src={getImageUrl(imgUrl)}
-                      alt={`Thumbnail ${idx + 1}`}
-                      fill
-                      sizes="100px"
-                      className="object-cover"
-                    />
-                  </button>
-                ))}
+              <div className="no-scrollbar mt-3 flex gap-2.5 overflow-x-auto pb-1 sm:mt-4 sm:gap-3">
+                {productImages
+                  .slice(0, 5)
+                  .map((imgUrl: string, idx: number) => (
+                    <button
+                      key={`${imgUrl}-${idx}`}
+                      type="button"
+                      aria-selected={activeImage === imgUrl}
+                      onClick={() => setActiveImage(imgUrl)}
+                      className={`relative h-16 w-16 shrink-0 cursor-pointer overflow-hidden rounded-xl border-2 bg-[#F4F1E8] transition-all sm:h-20 sm:w-20 sm:rounded-2xl ${
+                        activeImage === imgUrl
+                          ? "border-[#9A5B90] opacity-100 ring-2 ring-[#9A5B90]/20"
+                          : "border-gray-200/80 opacity-70 hover:opacity-100"
+                      }`}
+                    >
+                      <Image
+                        src={getImageUrl(imgUrl)}
+                        alt={`Thumbnail ${idx + 1}`}
+                        fill
+                        sizes="100px"
+                        className="object-cover"
+                      />
+                    </button>
+                  ))}
               </div>
             )}
           </div>
 
           {/* Key Product Bullet Highlights */}
-          <div className="mt-4 sm:mt-6 grid gap-2 sm:gap-2.5">
-            {displayHighlights.slice(0, 6).map((highlight: string, idx: number) => (
-              <div key={idx} className="flex items-start gap-2.5 text-xs sm:text-base leading-snug text-[#1A150F]/80">
-                <CheckCircle2 className="mt-0.5 h-4 w-4 sm:h-4.5 sm:w-4.5 flex-none text-[#9A5B90]" />
-                <span>{highlight}</span>
-              </div>
-            ))}
+          <div className="mt-4 grid gap-2 sm:mt-6 sm:gap-2.5">
+            {displayHighlights
+              .slice(0, 6)
+              .map((highlight: string, idx: number) => (
+                <div
+                  key={idx}
+                  className="flex items-start gap-2.5 text-xs leading-snug text-[#1A150F]/80 sm:text-base"
+                >
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 flex-none text-[#9A5B90] sm:h-4.5 sm:w-4.5" />
+                  <span>{highlight}</span>
+                </div>
+              ))}
           </div>
         </div>
 
         {/* RIGHT COLUMN: Buying Controls (6 Columns out of 12) */}
-        <div className="lg:col-span-6 space-y-4 sm:space-y-6">
+        <div className="space-y-4 sm:space-y-6 lg:col-span-6">
           {/* Brand Tag Pill */}
-          <div className="inline-flex items-center gap-2 rounded-full bg-[#9A5B90] px-3 py-0.5 sm:px-3.5 sm:py-1 text-[11px] sm:text-xs font-extrabold tracking-widest uppercase text-white">
-            {productInfo?.brand === "loway" ? "LOOWAY HYGIENE" : "OVY ORGANIC MENSTRUATION"}
+          <div className="inline-flex items-center gap-2 rounded-full bg-[#9A5B90] px-3 py-0.5 text-[11px] font-extrabold tracking-widest text-white uppercase sm:px-3.5 sm:py-1 sm:text-xs">
+            {productInfo?.brand === "loway"
+              ? "LOOWAY HYGIENE"
+              : "OVY ORGANIC MENSTRUATION"}
           </div>
 
           {/* Product Title */}
-          <h1 className="font-serif text-2xl font-bold leading-tight text-[#1A150F] sm:text-4xl lg:text-[40px]">
-            {productInfo?.name || (isLiners ? "Ovy Daily Panty Liners" : isPanty ? "Ovy Super Slim Period Panties" : "Ovy Organic Soft Sanitary Pads")}
+          <h1 className="font-serif text-2xl leading-tight font-bold text-[#1A150F] sm:text-4xl lg:text-[40px]">
+            {productInfo?.name || "Ovy Organic Soft Sanitary Pads"}
           </h1>
 
           {/* Save to Wishlist Button */}
@@ -1396,160 +1069,116 @@ export default function ProductDetailPage({
               type="button"
               onClick={handleToggleWishlist}
               disabled={isWishlistUpdating}
-              className={`inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+              className={`inline-flex cursor-pointer items-center gap-2 rounded-full border px-4 py-1.5 text-xs font-semibold transition-all sm:text-sm ${
                 isWishlisted
-                  ? "border-rose-300 bg-rose-50 text-rose-600 hover:bg-rose-100 shadow-xs"
-                  : "border-gray-300/80 bg-white text-gray-700 hover:border-[#9A5B90] hover:text-[#7E4D77] shadow-xs"
+                  ? "border-rose-300 bg-rose-50 text-rose-600 shadow-xs hover:bg-rose-100"
+                  : "border-gray-300/80 bg-white text-gray-700 shadow-xs hover:border-[#9A5B90] hover:text-[#7E4D77]"
               }`}
             >
-              {isWishlistUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Heart
-                className={`h-4 w-4 transition-transform active:scale-125 ${
-                  isWishlisted ? "fill-rose-500 text-rose-500" : "text-gray-600"
-                }`}
-              />}
-              <span>{isWishlistUpdating ? "Saving..." : isWishlisted ? "Saved to wishlist" : "Save to wishlist"}</span>
+              {isWishlistUpdating ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Heart
+                  className={`h-4 w-4 transition-transform active:scale-125 ${
+                    isWishlisted
+                      ? "fill-rose-500 text-rose-500"
+                      : "text-gray-600"
+                  }`}
+                />
+              )}
+              <span>
+                {isWishlistUpdating
+                  ? "Saving..."
+                  : isWishlisted
+                    ? "Saved to wishlist"
+                    : "Save to wishlist"}
+              </span>
             </button>
           </div>
 
           {/* Size & Meta Summary */}
-          <div className="flex items-center gap-2 flex-wrap text-xs sm:text-sm font-medium text-gray-600">
-            {isLiners ? (
-              <>
-                <span>{activeVariant?.name || selectedSize || "Pack of 60"}</span>
-                <span className="h-1 w-1 rounded-full bg-gray-400" />
-                <span>
-                  {activeVariant?.name?.includes("40")
-                    ? "40 Liners per pack"
-                    : activeVariant?.name?.includes("80")
-                      ? "80 Liners per pack"
-                      : "60 Liners per pack"}
-                </span>
-                <span className="h-1 w-1 rounded-full bg-gray-400" />
-                <span className="rounded-full bg-[#F3E6F0] px-2 py-0.5 text-[11px] sm:text-xs font-semibold text-[#7E4D77]">
-                  190mm • Ultra-thin (~1mm)
-                </span>
-              </>
-            ) : isPanty ? (
-              <>
-                <span>{activeVariant?.name || selectedSize || "M-XL"}</span>
-                <span className="h-1 w-1 rounded-full bg-gray-400" />
-                <span>8 Disposable Period Panties</span>
-                <span className="h-1 w-1 rounded-full bg-gray-400" />
-                <span className="rounded-full bg-[#F3E6F0] px-2 py-0.5 text-[11px] sm:text-xs font-semibold text-[#7E4D77]">
-                  {activeVariant?.name?.includes("XXL")
-                    ? "Waist ~44–56 in • Fuller fit"
-                    : "Waist ~28–44 in • Fits most"}
-                </span>
-              </>
-            ) : (
-              <>
-                <span>{selectedPlanType === "mixYourBox" ? "Custom Box (21 Pads)" : activeVariant?.size || selectedSize}</span>
-                <span className="h-1 w-1 rounded-full bg-gray-400" />
-                <span>21 Pads + 4 Free Liners</span>
-                <span className="h-1 w-1 rounded-full bg-gray-400" />
-                <span className="rounded-full bg-[#F3E6F0] px-2 py-0.5 text-[11px] sm:text-xs font-semibold text-[#7E4D77]">
-                  {selectedPlanType === "mixYourBox" ? "All Flow Types" : activeVariant?.flowType || selectedFlow || "Medium to Heavy Flow"}
-                </span>
-              </>
-            )}
+          <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-gray-600 sm:text-sm">
+            <span>
+              {selectedPlanType === "mixYourBox"
+                ? "Custom Box (21 Pads)"
+                : activeVariant?.size || selectedSize}
+            </span>
+            <span className="h-1 w-1 rounded-full bg-gray-400" />
+            <span>21 Pads + 4 Free Liners</span>
+            <span className="h-1 w-1 rounded-full bg-gray-400" />
+            <span className="rounded-full bg-[#F3E6F0] px-2 py-0.5 text-[11px] font-semibold text-[#7E4D77] sm:text-xs">
+              {selectedPlanType === "mixYourBox"
+                ? "All Flow Types"
+                : activeVariant?.flowType ||
+                  selectedFlow ||
+                  "Medium to Heavy Flow"}
+            </span>
           </div>
 
           {/* Rating Row */}
-          <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-600">
+          <div className="flex items-center gap-2 text-xs text-gray-600 sm:text-sm">
             <div className="inline-flex gap-0.5 text-[#9A5B90]">
               {[...Array(5)].map((_, i) => (
-                <Star key={i} className="h-3.5 w-3.5 sm:h-4 sm:w-4 fill-[#9A5B90] text-[#9A5B90]" />
+                <Star
+                  key={i}
+                  className="h-3.5 w-3.5 fill-[#9A5B90] text-[#9A5B90] sm:h-4 sm:w-4"
+                />
               ))}
             </div>
-            <span><b>4.8/5</b> (1,420+ verified reviews)</span>
+            <span>
+              <b>4.8/5</b> (1,420+ verified reviews)
+            </span>
           </div>
 
           {/* Description */}
-          <p className="text-xs sm:text-base leading-relaxed text-gray-600">
-            {displayDescription}
+          <p className="text-xs leading-relaxed text-gray-600 sm:text-base">
+            <strong className="font-semibold text-[#1A150F]">
+              Rash-free, toxin-free organic sanitary pads
+            </strong>{" "}
+            with a super-absorbent SAP gel core & 100% biodegradable disposal
+            bags. Dermatologically tested and pH-balanced for total peace of
+            mind.
           </p>
 
           {/* Size Selector Grid (for Pick a Size mode) */}
           {selectedPlanType === "pickSize" && (
             <div>
               <div className="mb-2.5 flex items-baseline justify-between">
-                <span className="text-[11px] sm:text-xs font-bold tracking-wider uppercase text-gray-700">
-                  {isLiners ? "SELECT PACK" : "SELECT SIZE"}
+                <span className="text-[11px] font-bold tracking-wider text-gray-700 uppercase sm:text-xs">
+                  SELECT SIZE
                 </span>
-                {isPads && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsQuizOpen(true);
-                      setQuizStep(0);
-                    }}
-                    className="cursor-pointer font-caveat text-sm sm:text-base font-semibold text-[#7E4D77] underline underline-offset-2 hover:text-[#9A5B90]"
-                  >
-                    Find My Fit (Size Quiz) →
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsQuizOpen(true);
+                    setQuizStep(0);
+                  }}
+                  className="font-caveat cursor-pointer text-sm font-semibold text-[#7E4D77] underline underline-offset-2 hover:text-[#9A5B90] sm:text-base"
+                >
+                  Find My Fit (Size Quiz) →
+                </button>
               </div>
 
               {/* Variant Size Cards Grid */}
-              <div className={`grid ${variantsList.length === 2 ? "grid-cols-2" : "grid-cols-3"} gap-2 sm:gap-3`}>
+              <div className="grid grid-cols-3 gap-2 sm:gap-3">
                 {variantsList.map((variant: any, idx: number) => {
-                  const isSelected = activeVariant?.id && variant?.id
-                    ? activeVariant.id === variant.id
-                    : activeVariant
-                      ? activeVariant === variant
-                      : selectedSize === (variant.size || variant.name);
-                  const variantIsOutOfStock =
-                    variant.isInStock === false || variant.is_in_stock === false;
-
-                  let sizeName =
-                    variant.size?.split(" ")[0] || variant.name || `Option ${idx + 1}`;
-                  let subText = "";
-                  let flowDesc = variant.flowType || "";
-
-                  if (isLiners) {
-                    sizeName =
-                      variant.name ||
-                      (idx === 0
-                        ? "Pack of 40"
-                        : idx === 1
-                          ? "Pack of 60"
-                          : "Pack of 80");
-                    const packCount = variant.name?.includes("40")
-                      ? 40
-                      : variant.name?.includes("80")
-                        ? 80
-                        : 60;
-                    subText = `190mm • ₹${variant.price || (packCount === 40 ? 249 : packCount === 60 ? 339 : 419)}`;
-                    flowDesc =
-                      packCount === 40
-                        ? "Starter / Occasional"
-                        : packCount === 60
-                          ? "Our pick / Regular"
-                          : "Best value / Daily";
-                  } else if (isPanty) {
-                    sizeName =
-                      variant.name || (idx === 0 ? "M-XL" : "XXL-XXXL");
-                    const isXxl =
-                      sizeName.includes("XXL") || variant.name?.includes("XXL");
-                    subText = `${isXxl ? "Waist 44–56 in" : "Waist 28–44 in"} • ₹${variant.price || 349}`;
-                    flowDesc = isXxl ? "Fuller, relaxed fit" : "Fits most body types";
-                  } else {
-                    sizeName =
-                      variant.size?.split(" ")[0] ||
-                      variant.name?.split(" ")[0] ||
-                      `Size ${idx + 1}`;
-                    const mmText =
-                      variant.size?.match(/\((.*?)\)/)?.[1] ||
-                      (idx === 0 ? "240mm" : idx === 1 ? "280mm" : "320mm");
-                    subText = `${mmText} • ₹${variant.price || 349}`;
-                    flowDesc =
-                      variant.flowType ||
-                      (idx === 0
-                        ? "Light Flow"
-                        : idx === 1
-                          ? "Medium-Heavy"
-                          : "Heavy & Overnight");
-                  }
+                  const isSelected =
+                    activeVariant?.id === variant.id ||
+                    selectedSize === variant.size;
+                  const sizeName =
+                    variant.size?.split(" ")[0] ||
+                    variant.name?.split(" ")[0] ||
+                    `Size ${idx + 1}`;
+                  const mmText =
+                    variant.size?.match(/\((.*?)\)/)?.[1] ||
+                    (idx === 0 ? "240mm" : idx === 1 ? "280mm" : "320mm");
+                  const flowDesc =
+                    variant.flowType ||
+                    (idx === 0
+                      ? "Light Flow"
+                      : idx === 1
+                        ? "Medium-Heavy"
+                        : "Heavy & Overnight");
 
                   return (
                     <button
@@ -1557,31 +1186,26 @@ export default function ProductDetailPage({
                       type="button"
                       aria-selected={isSelected}
                       onClick={() => handleVariantChange(variant)}
-                      className={`relative w-full cursor-pointer rounded-xl sm:rounded-2xl border-2 p-2.5 sm:p-4 text-left transition-all ${
+                      className={`relative w-full cursor-pointer rounded-xl border-2 p-2.5 text-left transition-all sm:rounded-2xl sm:p-4 ${
                         isSelected
                           ? "border-[#9A5B90] bg-[#F3E6F0] shadow-xs"
                           : "border-gray-200/80 bg-white hover:-translate-y-0.5 hover:border-[#9A5B90]"
                       }`}
                     >
-                      <div className="flex items-center justify-between gap-1">
-                        <div className="font-serif text-base sm:text-xl font-semibold text-[#1A150F]">
-                          {sizeName}
-                        </div>
-                        {variantIsOutOfStock && (
-                          <span className="text-[9px] font-bold text-stone-500 bg-stone-100 px-1.5 py-0.5 rounded">
-                            Out of stock
-                          </span>
-                        )}
+                      <div className="font-serif text-base font-semibold text-[#1A150F] sm:text-xl">
+                        {sizeName}
                       </div>
-                      <div className="mt-0.5 text-[10px] sm:text-xs font-medium text-gray-600">
-                        {subText}
+                      <div className="mt-0.5 text-[10px] font-medium text-gray-600 sm:text-xs">
+                        {mmText} • ₹{variant.price || 349}
                       </div>
-                      <div className="mt-1 sm:mt-2 text-[10px] sm:text-xs font-semibold tracking-tight text-[#7E4D77] line-clamp-1">
+                      <div className="mt-1 line-clamp-1 text-[10px] font-semibold tracking-tight text-[#7E4D77] sm:mt-2 sm:text-xs">
                         {flowDesc}
                       </div>
                       <div
-                        className={`absolute top-2 right-2 sm:top-3.5 sm:right-3.5 flex h-3.5 w-3.5 sm:h-4.5 sm:w-4.5 items-center justify-center rounded-full bg-[#9A5B90] text-white transition-all ${
-                          isSelected ? "scale-100 opacity-100" : "scale-50 opacity-0"
+                        className={`absolute top-2 right-2 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[#9A5B90] text-white transition-all sm:top-3.5 sm:right-3.5 sm:h-4.5 sm:w-4.5 ${
+                          isSelected
+                            ? "scale-100 opacity-100"
+                            : "scale-50 opacity-0"
                         }`}
                       >
                         <CheckCircle2 className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
@@ -1592,348 +1216,247 @@ export default function ProductDetailPage({
               </div>
 
               {/* Size Comparison Expander / Quick Table */}
-              {isPads && (
-                <div className="mt-3">
-                  <button
-                    type="button"
-                    onClick={() => setShowSizeCompare(!showSizeCompare)}
-                    className="cursor-pointer text-xs font-semibold text-[#7E4D77] underline underline-offset-2 hover:text-[#9A5B90]"
-                  >
-                    {showSizeCompare ? "Hide Size Comparison Table" : "View Size Comparison Table ↓"}
-                  </button>
-                  {showSizeCompare && (
-                    <div className="mt-4 overflow-hidden rounded-2xl border-2 border-[#F3E6F0] bg-white">
-                      <div className="bg-[#F3E6F0] p-3 px-4">
-                        <span className="text-xs font-extrabold tracking-wider uppercase text-[#7E4D77]">
-                          SIZE COMPARISON CHART
-                        </span>
-                      </div>
-                      <table className="w-full border-collapse text-left text-xs sm:text-sm">
-                        <thead>
-                          <tr className="border-b border-gray-100 font-serif text-sm font-semibold text-[#1A150F]">
-                            <th className="p-3" />
-                            <th className={`p-3 text-center ${selectedSize.includes("240") ? "bg-[#F3E6F0] text-[#7E4D77]" : ""}`}>
-                              L
-                            </th>
-                            <th className={`p-3 text-center ${selectedSize.includes("280") ? "bg-[#F3E6F0] text-[#7E4D77]" : ""}`}>
-                              XL
-                            </th>
-                            <th className={`p-3 text-center ${selectedSize.includes("320") ? "bg-[#F3E6F0] text-[#7E4D77]" : ""}`}>
-                              XL+
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100 text-gray-600">
-                          <tr>
-                            <th className="p-3 font-semibold text-[#1A150F]">Length</th>
-                            <td className="p-3 text-center">240mm</td>
-                            <td className="p-3 text-center">280mm</td>
-                            <td className="p-3 text-center">320mm</td>
-                          </tr>
-                          <tr>
-                            <th className="p-3 font-semibold text-[#1A150F]">Flow</th>
-                            <td className="p-3 text-center">Light</td>
-                            <td className="p-3 text-center">Medium/Heavy</td>
-                            <td className="p-3 text-center">Heavy/Night</td>
-                          </tr>
-                          <tr>
-                            <th className="p-3 font-semibold text-[#1A150F]">Coverage</th>
-                            <td className="p-3 text-center">Standard</td>
-                            <td className="p-3 text-center">Extended</td>
-                            <td className="p-3 text-center">Maximum</td>
-                          </tr>
-                        </tbody>
-                      </table>
+              <div className="mt-3">
+                <button
+                  type="button"
+                  onClick={() => setShowSizeCompare(!showSizeCompare)}
+                  className="cursor-pointer text-xs font-semibold text-[#7E4D77] underline underline-offset-2 hover:text-[#9A5B90]"
+                >
+                  {showSizeCompare
+                    ? "Hide Size Comparison Table"
+                    : "View Size Comparison Table ↓"}
+                </button>
+                {showSizeCompare && (
+                  <div className="mt-4 overflow-hidden rounded-2xl border-2 border-[#F3E6F0] bg-white">
+                    <div className="bg-[#F3E6F0] p-3 px-4">
+                      <span className="text-xs font-extrabold tracking-wider text-[#7E4D77] uppercase">
+                        SIZE COMPARISON CHART
+                      </span>
                     </div>
-                  )}
-                </div>
-              )}
+                    <table className="w-full border-collapse text-left text-xs sm:text-sm">
+                      <thead>
+                        <tr className="border-b border-gray-100 font-serif text-sm font-semibold text-[#1A150F]">
+                          <th className="p-3" />
+                          <th
+                            className={`p-3 text-center ${selectedSize.includes("240") ? "bg-[#F3E6F0] text-[#7E4D77]" : ""}`}
+                          >
+                            L
+                          </th>
+                          <th
+                            className={`p-3 text-center ${selectedSize.includes("280") ? "bg-[#F3E6F0] text-[#7E4D77]" : ""}`}
+                          >
+                            XL
+                          </th>
+                          <th
+                            className={`p-3 text-center ${selectedSize.includes("320") ? "bg-[#F3E6F0] text-[#7E4D77]" : ""}`}
+                          >
+                            XL+
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100 text-gray-600">
+                        <tr>
+                          <th className="p-3 font-semibold text-[#1A150F]">
+                            Length
+                          </th>
+                          <td className="p-3 text-center">240mm</td>
+                          <td className="p-3 text-center">280mm</td>
+                          <td className="p-3 text-center">320mm</td>
+                        </tr>
+                        <tr>
+                          <th className="p-3 font-semibold text-[#1A150F]">
+                            Flow
+                          </th>
+                          <td className="p-3 text-center">Light</td>
+                          <td className="p-3 text-center">Medium/Heavy</td>
+                          <td className="p-3 text-center">Heavy/Night</td>
+                        </tr>
+                        <tr>
+                          <th className="p-3 font-semibold text-[#1A150F]">
+                            Coverage
+                          </th>
+                          <td className="p-3 text-center">Standard</td>
+                          <td className="p-3 text-center">Extended</td>
+                          <td className="p-3 text-center">Maximum</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
           {/* Size Quiz CTA Highlighted Banner */}
-          {isPads && (
-            <button
-              type="button"
-              onClick={() => {
-                setIsQuizOpen(true);
-                setQuizStep(0);
-              }}
-              className="flex w-full cursor-pointer items-center gap-3 sm:gap-4 rounded-2xl sm:rounded-3xl border-2 border-[#9A5B90] bg-gradient-to-r from-[#F3E6F0] to-[#E4F1F1] p-3.5 sm:p-5 text-left shadow-xs transition-all hover:-translate-y-0.5 hover:shadow-md"
-            >
-              <div className="flex h-9 w-9 sm:h-11 sm:w-11 flex-none items-center justify-center rounded-xl sm:rounded-2xl bg-white text-[#7E4D77] shadow-xs">
-                <Sparkles className="h-4.5 w-4.5 sm:h-5.5 sm:w-5.5" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <b className="block text-xs sm:text-base font-bold tracking-tight text-[#1A150F]">
-                  Unsure which size is right for your flow?
-                </b>
-                <span className="text-[11px] sm:text-sm text-gray-600">
-                  Take our 30-second Period Fit Quiz for a custom recommendation
-                </span>
-              </div>
-              <div className="flex-none text-[#7E4D77]">
-                <ArrowRight className="h-4.5 w-4.5 sm:h-5.5 sm:w-5.5" />
-              </div>
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => {
+              setIsQuizOpen(true);
+              setQuizStep(0);
+            }}
+            className="flex w-full cursor-pointer items-center gap-3 rounded-2xl border-2 border-[#9A5B90] bg-gradient-to-r from-[#F3E6F0] to-[#E4F1F1] p-3.5 text-left shadow-xs transition-all hover:-translate-y-0.5 hover:shadow-md sm:gap-4 sm:rounded-3xl sm:p-5"
+          >
+            <div className="flex h-9 w-9 flex-none items-center justify-center rounded-xl bg-white text-[#7E4D77] shadow-xs sm:h-11 sm:w-11 sm:rounded-2xl">
+              <Sparkles className="h-4.5 w-4.5 sm:h-5.5 sm:w-5.5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <b className="block text-xs font-bold tracking-tight text-[#1A150F] sm:text-base">
+                Unsure which size is right for your flow?
+              </b>
+              <span className="text-[11px] text-gray-600 sm:text-sm">
+                Take our 30-second Period Fit Quiz for a custom recommendation
+              </span>
+            </div>
+            <div className="flex-none text-[#7E4D77]">
+              <ArrowRight className="h-4.5 w-4.5 sm:h-5.5 sm:w-5.5" />
+            </div>
+          </button>
 
           {/* BUY BOX CONTAINER */}
-          <div className="space-y-4 sm:space-y-5 rounded-2xl sm:rounded-3xl border border-gray-200/80 bg-white p-4 sm:p-7 shadow-sm">
-            {shownSubscriptionPlans.length > 0 && (
-              <>
-                {/* Plan Selection Header */}
-                <div className="text-[11px] sm:text-xs font-bold tracking-wider uppercase text-gray-500">SELECT ORDER TYPE &amp; FREQUENCY</div>
+          <div className="space-y-4 rounded-2xl border border-gray-200/80 bg-white p-4 shadow-sm sm:space-y-5 sm:rounded-3xl sm:p-7">
+            {/* Plan Selection Header */}
+            <div className="text-[11px] font-bold tracking-wider text-gray-500 uppercase sm:text-xs">
+              SELECT ORDER TYPE & FREQUENCY
+            </div>
 
-                {/* Plan Cards Stack */}
-                <div className="grid grid-cols-1 gap-2 sm:gap-2.5">
-                  {shownSubscriptionPlans.map((plan: any) => {
-                    const isSelected = selectedPlan?.id === plan.id;
-                    const discountPercentage =
-                      plan.id === "buy_once"
-                        ? 0
-                        : getPdpSubscriptionDiscount(
-                            plan.subscriptionType,
-                            productInfo,
-                          );
-                    const discountedUnitForPlan =
-                      discountPercentage > 0
-                        ? applyDiscounts(
-                            isMixBoxCheckout
-                              ? baseOrderValueForPlan
-                              : applyDiscounts(baseVariantPrice, volumeDiscount),
-                            discountPercentage / 100,
-                          )
-                        : isMixBoxCheckout
-                          ? baseOrderValueForPlan
-                          : applyDiscounts(baseVariantPrice, volumeDiscount);
-                    const discountedPrice = isMixBoxCheckout
-                      ? discountedUnitForPlan
-                      : discountedUnitForPlan * quantity;
+            {/* Plan Cards Stack */}
+            <div className="grid grid-cols-1 gap-2 sm:gap-2.5">
+              {shownSubscriptionPlans.map((plan: any) => {
+                const isSelected = selectedPlan?.id === plan.id;
+                const discountPercentage =
+                  plan.id === "buy_once"
+                    ? 0
+                    : getPdpSubscriptionDiscount(plan.subscriptionType);
+                const discountedPrice =
+                  discountPercentage > 0
+                    ? baseOrderValueForPlan -
+                      baseOrderValueForPlan * (discountPercentage / 100)
+                    : baseOrderValueForPlan;
 
-                    return (
-                      <button
-                        key={plan.id}
-                        type="button"
-                        aria-selected={isSelected}
-                        onClick={() => subscribeToCart(plan)}
-                        className={`relative flex w-full cursor-pointer items-center gap-3 sm:gap-3.5 rounded-xl sm:rounded-2xl border-2 p-3 sm:p-4 text-left transition-all ${
-                          isSelected
-                            ? "border-[#9A5B90] bg-[#F3E6F0] shadow-xs"
-                            : "border-gray-200/80 bg-white hover:border-[#9A5B90]"
-                        }`}
-                      >
-                        <div
-                          className={`relative h-4.5 w-4.5 flex-none rounded-full border-2 transition-all ${
-                            isSelected ? "border-[#9A5B90] bg-[#9A5B90]" : "border-gray-300"
-                          }`}
-                        >
-                          {isSelected && (
-                            <div className="absolute inset-1 rounded-full bg-white" />
-                          )}
-                        </div>
+                return (
+                  <button
+                    key={plan.id}
+                    type="button"
+                    aria-selected={isSelected}
+                    onClick={() => subscribeToCart(plan)}
+                    className={`relative flex w-full cursor-pointer items-center gap-3 rounded-xl border-2 p-3 text-left transition-all sm:gap-3.5 sm:rounded-2xl sm:p-4 ${
+                      isSelected
+                        ? "border-[#9A5B90] bg-[#F3E6F0] shadow-xs"
+                        : "border-gray-200/80 bg-white hover:border-[#9A5B90]"
+                    }`}
+                  >
+                    <div
+                      className={`relative h-4.5 w-4.5 flex-none rounded-full border-2 transition-all ${
+                        isSelected
+                          ? "border-[#9A5B90] bg-[#9A5B90]"
+                          : "border-gray-300"
+                      }`}
+                    >
+                      {isSelected && (
+                        <div className="absolute inset-1 rounded-full bg-white" />
+                      )}
+                    </div>
 
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2 flex-wrap text-sm font-semibold text-[#1A150F]">
-                            <span>{plan.label}</span>
-                            {discountPercentage > 0 && (
-                              <span className="rounded-full bg-[#9A5B90] px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-white">
-                                SAVE {discountPercentage}%
-                              </span>
-                            )}
-                            {plan.subscriptionType === "cycle_sync" && (
-                              <span className="rounded-full bg-emerald-700 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-white">
-                                CYCLE SYNCED
-                              </span>
-                            )}
-                          </div>
-                          <span className="mt-0.5 block text-xs text-gray-500">
-                            {plan.id === "buy_once"
-                              ? "Single box order, no commitment"
-                              : plan.subscriptionType === "cycle_sync"
-                                ? "Delivered 5 days before every period"
-                                : `Delivered & billed automatically every ${plan.subscriptionType === "every_2_months" ? "60" : "30"} days. Pause/cancel anytime.`}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2 text-sm font-semibold text-[#1A150F]">
+                        <span>{plan.label}</span>
+                        {discountPercentage > 0 && (
+                          <span className="rounded-full bg-[#9A5B90] px-2.5 py-0.5 text-[10px] font-extrabold tracking-wider text-white uppercase">
+                            SAVE {discountPercentage}%
                           </span>
-                        </div>
+                        )}
+                        {plan.subscriptionType === "cycle_sync" && (
+                          <span className="rounded-full bg-emerald-700 px-2.5 py-0.5 text-[10px] font-extrabold tracking-wider text-white uppercase">
+                            CYCLE SYNCED
+                          </span>
+                        )}
+                      </div>
+                      <span className="mt-0.5 block text-xs text-gray-500">
+                        {plan.id === "buy_once"
+                          ? "Single box order, no commitment"
+                          : plan.subscriptionType === "cycle_sync"
+                            ? "Delivered 5 days before every period"
+                            : `Delivered & billed automatically every ${plan.subscriptionType === "every_2_months" ? "60" : "30"} days. Pause/cancel anytime.`}
+                      </span>
+                    </div>
 
-                        <div className="flex-none text-right whitespace-nowrap">
-                          <b className="font-serif text-lg font-semibold text-[#1A150F]">₹{Math.round(discountedPrice)}</b>
-                          {discountPercentage > 0 && (
-                            <s className="mt-0.5 block text-xs text-gray-400">₹{Math.round(baseOrderValueForPlan)}</s>
-                          )}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </>
-            )}
+                    <div className="flex-none text-right whitespace-nowrap">
+                      <b className="font-serif text-lg font-semibold text-[#1A150F]">
+                        ₹{Math.round(discountedPrice)}
+                      </b>
+                      {discountPercentage > 0 && (
+                        <s className="mt-0.5 block text-xs text-gray-400">
+                          ₹{Math.round(baseOrderValueForPlan)}
+                        </s>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
 
             {/* Cycle Sync Inputs when Cycle Sync Plan Selected */}
             {subscriptionType === "cycle_sync" && (
-              <div className="my-4 space-y-3.5 rounded-2xl border border-[#F3E6F0] bg-[#FAF9F5] p-4 sm:p-5">
+              <div className="my-4 space-y-3 rounded-2xl border border-[#F3E6F0] bg-[#FAF9F5] p-4 sm:p-5">
                 <div className="flex items-center gap-3 rounded-xl border border-[#F3E6F0] bg-gradient-to-r from-[#F5E7F1] to-[#E4F1F1] p-3.5">
                   <div className="flex h-9 w-9 flex-none items-center justify-center rounded-xl bg-white text-[#7E4D77]">
                     <RotateCcw className="h-5 w-5" />
                   </div>
-                  <div className="flex-1 text-xs sm:text-sm leading-snug text-gray-600">
-                    <b className="font-bold text-[#1A150F]">Cycle Sync Rhythm</b>
-                    <div>We calculate your schedule and deliver your box 5 days before every expected period.</div>
+                  <div className="flex-1 text-xs leading-snug text-gray-600 sm:text-sm">
+                    <b className="font-bold text-[#1A150F]">
+                      Cycle Sync Rhythm
+                    </b>
+                    <div>
+                      We deliver your box ~5 days before your expected period
+                      date.
+                    </div>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div>
-                    <label className="text-xs font-bold uppercase tracking-wider text-gray-700">
-                      Date Last Period Started
+                    <label className="text-xs font-bold tracking-wider text-gray-700 uppercase">
+                      Next Period Date
                     </label>
                     <input
                       type="date"
-                      max={todayDateInputValue}
-                      value={cycleSync.lastPeriodDate}
+                      min={minimumCycleSyncPeriodDate}
+                      value={cycleSync.nextPeriodDate}
                       onChange={(e) =>
                         setCycleSync((cur) => ({
                           ...cur,
-                          lastPeriodDate: e.target.value,
+                          nextPeriodDate: e.target.value,
                         }))
                       }
-                      className={`mt-1 w-full rounded-xl border bg-white p-2.5 text-sm font-medium ${
-                        cycleSyncSchedule?.fieldErrors?.lastPeriodDate
-                          ? "border-rose-400 focus:border-rose-500"
-                          : "border-gray-300"
-                      }`}
+                      className="mt-1 w-full rounded-xl border border-gray-300 bg-white p-2.5 text-sm font-medium"
                     />
-                    {cycleSyncSchedule?.fieldErrors?.lastPeriodDate && (
-                      <p className="mt-1 text-xs font-medium text-rose-600">
-                        {cycleSyncSchedule.fieldErrors.lastPeriodDate}
-                      </p>
-                    )}
                   </div>
                   <div>
-                    <label className="text-xs font-bold uppercase tracking-wider text-gray-700">
-                      Cycle Length (21 to 45 Days)
+                    <label className="text-xs font-bold tracking-wider text-gray-700 uppercase">
+                      Cycle Length (Days)
                     </label>
                     <input
                       type="number"
                       min={21}
                       max={45}
-                      placeholder="28"
                       value={cycleSync.cycleLength}
                       onChange={(e) =>
                         setCycleSync((cur) => ({
                           ...cur,
-                          cycleLength: e.target.value,
+                          cycleLength: Number(e.target.value),
                         }))
                       }
-                      className={`mt-1 w-full rounded-xl border bg-white p-2.5 text-sm font-medium ${
-                        cycleSyncSchedule?.fieldErrors?.cycleLength
-                          ? "border-rose-400 focus:border-rose-500"
-                          : "border-gray-300"
-                      }`}
+                      className="mt-1 w-full rounded-xl border border-gray-300 bg-white p-2.5 text-sm font-medium"
                     />
-                    {cycleSyncSchedule?.fieldErrors?.cycleLength && (
-                      <p className="mt-1 text-xs font-medium text-rose-600">
-                        {cycleSyncSchedule.fieldErrors.cycleLength}
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <label className="text-xs font-bold uppercase tracking-wider text-gray-700">
-                      Period Length (2 to 10 Days)
-                    </label>
-                    <input
-                      type="number"
-                      min={2}
-                      max={10}
-                      placeholder="5"
-                      value={cycleSync.periodLength}
-                      onChange={(e) =>
-                        setCycleSync((cur) => ({
-                          ...cur,
-                          periodLength: e.target.value,
-                        }))
-                      }
-                      className={`mt-1 w-full rounded-xl border bg-white p-2.5 text-sm font-medium ${
-                        cycleSyncSchedule?.fieldErrors?.periodLength
-                          ? "border-rose-400 focus:border-rose-500"
-                          : "border-gray-300"
-                      }`}
-                    />
-                    {cycleSyncSchedule?.fieldErrors?.periodLength && (
-                      <p className="mt-1 text-xs font-medium text-rose-600">
-                        {cycleSyncSchedule.fieldErrors.periodLength}
-                      </p>
-                    )}
                   </div>
                 </div>
-
-                {cycleSyncSchedule?.tooSoonForCycleSync && (
-                  <div className="rounded-xl border border-amber-300 bg-amber-50 p-3.5 text-xs text-amber-900 space-y-2.5">
-                    <p className="font-semibold leading-relaxed">
-                      {cycleSyncSchedule.message}
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => subscribeToCart(BUY_ONCE_PLAN)}
-                      className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-[#9A5B90] px-3.5 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-[#7E4D77]"
-                    >
-                      Switch to One-Time Order instead →
-                    </button>
-                  </div>
-                )}
 
                 {cycleSyncSchedule?.valid && (
-                  <div className="space-y-2.5 rounded-xl border border-[#E4F1F1] bg-white p-3.5 text-xs">
-                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 pb-2">
-                      <span className="font-bold uppercase tracking-wider text-[#1A8D91]">
-                        Next 3 Boxes Schedule (Arrival &amp; Charge Dates)
-                      </span>
-                      <span className="font-semibold text-gray-600">
-                        Next Period: <b className="text-[#1A150F]">{formatCycleDate(cycleSyncSchedule.nextPeriod)}</b>
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                      {cycleSyncSchedule.upcomingDeliveries.slice(0, 3).map((box) => (
-                        <div
-                          key={box.boxNumber}
-                          className="rounded-lg border border-[#F3E6F0] bg-[#FAF9F5] p-2.5"
-                        >
-                          <div className="font-bold text-[#7E4D77]">Box {box.boxNumber}</div>
-                          <div className="mt-1 text-[11px] text-gray-600">
-                            Arrival: <b className="text-[#1A150F]">{formatCycleDate(box.deliveryDate)}</b>
-                          </div>
-                          <div className="text-[11px] text-gray-600">
-                            Charge: <b className="text-[#1A150F]">{formatCycleDate(box.chargeDate)}</b>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                  <div className="rounded-xl border border-[#E4F1F1] bg-[#E4F1F1]/50 p-3 text-xs text-[#1A8D91]">
+                    <b>Expected Arrival:</b>{" "}
+                    {formatCycleDate(cycleSyncSchedule.arrivalDate)}
                   </div>
                 )}
-
-                <div className="pt-1">
-                  <label className="flex cursor-pointer items-start gap-2.5 text-xs text-gray-700">
-                    <input
-                      type="checkbox"
-                      checked={cycleSync.consentAccepted}
-                      onChange={(e) =>
-                        setCycleSync((cur) => ({
-                          ...cur,
-                          consentAccepted: e.target.checked,
-                        }))
-                      }
-                      className="mt-0.5 h-4 w-4 rounded border-gray-300 accent-[#9A5B90]"
-                    />
-                    <span className="font-medium leading-snug text-[#1A150F]">
-                      I&apos;m 18 or older, or I have my parent or guardian&apos;s permission
-                    </span>
-                  </label>
-                  {cycleSyncSchedule?.fieldErrors?.consent && (
-                    <p className="mt-1 pl-6 text-xs font-medium text-rose-600">
-                      {cycleSyncSchedule.fieldErrors.consent}
-                    </p>
-                  )}
-                </div>
               </div>
             )}
 
@@ -1941,14 +1464,11 @@ export default function ProductDetailPage({
             {isMixBoxCheckout && (
               <div className="my-4">
                 <SizeSelectorBox
-                  items={variantsList.length > 0 ? variantsList : (productInfo?.prodcutVarientBoxRes || [])}
+                  items={productInfo.prodcutVarientBoxRes}
                   cartSizes={selectedVarient}
                   setCartSizes={setSelectedVarient}
                   total={total}
                   setTotal={setTotal}
-                  boxQuantity={quantity}
-                  setBoxQuantity={setQuantity}
-                  subscriptionType={effectiveSubscriptionType}
                   themeColor={{
                     darkColor: "#9A5B90",
                     lightColor: "#F3E6F0",
@@ -1961,17 +1481,12 @@ export default function ProductDetailPage({
             {/* Quantity Stepper (for Pick a Size mode) */}
             {isQuantityChangable && (
               <div>
-                <div className="mb-2.5 flex items-baseline justify-between">
-                  <span className="text-xs font-bold tracking-wider uppercase text-gray-500">
-                    QUANTITY {isLiners ? "(PACKS)" : isPanty ? "(PACKS)" : "(BOXES)"}
-                  </span>
-                  <span className="text-[11px] font-semibold text-gray-500">
-                    Maximum {maxBoxes} per order
-                  </span>
+                <div className="mb-2.5 text-xs font-bold tracking-wider text-gray-500 uppercase">
+                  QUANTITY (BOXES)
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
                   <div className="flex gap-2">
-                    {[1, 2, 3, 4].filter((n) => n <= maxBoxes).map((num) => (
+                    {[1, 2, 3, 4].map((num) => (
                       <button
                         key={num}
                         type="button"
@@ -2000,31 +1515,21 @@ export default function ProductDetailPage({
                     <span className="min-w-12 text-center text-sm font-semibold text-[#1A150F]">
                       {quantity}
                       <small className="block text-[10px] font-normal text-gray-500">
-                        {isLiners || isPanty ? `pack${quantity > 1 ? "s" : ""}` : `box${quantity > 1 ? "s" : ""}`}
+                        box{quantity > 1 ? "es" : ""}
                       </small>
                     </span>
                     <button
                       type="button"
-                      onClick={() => {
-                        if (quantity >= maxBoxes) {
-                          toast.info(`Maximum ${maxBoxes} per order`);
-                          return;
-                        }
-                        setQuantity(quantity + 1);
-                      }}
-                      className={`flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-lg font-bold text-[#7E4D77] transition-all hover:bg-[#F3E6F0] ${
-                        quantity >= maxBoxes ? "opacity-40" : ""
-                      }`}
+                      disabled={quantity >= maxBoxes}
+                      onClick={() =>
+                        setQuantity(Math.min(maxBoxes, quantity + 1))
+                      }
+                      className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-lg font-bold text-[#7E4D77] transition-all hover:bg-[#F3E6F0] disabled:cursor-not-allowed disabled:opacity-30"
                     >
                       +
                     </button>
                   </div>
                 </div>
-                {quantity >= maxBoxes && (
-                  <p className="mt-1.5 text-right text-[11px] font-semibold text-[#7E4D77]">
-                    Maximum {maxBoxes} per order reached
-                  </p>
-                )}
               </div>
             )}
 
@@ -2033,25 +1538,31 @@ export default function ProductDetailPage({
               <div>
                 <div className="flex items-baseline gap-2.5">
                   <span className="font-serif text-3xl font-bold tracking-tight text-[#1A150F] sm:text-4xl">
-                    {typeof totalAmount === "number" ? `₹${Math.round(totalAmount)}` : "—"}
+                    {typeof totalAmount === "number"
+                      ? `₹${totalAmount}`
+                      : "Incomplete Box"}
                   </span>
-                  {typeof totalAmount === "number" && activeVariant?.strikethroughPrice && (
-                    <span className="text-base text-gray-400 line-through">₹{activeVariant.strikethroughPrice * quantity}</span>
+                  {activeVariant?.strikethroughPrice && (
+                    <span className="text-base text-gray-400 line-through">
+                      ₹{activeVariant.strikethroughPrice * quantity}
+                    </span>
                   )}
                 </div>
-                {typeof totalAmount === "number" ? (
+                {typeof totalAmount === "number" && (
                   <div className="mt-0.5 text-xs text-gray-600">
-                    <b className="font-semibold text-[#1A150F]">₹{(totalAmount / (21 * quantity)).toFixed(1)}</b> per pad (incl. all taxes)
+                    <b className="font-semibold text-[#1A150F]">
+                      ₹
+                      {(
+                        totalAmount / (isMixBoxCheckout ? 21 : 21 * quantity)
+                      ).toFixed(1)}
+                    </b>{" "}
+                    per pad (incl. all taxes)
                   </div>
-                ) : isMixBoxCheckout ? (
-                  <div className="mt-0.5 text-xs font-semibold text-amber-700">
-                    {getMixBoxAdjustmentMessage(total)}
-                  </div>
-                ) : null}
+                )}
               </div>
 
-              {totalDiscount > 0 && typeof totalAmount === "number" && (
-                <div className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800">
+              {totalDiscount > 0 && (
+                <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold whitespace-nowrap text-emerald-800">
                   <Sparkles className="h-3.5 w-3.5" />
                   Save {totalDiscount}%
                 </div>
@@ -2059,71 +1570,61 @@ export default function ProductDetailPage({
             </div>
 
             {/* Liner Note */}
-            <div className="flex items-center gap-3 text-xs sm:text-sm text-gray-600">
+            <div className="flex items-center gap-3 text-xs text-gray-600 sm:text-sm">
               <div className="flex h-8 w-8 flex-none items-center justify-center rounded-xl bg-[#E4F1F1] text-[#1A8D91]">
                 <Leaf className="h-4.5 w-4.5" />
               </div>
-              <span>Includes <b className="font-semibold text-[#1A150F]">4 Free Organic Panty Liners</b> in every 21-pad box!</span>
+              <span>
+                Includes{" "}
+                <b className="font-semibold text-[#1A150F]">
+                  4 Free Organic Panty Liners
+                </b>{" "}
+                in every 21-pad box!
+              </span>
             </div>
 
             {/* Primary & Secondary Action Buttons */}
-            <div ref={mainButtonsRef} className="space-y-3 pt-2">
-              {isOutOfStock ? (
+            <div className="space-y-3 pt-2">
+              {subscriptionType === "buy_once" && (
                 <button
                   type="button"
-                  disabled
-                  className="flex w-full cursor-not-allowed items-center justify-center gap-2 border-none rounded-2xl bg-gray-200 p-4 text-base font-semibold text-gray-500 shadow-none"
+                  onClick={addToCart}
+                  disabled={Boolean(isMixBoxCheckout && !mixBoxPricing?.valid)}
+                  className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-2xl border-none bg-[#9A5B90] p-4 text-base font-semibold text-white shadow-md transition-all hover:-translate-y-0.5 hover:bg-[#7E4D77] disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  Out of stock
+                  <ShoppingBag className="h-5 w-5" />
+                  Add to Cart • ₹
+                  {typeof totalAmount === "number" ? totalAmount : ""}
                 </button>
-              ) : (
-                <>
-                  {subscriptionType === "buy_once" && (
-                    <button
-                      type="button"
-                      onClick={addToCart}
-                      disabled={Boolean(isMixBoxCheckout && (!mixBoxPricing?.valid || total !== 21))}
-                      className="flex w-full cursor-pointer items-center justify-center gap-2 border-none rounded-2xl bg-[#9A5B90] p-4 text-base font-semibold text-white shadow-md transition-all hover:-translate-y-0.5 hover:bg-[#7E4D77] disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      <ShoppingBag className="h-5 w-5" />
-                      {isMixBoxCheckout && (!mixBoxPricing?.valid || total !== 21)
-                        ? getMixBoxAdjustmentMessage(total)
-                        : `Add to Cart • ₹${typeof totalAmount === "number" ? Math.round(totalAmount) : ""}`}
-                    </button>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={handleBuyNow}
-                    disabled={Boolean(
-                      (isMixBoxCheckout && (!mixBoxPricing?.valid || total !== 21)) ||
-                      !isCycleSyncReady
-                    )}
-                    className="w-full cursor-pointer border-none rounded-2xl bg-[#141413] p-4 text-base font-semibold text-white transition-all hover:bg-[#2a2a28] disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {isMixBoxCheckout && (!mixBoxPricing?.valid || total !== 21)
-                      ? getMixBoxAdjustmentMessage(total)
-                      : effectivePurchaseType === "subscription"
-                        ? "Checkout Subscription →"
-                        : "Buy Now →"}
-                  </button>
-                </>
               )}
+
+              <button
+                type="button"
+                onClick={handleBuyNow}
+                disabled={Boolean(isMixBoxCheckout && !mixBoxPricing?.valid)}
+                className="w-full cursor-pointer rounded-2xl border-none bg-[#141413] p-4 text-base font-semibold text-white transition-all hover:bg-[#2a2a28] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {effectivePurchaseType === "subscription"
+                  ? "Checkout Subscription →"
+                  : "Buy Now →"}
+              </button>
             </div>
 
             {/* Shop With Confidence & Trust Assurance Section */}
             <div className="space-y-4 pt-3">
               {/* Shipping Sub-header */}
-              <div className="text-center text-xs sm:text-sm text-gray-500 font-medium">
+              <div className="text-center text-xs font-medium text-gray-500 sm:text-sm">
                 Free shipping over ₹399 · ships in 24 hrs · secure checkout
               </div>
 
               {/* Satisfaction Guarantee */}
-              <div className="text-center text-xs sm:text-sm text-gray-700">
-                If it’s not right, <b className="font-bold text-[#1A150F]">we’ll make it right</b>. Questions? Email{" "}
+              <div className="text-center text-xs text-gray-700 sm:text-sm">
+                If it’s not right,{" "}
+                <b className="font-bold text-[#1A150F]">we’ll make it right</b>.
+                Questions? Email{" "}
                 <a
                   href="mailto:care@potenthygiene.com"
-                  className="font-medium text-[#7E4D77] underline hover:text-[#9A5B90] transition-colors"
+                  className="font-medium text-[#7E4D77] underline transition-colors hover:text-[#9A5B90]"
                 >
                   care@potenthygiene.com
                 </a>
@@ -2131,35 +1632,36 @@ export default function ProductDetailPage({
 
               {/* Shop With Confidence Bullets */}
               <div className="pt-2">
-                <div className="text-xs font-bold uppercase tracking-wider text-gray-700 mb-3">
+                <div className="mb-3 text-xs font-bold tracking-wider text-gray-700 uppercase">
                   SHOP WITH CONFIDENCE
                 </div>
 
-                <div className="flex flex-wrap items-center gap-x-6 gap-y-2.5 text-xs sm:text-sm font-semibold text-gray-700">
+                <div className="flex flex-wrap items-center gap-x-6 gap-y-2.5 text-xs font-semibold text-gray-700 sm:text-sm">
                   <div className="flex items-center gap-2">
-                    <ShieldCheck className="h-4.5 w-4.5 text-[#9A5B90] shrink-0" />
+                    <ShieldCheck className="h-4.5 w-4.5 shrink-0 text-[#9A5B90]" />
                     <span>Skin-friendly & derma-tested</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Heart className="h-4.5 w-4.5 text-[#9A5B90] shrink-0" />
+                    <Heart className="h-4.5 w-4.5 shrink-0 text-[#9A5B90]" />
                     <span>Woman-founded, Made in India</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Truck className="h-4.5 w-4.5 text-[#9A5B90] shrink-0" />
+                    <Truck className="h-4.5 w-4.5 shrink-0 text-[#9A5B90]" />
                     <span>Free shipping over ₹399</span>
                   </div>
                 </div>
               </div>
 
               {/* Hygiene & Subscription Cancellation Card */}
-              <div className="rounded-2xl border border-gray-200/80 bg-white p-4 shadow-xs space-y-3">
+              <div className="space-y-3 rounded-2xl border border-gray-200/80 bg-white p-4 shadow-xs">
                 <div className="flex items-center gap-2.5 text-[#1A8D91]">
                   <Truck className="h-5 w-5 shrink-0" />
                 </div>
-                <div className="flex items-start gap-2.5 text-xs sm:text-sm text-gray-700 leading-relaxed font-medium">
-                  <CheckCircle2 className="h-4.5 w-4.5 text-[#1A8D91] shrink-0 mt-0.5" />
+                <div className="flex items-start gap-2.5 text-xs leading-relaxed font-medium text-gray-700 sm:text-sm">
+                  <CheckCircle2 className="mt-0.5 h-4.5 w-4.5 shrink-0 text-[#1A8D91]" />
                   <span>
-                    For hygiene and safety, sanitary products are non-returnable · pause or cancel a subscription anytime
+                    For hygiene and safety, sanitary products are non-returnable
+                    · pause or cancel a subscription anytime
                   </span>
                 </div>
               </div>
@@ -2178,11 +1680,15 @@ export default function ProductDetailPage({
                   <MapPin className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
                   <input
                     type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     maxLength={6}
                     value={deliveryPincode}
-                    onChange={(e) => setDeliveryPincode(e.target.value.replace(/\D/g, ""))}
+                    onChange={(e) =>
+                      setDeliveryPincode(e.target.value.replace(/\D/g, ""))
+                    }
                     placeholder="Enter 6-digit PIN Code"
-                    className="w-full rounded-xl border border-gray-300 bg-white py-2.5 pl-9 pr-3 text-sm font-medium"
+                    className="w-full rounded-xl border border-gray-300 bg-white py-2.5 pr-3 pl-9 text-sm font-medium"
                   />
                 </div>
                 <button
@@ -2190,7 +1696,11 @@ export default function ProductDetailPage({
                   disabled={isCheckingDelivery}
                   className="cursor-pointer rounded-xl bg-[#9A5B90] px-4 py-2.5 text-xs font-bold text-white transition hover:bg-[#7E4D77] disabled:opacity-60"
                 >
-                  {isCheckingDelivery ? <Loader2 className="h-4 w-4 animate-spin" /> : "Check"}
+                  {isCheckingDelivery ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    "Check"
+                  )}
                 </button>
               </form>
 
@@ -2207,14 +1717,21 @@ export default function ProductDetailPage({
               )}
 
               {/* Secure Checkout & Payment Options */}
-              <div className="mt-3.5 pt-3 border-t border-gray-100 space-y-2">
+              <div className="mt-3.5 space-y-2 border-t border-gray-100 pt-3">
                 <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700">
                   <Lock className="h-3.5 w-3.5 text-emerald-700" />
                   <span>Secure checkout</span>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-                  {["UPI", "Razorpay", "Visa", "Mastercard", "RuPay", "Net banking"].map((pm) => (
+                  {[
+                    "UPI",
+                    "Razorpay",
+                    "Visa",
+                    "Mastercard",
+                    "RuPay",
+                    "Net banking",
+                  ].map((pm) => (
                     <span
                       key={pm}
                       className="rounded-lg border border-gray-200 bg-gray-50/80 px-2.5 py-1 text-[11px] font-semibold text-gray-700"
@@ -2229,8 +1746,8 @@ export default function ProductDetailPage({
 
           {/* Quick Specs Section (Outside the card box) */}
           <div className="pt-4">
-            <div className="border-b border-gray-200/80 pb-2 mb-4">
-              <span className="text-xs font-bold tracking-wider uppercase text-gray-500">
+            <div className="mb-4 border-b border-gray-200/80 pb-2">
+              <span className="text-xs font-bold tracking-wider text-gray-500 uppercase">
                 QUICK SPECS
               </span>
             </div>
@@ -2251,8 +1768,8 @@ export default function ProductDetailPage({
       </div>
 
       {/* Trust & Guarantee Strap (First Component Bottom Strap) */}
-      <div className="mt-8 rounded-2xl sm:rounded-full border border-gray-200/80 bg-white p-3.5 px-4 sm:px-8 shadow-xs">
-        <div className="grid grid-cols-2 gap-3.5 sm:flex sm:items-center sm:justify-between text-xs sm:text-sm font-semibold text-[#1A150F]/80">
+      <div className="mt-8 rounded-2xl border border-gray-200/80 bg-white p-3.5 px-4 shadow-xs sm:rounded-full sm:px-8">
+        <div className="grid grid-cols-2 gap-3.5 text-xs font-semibold text-[#1A150F]/80 sm:flex sm:items-center sm:justify-between sm:text-sm">
           <div className="flex items-center gap-2">
             <Lock className="h-4 w-4 flex-none text-[#1A8D91]" />
             <span>Secure transactions</span>
@@ -2272,34 +1789,28 @@ export default function ProductDetailPage({
         </div>
       </div>
 
-      {/* Below-the-fold Sections */}
-      {isLiners ? (
-        <LinersPackAndSpecs activeVariant={activeVariant} />
-      ) : isPanty ? (
-        <PantyPackAndSpecs activeVariant={activeVariant} />
-      ) : (
-        <>
-          {/* Engineered in Layers — What's Inside Section */}
-          <WhatsInside />
+      {/* Engineered in Layers — What's Inside Section */}
+      <WhatsInside />
 
-          {/* An Honest Comparison — Why Ovy Beats An Ordinary Pad */}
-          <OvyComparison />
+      {/* An Honest Comparison — Why Ovy Beats An Ordinary Pad */}
+      <OvyComparison />
 
-          {/* Good To Know — Questions, Answered (3 Promo Cards) */}
-          <OvyPromos
-            onOpenQuiz={() => {
-              setIsQuizOpen(true);
-              setQuizStep(0);
-            }}
-          />
-        </>
-      )}
+      {/* Good To Know — Questions, Answered (3 Promo Cards) */}
+      <OvyPromos
+        onOpenQuiz={() => {
+          setIsQuizOpen(true);
+          setQuizStep(0);
+        }}
+      />
 
       {/* Interactive Size Recommendation Quiz Modal */}
-      {isPads && isQuizOpen && (
+      {isQuizOpen && (
         <div className="fixed inset-0 z-[96] flex items-center justify-center p-5">
-          <div className="absolute inset-0 bg-[#1A150F]/50 backdrop-blur-xs" onClick={() => setIsQuizOpen(false)} />
-          <div className="relative max-h-[90vh] w-full max-w-[540px] overflow-auto rounded-3xl bg-white p-6 sm:p-8 shadow-xl">
+          <div
+            className="absolute inset-0 bg-[#1A150F]/50 backdrop-blur-xs"
+            onClick={() => setIsQuizOpen(false)}
+          />
+          <div className="relative max-h-[90vh] w-full max-w-[540px] overflow-auto rounded-3xl bg-white p-6 shadow-xl sm:p-8">
             <button
               type="button"
               onClick={() => setIsQuizOpen(false)}
@@ -2323,14 +1834,34 @@ export default function ProductDetailPage({
 
             {quizStep === 0 && (
               <div>
-                <span className="text-xs font-bold uppercase tracking-wider text-[#7E4D77]">STEP 1 OF 3 • PERIOD FLOW</span>
-                <h3 className="mt-1 mb-4 font-serif text-2xl font-semibold leading-tight text-[#1A150F] sm:text-3xl">How heavy is your period flow usually?</h3>
+                <span className="text-xs font-bold tracking-wider text-[#7E4D77] uppercase">
+                  STEP 1 OF 3 • PERIOD FLOW
+                </span>
+                <h3 className="mt-1 mb-4 font-serif text-2xl leading-tight font-semibold text-[#1A150F] sm:text-3xl">
+                  How heavy is your period flow usually?
+                </h3>
                 <div className="grid gap-3">
                   {[
-                    { id: "light", label: "Light Flow", sub: "Lighter days, spotting, last days of period" },
-                    { id: "medium", label: "Medium / Regular Flow", sub: "Normal steady flow on most period days" },
-                    { id: "heavy", label: "Heavy Flow", sub: "Soaking through pads quickly on initial days" },
-                    { id: "variable", label: "Changes a lot across days", sub: "Heavy first 2 days, then light/medium" },
+                    {
+                      id: "light",
+                      label: "Light Flow",
+                      sub: "Lighter days, spotting, last days of period",
+                    },
+                    {
+                      id: "medium",
+                      label: "Medium / Regular Flow",
+                      sub: "Normal steady flow on most period days",
+                    },
+                    {
+                      id: "heavy",
+                      label: "Heavy Flow",
+                      sub: "Soaking through pads quickly on initial days",
+                    },
+                    {
+                      id: "variable",
+                      label: "Changes a lot across days",
+                      sub: "Heavy first 2 days, then light/medium",
+                    },
                   ].map((opt) => (
                     <button
                       key={opt.id}
@@ -2349,10 +1880,16 @@ export default function ProductDetailPage({
                         <Sparkles className="h-4.5 w-4.5" />
                       </div>
                       <div className="flex-1">
-                        <b className="block text-sm font-semibold text-[#1A150F]">{opt.label}</b>
-                        <small className="block text-xs font-medium text-gray-500">{opt.sub}</small>
+                        <b className="block text-sm font-semibold text-[#1A150F]">
+                          {opt.label}
+                        </b>
+                        <small className="block text-xs font-medium text-gray-500">
+                          {opt.sub}
+                        </small>
                       </div>
-                      <div className="ml-auto flex h-5.5 w-5.5 flex-none items-center justify-center rounded-full border border-gray-300 text-xs font-bold text-transparent">✓</div>
+                      <div className="ml-auto flex h-5.5 w-5.5 flex-none items-center justify-center rounded-full border border-gray-300 text-xs font-bold text-transparent">
+                        ✓
+                      </div>
                     </button>
                   ))}
                 </div>
@@ -2361,13 +1898,29 @@ export default function ProductDetailPage({
 
             {quizStep === 1 && (
               <div>
-                <span className="text-xs font-bold uppercase tracking-wider text-[#7E4D77]">STEP 2 OF 3 • LEAK PROTECTION</span>
-                <h3 className="mt-1 mb-4 font-serif text-2xl font-semibold leading-tight text-[#1A150F] sm:text-3xl">Do you experience leaks at night or during activity?</h3>
+                <span className="text-xs font-bold tracking-wider text-[#7E4D77] uppercase">
+                  STEP 2 OF 3 • LEAK PROTECTION
+                </span>
+                <h3 className="mt-1 mb-4 font-serif text-2xl leading-tight font-semibold text-[#1A150F] sm:text-3xl">
+                  Do you experience leaks at night or during activity?
+                </h3>
                 <div className="grid gap-3">
                   {[
-                    { id: "rarely", label: "Rarely or Never", sub: "Standard coverage is usually fine" },
-                    { id: "sometimes", label: "Sometimes at Night", sub: "Need extra back coverage for sleeping" },
-                    { id: "often", label: "Often / High Risk", sub: "Need maximum length & extra wide wings" },
+                    {
+                      id: "rarely",
+                      label: "Rarely or Never",
+                      sub: "Standard coverage is usually fine",
+                    },
+                    {
+                      id: "sometimes",
+                      label: "Sometimes at Night",
+                      sub: "Need extra back coverage for sleeping",
+                    },
+                    {
+                      id: "often",
+                      label: "Often / High Risk",
+                      sub: "Need maximum length & extra wide wings",
+                    },
                   ].map((opt) => (
                     <button
                       key={opt.id}
@@ -2386,14 +1939,24 @@ export default function ProductDetailPage({
                         <ShieldCheck className="h-4.5 w-4.5" />
                       </div>
                       <div className="flex-1">
-                        <b className="block text-sm font-semibold text-[#1A150F]">{opt.label}</b>
-                        <small className="block text-xs font-medium text-gray-500">{opt.sub}</small>
+                        <b className="block text-sm font-semibold text-[#1A150F]">
+                          {opt.label}
+                        </b>
+                        <small className="block text-xs font-medium text-gray-500">
+                          {opt.sub}
+                        </small>
                       </div>
-                      <div className="ml-auto flex h-5.5 w-5.5 flex-none items-center justify-center rounded-full border border-gray-300 text-xs font-bold text-transparent">✓</div>
+                      <div className="ml-auto flex h-5.5 w-5.5 flex-none items-center justify-center rounded-full border border-gray-300 text-xs font-bold text-transparent">
+                        ✓
+                      </div>
                     </button>
                   ))}
                 </div>
-                <button type="button" onClick={() => setQuizStep(0)} className="mt-4 cursor-pointer text-xs font-semibold text-gray-500 hover:text-[#1A150F]">
+                <button
+                  type="button"
+                  onClick={() => setQuizStep(0)}
+                  className="mt-4 cursor-pointer text-xs font-semibold text-gray-500 hover:text-[#1A150F]"
+                >
                   ← Back to Step 1
                 </button>
               </div>
@@ -2401,13 +1964,29 @@ export default function ProductDetailPage({
 
             {quizStep === 2 && (
               <div>
-                <span className="text-xs font-bold uppercase tracking-wider text-[#7E4D77]">STEP 3 OF 3 • DURATION</span>
-                <h3 className="mt-1 mb-4 font-serif text-2xl font-semibold leading-tight text-[#1A150F] sm:text-3xl">How many days does your period last?</h3>
+                <span className="text-xs font-bold tracking-wider text-[#7E4D77] uppercase">
+                  STEP 3 OF 3 • DURATION
+                </span>
+                <h3 className="mt-1 mb-4 font-serif text-2xl leading-tight font-semibold text-[#1A150F] sm:text-3xl">
+                  How many days does your period last?
+                </h3>
                 <div className="grid gap-3">
                   {[
-                    { id: "3-4", label: "3 to 4 Days", sub: "Shorter period duration" },
-                    { id: "5-7", label: "5 to 7 Days", sub: "Average period length" },
-                    { id: "7+", label: "7+ Days", sub: "Longer cycle duration" },
+                    {
+                      id: "3-4",
+                      label: "3 to 4 Days",
+                      sub: "Shorter period duration",
+                    },
+                    {
+                      id: "5-7",
+                      label: "5 to 7 Days",
+                      sub: "Average period length",
+                    },
+                    {
+                      id: "7+",
+                      label: "7+ Days",
+                      sub: "Longer cycle duration",
+                    },
                   ].map((opt) => (
                     <button
                       key={opt.id}
@@ -2418,7 +1997,10 @@ export default function ProductDetailPage({
                           : "border-gray-200/80 bg-white hover:border-[#9A5B90] hover:bg-[#F3E6F0]/40"
                       }`}
                       onClick={() => {
-                        setQuizAnswers((prev) => ({ ...prev, duration: opt.id }));
+                        setQuizAnswers((prev) => ({
+                          ...prev,
+                          duration: opt.id,
+                        }));
                         setQuizStep(3);
                       }}
                     >
@@ -2426,39 +2008,53 @@ export default function ProductDetailPage({
                         <RotateCcw className="h-4.5 w-4.5" />
                       </div>
                       <div className="flex-1">
-                        <b className="block text-sm font-semibold text-[#1A150F]">{opt.label}</b>
-                        <small className="block text-xs font-medium text-gray-500">{opt.sub}</small>
+                        <b className="block text-sm font-semibold text-[#1A150F]">
+                          {opt.label}
+                        </b>
+                        <small className="block text-xs font-medium text-gray-500">
+                          {opt.sub}
+                        </small>
                       </div>
-                      <div className="ml-auto flex h-5.5 w-5.5 flex-none items-center justify-center rounded-full border border-gray-300 text-xs font-bold text-transparent">✓</div>
+                      <div className="ml-auto flex h-5.5 w-5.5 flex-none items-center justify-center rounded-full border border-gray-300 text-xs font-bold text-transparent">
+                        ✓
+                      </div>
                     </button>
                   ))}
                 </div>
-                <button type="button" onClick={() => setQuizStep(1)} className="mt-4 cursor-pointer text-xs font-semibold text-gray-500 hover:text-[#1A150F]">
+                <button
+                  type="button"
+                  onClick={() => setQuizStep(1)}
+                  className="mt-4 cursor-pointer text-xs font-semibold text-gray-500 hover:text-[#1A150F]"
+                >
                   ← Back to Step 2
                 </button>
               </div>
             )}
 
             {quizStep === 3 && (
-              <div className="text-center pt-1">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-[#9A5B90] px-3.5 py-1 text-xs font-extrabold uppercase tracking-wider text-white shadow-xs">
+              <div className="pt-1 text-center">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-[#9A5B90] px-3.5 py-1 text-xs font-extrabold tracking-wider text-white uppercase shadow-xs">
                   {recommendedQuizResult.badge}
                 </span>
 
                 {/* Recommended Product Preview Box inside Popup */}
-                <div className="mt-4 mb-5 text-left rounded-3xl border-2 border-[#9A5B90] bg-gradient-to-br from-[#FBF1FB] via-white to-[#F3E6F0] p-4.5 sm:p-5 shadow-sm">
+                <div className="mt-4 mb-5 rounded-3xl border-2 border-[#9A5B90] bg-gradient-to-br from-[#FBF1FB] via-white to-[#F3E6F0] p-4.5 text-left shadow-sm sm:p-5">
                   <div className="flex items-center gap-4">
                     <div className="relative h-20 w-20 flex-none overflow-hidden rounded-2xl border border-[#F3E6F0] bg-white p-2 shadow-xs">
                       <Image
-                        src={getImageUrl(recommendedQuizResult.image || activeImage)}
+                        src={getImageUrl(
+                          recommendedQuizResult.image || activeImage,
+                        )}
                         alt={recommendedQuizResult.size}
                         fill
                         className="object-contain p-1"
                       />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xs font-semibold text-gray-500">21 Pads + 4 Liners</span>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-xs font-semibold text-gray-500">
+                          21 Pads + 4 Liners
+                        </span>
                       </div>
                       <h4 className="mt-1 font-serif text-xl font-bold text-[#1A150F]">
                         Ovy Organic — {recommendedQuizResult.size}
@@ -2471,7 +2067,7 @@ export default function ProductDetailPage({
                     </div>
                   </div>
 
-                  <p className="mt-3 text-xs leading-relaxed text-gray-700 bg-white/70 p-3 rounded-xl border border-gray-100">
+                  <p className="mt-3 rounded-xl border border-gray-100 bg-white/70 p-3 text-xs leading-relaxed text-gray-700">
                     💡 <strong>Why it fits:</strong> {recommendedQuizResult.why}
                   </p>
                 </div>
@@ -2507,84 +2103,28 @@ export default function ProductDetailPage({
         </div>
       )}
 
-      {/* Sticky Mobile/Desktop Buying Bar */}
+      {/* Sticky Mobile Buying Bar */}
       <div
+        id="pdp-sticky-buy-bar"
         className={`fixed left-0 right-0 bottom-[56px] md:bottom-0 z-40 flex items-center justify-between gap-3 sm:gap-4 border-t border-gray-200/80 bg-white/95 p-3.5 px-4 sm:px-6 shadow-lg backdrop-blur-md transition-transform duration-300 ${
-          showStickyBar ? "translate-y-0 pointer-events-auto" : "translate-y-[115%] pointer-events-none"
+          showStickyBar ? "translate-y-0 pointer-events-auto pdp-sticky-active" : "translate-y-[115%] pointer-events-none"
         }`}
       >
-        <div className="min-w-0">
-          <div className="font-serif text-lg sm:text-xl font-bold text-[#1A150F]">
-            {typeof totalAmount === "number" ? `₹${Math.round(totalAmount)}` : "—"}
+        <div>
+          <div className="font-serif text-xl font-bold text-[#1A150F]">
+            ₹{typeof totalAmount === "number" ? totalAmount : 349}
           </div>
-          <div className="text-xs text-gray-500 truncate">
-            {isOutOfStock
-              ? "Out of stock"
-              : isMixBoxCheckout && (!mixBoxPricing?.valid || total !== 21)
-                ? getMixBoxAdjustmentMessage(total)
-                : effectivePurchaseType === "subscription"
-                  ? (selectedPlan?.title || selectedPlan?.label || (effectiveSubscriptionType === "cycle_sync" ? "Cycle Sync" : "Subscription Plan"))
-                  : isLiners
-                    ? `${activeVariant?.name || "Pack of 60"} (${activeVariant?.name?.includes("40") ? "40" : activeVariant?.name?.includes("80") ? "80" : "60"} Liners)`
-                    : isPanty
-                      ? `${activeVariant?.name || "M-XL"} (8 Panties)`
-                      : `${21 * quantity} Pads + ${4 * quantity} Free Liners`}
-          </div>
+          <div className="text-xs text-gray-500">21 Pads + 4 Free Liners</div>
         </div>
-        {isOutOfStock ? (
-          <button
-            type="button"
-            disabled
-            className="flex-1 max-w-[280px] cursor-not-allowed rounded-2xl bg-gray-200 p-3.5 text-sm font-semibold text-gray-500 shadow-none"
-          >
-            Out of stock
-          </button>
-        ) : effectivePurchaseType === "subscription" ? (
-          <button
-            type="button"
-            onClick={handleBuyNow}
-            disabled={Boolean((isMixBoxCheckout && (!mixBoxPricing?.valid || total !== 21)) || !isCycleSyncReady)}
-            className="flex-1 max-w-[280px] cursor-pointer rounded-2xl bg-[#141413] p-3.5 text-sm font-semibold text-white shadow-md transition hover:bg-[#2a2a28] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {isMixBoxCheckout && (!mixBoxPricing?.valid || total !== 21)
-              ? getMixBoxAdjustmentMessage(total)
-              : "Checkout Subscription →"}
-          </button>
-        ) : (
-          <div className="flex flex-1 max-w-[340px] items-center gap-2">
-            <button
-              type="button"
-              onClick={addToCart}
-              disabled={Boolean(isMixBoxCheckout && (!mixBoxPricing?.valid || total !== 21))}
-              className="flex-1 cursor-pointer rounded-2xl bg-[#9A5B90] p-3.5 text-sm font-semibold text-white shadow-md transition hover:bg-[#7E4D77] disabled:opacity-50"
-            >
-              {isMixBoxCheckout && (!mixBoxPricing?.valid || total !== 21)
-                ? getMixBoxAdjustmentMessage(total)
-                : "Add to Cart"}
-            </button>
-            <button
-              type="button"
-              onClick={handleBuyNow}
-              disabled={Boolean(isMixBoxCheckout && (!mixBoxPricing?.valid || total !== 21))}
-              className="hidden sm:block flex-1 cursor-pointer rounded-2xl bg-[#141413] p-3.5 text-sm font-semibold text-white transition hover:bg-[#2a2a28] disabled:opacity-50"
-            >
-              {isMixBoxCheckout && (!mixBoxPricing?.valid || total !== 21)
-                ? getMixBoxAdjustmentMessage(total)
-                : "Buy Now →"}
-            </button>
-          </div>
-        )}
+        <button
+          type="button"
+          onClick={addToCart}
+          disabled={Boolean(isMixBoxCheckout && !mixBoxPricing?.valid)}
+          className="flex-1 cursor-pointer rounded-2xl bg-[#9A5B90] p-3.5 text-sm font-semibold text-white transition hover:bg-[#7E4D77] disabled:opacity-50"
+        >
+          Add to Cart
+        </button>
       </div>
-
-      {/* Tap-to-Zoom Lightbox Modal */}
-      <ImageZoomModal
-        isOpen={isZoomOpen}
-        onClose={() => setIsZoomOpen(false)}
-        images={productImages.map(getImageUrl)}
-        currentIndex={Math.max(0, currentImageIndex)}
-        onNavigate={(idx) => setActiveImage(productImages[idx])}
-        alt={activeVariant?.name || productInfo?.name}
-      />
     </div>
   );
 }

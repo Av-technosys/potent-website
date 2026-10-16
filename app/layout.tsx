@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Caveat, Fredoka } from "next/font/google";
 import "./globals.css";
-import { Toaster } from "sonner";
+import { AppToaster } from "./components/common/AppToaster";
 import { CatalogProvider } from "./components/common/CatalogProvider";
 import { ChatBotWidget } from "./components/common/ChatBotWidget";
 import { WhatsAppWidget } from "./components/common/homepage/WhatsAppWidget";
@@ -49,7 +49,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} ${caveat.variable} ${fredoka.variable} antialiased`}
       >
         <CatalogProvider>{children}</CatalogProvider>
-        <Toaster position="top-right" richColors />
+        <AppToaster />
         <ChatBotWidget />
         <WhatsAppWidget />
       </body>

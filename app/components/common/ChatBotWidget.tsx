@@ -131,6 +131,47 @@ export function ChatBotWidget() {
     inputRef.current?.focus();
   }, [isOpen, messages, isLoading]);
 
+  useEffect(() => {
+    if (isOpen) {
+      document.body.classList.add("chatbot-open");
+    } else {
+      document.body.classList.remove("chatbot-open");
+    }
+
+    window.dispatchEvent(
+      new CustomEvent("chatbot-toggle", { detail: { isOpen } })
+    );
+
+    return () => {
+      document.body.classList.remove("chatbot-open");
+    };
+  }, [isOpen]);
+
+  const [hasStickyBar, setHasStickyBar] = useState(false);
+
+  useEffect(() => {
+    const checkSticky = () => {
+      const activeEl = document.querySelector(".pdp-sticky-active");
+      setHasStickyBar(!!activeEl);
+    };
+
+    checkSticky();
+
+    const observer = new MutationObserver(checkSticky);
+    observer.observe(document.body, {
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["class"],
+    });
+
+    window.addEventListener("scroll", checkSticky, { passive: true });
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("scroll", checkSticky);
+    };
+  }, [pathname]);
+
   if (isHidden) {
     return null;
   }
@@ -198,7 +239,11 @@ export function ChatBotWidget() {
   }
 
   return (
-    <div className="fixed bottom-20 right-4 z-50 flex flex-col items-end gap-3 sm:right-6 md:bottom-6">
+    <div
+      className={`chatbot-floating-widget fixed right-4 z-50 flex flex-col items-end gap-3 transition-all duration-300 sm:right-6 md:bottom-6 ${
+        hasStickyBar ? "bottom-[138px]" : "bottom-20"
+      }`}
+    >
       {isOpen ? (
         <section
           className="flex h-[min(600px,calc(100vh-160px))] w-[calc(100vw-32px)] max-w-[390px] flex-col overflow-hidden rounded-lg border border-[#efd8e5] bg-white shadow-[0_20px_60px_rgba(63,39,56,0.22)]"

@@ -2,11 +2,18 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use server";
 import { db } from "@/db";
-import { order, orderItem, review, users, product, productVariant } from "@/db/schema";
+import {
+  order,
+  orderItem,
+  review,
+  users,
+  product,
+  productVariant,
+} from "@/db/schema";
 import { and, desc, eq, or, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { requireUserWithRefresh } from "../user/action";
-import { ORDER_STATUS } from "@/const/globalconst";
+import { ORDER_STATUS, isUUID } from "@/const/globalconst";
 
 import { syncAndGetUserRewards, REVIEW_REWARD_RUPEES } from "@/lib/rewards";
 import { getImageUrl } from "@/lib/imageUrl";
@@ -17,7 +24,9 @@ export async function createReview(reviewData: any) {
     const { productVarientId, orderItemId, rating, message } = reviewData;
 
     if (!orderItemId && !productVarientId) {
-      throw new Error("Product or order item ID is required for review submission");
+      throw new Error(
+        "Product or order item ID is required for review submission",
+      );
     }
 
     await db.transaction(async (tx) => {
@@ -40,15 +49,8 @@ export async function createReview(reviewData: any) {
           .where(and(eq(orderItem.id, orderItemId), eq(order.userId, userId)))
           .limit(1);
 
-        if (!itemRow) {
-          throw new Error("Order item not found or you do not own this order");
-        }
-
-        if (
-          itemRow.orderStatus !== ORDER_STATUS.DELIVERED &&
-          itemRow.orderStatus !== ORDER_STATUS.COMPLETED
-        ) {
-          throw new Error("Reviews can only be submitted for delivered orders");
+        if (!itemRow || itemRow.orderStatus === ORDER_STATUS.CANCELED) {
+          throw new Error("Order item not found or order was cancelled");
         }
 
         resolvedProductId = itemRow.productId ?? null;
@@ -108,19 +110,21 @@ export async function createReview(reviewData: any) {
               ? [reviewData.varient]
               : [];
 
-      const normalizedMedia = rawMediaList
-        .filter(Boolean)
-        .map((m: any) => {
-          const raw = typeof m === "string" ? m : m?.mediaURL ? m.mediaURL : String(m);
-          return getImageUrl(raw);
-        });
+      const normalizedMedia = rawMediaList.filter(Boolean).map((m: any) => {
+        const raw =
+          typeof m === "string" ? m : m?.mediaURL ? m.mediaURL : String(m);
+        return getImageUrl(raw);
+      });
 
       const primaryImageUrl = normalizedMedia[0] || null;
       if (!primaryImageUrl) {
-        throw new Error("Please attach at least 1 photo of the product to earn ₹50");
+        throw new Error(
+          "Please attach at least 1 photo of the product to earn ₹50",
+        );
       }
 
-      const mediaJson = normalizedMedia.length > 0 ? JSON.stringify(normalizedMedia) : null;
+      const mediaJson =
+        normalizedMedia.length > 0 ? JSON.stringify(normalizedMedia) : null;
 
       await tx.insert(review).values({
         userId,
@@ -169,8 +173,11 @@ export async function getProductReviews(slug: string | any) {
       targetSlug = "ovy-cup";
     }
 
+    const isId = typeof slug === "string" && isUUID(slug);
     const v = await db.query.product.findFirst({
-      where: or(eq(product.slug, targetSlug), eq(product.id, slug)),
+      where: isId
+        ? or(eq(product.slug, targetSlug), eq(product.id, slug))
+        : eq(product.slug, targetSlug),
     });
     if (!v || !v.id) return [];
     const reviews = await db
@@ -188,12 +195,7 @@ export async function getProductReviews(slug: string | any) {
       })
       .from(review)
       .leftJoin(users, eq(review.userId, users.id))
-      .where(
-        and(
-          eq(review.productId, v.id),
-          eq(review.isAdminApproved, true),
-        ),
-      )
+      .where(and(eq(review.productId, v.id), eq(review.isAdminApproved, true)))
       .orderBy(desc(review.createdAt));
 
     return reviews.map((r) => {
@@ -206,7 +208,12 @@ export async function getProductReviews(slug: string | any) {
           const parsed = JSON.parse(r.varient);
           if (Array.isArray(parsed)) {
             parsed.forEach((m) => {
-              const url = typeof m === "string" ? getImageUrl(m) : m?.mediaURL ? getImageUrl(m.mediaURL) : null;
+              const url =
+                typeof m === "string"
+                  ? getImageUrl(m)
+                  : m?.mediaURL
+                    ? getImageUrl(m.mediaURL)
+                    : null;
               if (url && !media.some((item) => item.mediaURL === url)) {
                 media.push({ mediaURL: url });
               }
@@ -376,7 +383,12 @@ export async function getUserAllReviews() {
           const parsed = JSON.parse(r.varient);
           if (Array.isArray(parsed)) {
             parsed.forEach((m) => {
-              const url = typeof m === "string" ? getImageUrl(m) : m?.mediaURL ? getImageUrl(m.mediaURL) : null;
+              const url =
+                typeof m === "string"
+                  ? getImageUrl(m)
+                  : m?.mediaURL
+                    ? getImageUrl(m.mediaURL)
+                    : null;
               if (url && !media.some((item) => item.mediaURL === url)) {
                 media.push({ mediaURL: url });
               }
@@ -487,4 +499,3 @@ export async function getReviewableProducts() {
     return [];
   }
 }
-

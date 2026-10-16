@@ -1218,9 +1218,13 @@ export default function MenstrualCupPageClient({
                     <MapPin className="absolute top-3 left-3 h-4 w-4 text-gray-400" />
                     <input
                       type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
                       maxLength={6}
                       value={pincode}
-                      onChange={(e) => setPincode(e.target.value)}
+                      onChange={(e) =>
+                        setPincode(e.target.value.replace(/\D/g, ""))
+                      }
                       placeholder="Enter 6-digit Pincode"
                       className="w-full rounded-xl border border-gray-200 py-2 pr-3 pl-9 text-xs focus:border-[#7E4D77] focus:outline-none sm:text-sm"
                     />
@@ -2770,8 +2774,9 @@ export default function MenstrualCupPageClient({
 
       {/* Mobile Sticky Add Bar */}
       <div
+        id="pdp-sticky-buy-bar"
         className={`fixed right-0 bottom-[56px] md:bottom-0 left-0 z-40 flex items-center justify-between gap-3 border-t border-[#1A150F]/10 bg-white/95 p-3 shadow-lg backdrop-blur-md transition-transform duration-300 lg:hidden ${
-          showStickyBar ? "translate-y-0 pointer-events-auto" : "translate-y-[115%] pointer-events-none"
+          showStickyBar ? "translate-y-0 pointer-events-auto pdp-sticky-active" : "translate-y-[115%] pointer-events-none"
         }`}
       >
         <div>

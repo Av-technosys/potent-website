@@ -1,9 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useMemo } from "react";
 import { Star, CheckCircle2, ChevronLeft, ChevronRight, Check } from "lucide-react";
 import { WriteReviewModal } from "../dashboard-review/WriteReviewModal";
+import ProductReviews from "./productreview";
+import { lowayProductDetailsPage } from "@/const/globalconst";
 
 type Review = {
   id: number;
@@ -126,11 +128,31 @@ const STAR_BREAKDOWN = [
   { stars: 1, count: 1, pct: "1%" },
 ];
 
-export default function LoowayReviewsSection() {
+export default function LoowayReviewsSection({
+  submittedReviews,
+  product,
+}: {
+  submittedReviews?: any[];
+  product?: any;
+}) {
   const [activeFilter, setActiveFilter] = useState<string>("all");
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const filteredReviews = REVIEWS_DATA.filter((rev) => {
+  const combinedReviews = useMemo(() => {
+    const fromDb = (submittedReviews || []).map((r: any) => ({
+      id: `db-${r.id}`,
+      name: r.name || "Verified Buyer",
+      city: "Verified Purchase",
+      group: "all",
+      stage: "Verified Buyer",
+      stars: Number(r.rating) || 5,
+      quote: r.message || "",
+      media: r.media || [],
+    }));
+    return [...fromDb, ...REVIEWS_DATA];
+  }, [submittedReviews]);
+
+  const filteredReviews = combinedReviews.filter((rev: any) => {
     if (activeFilter === "all") return true;
     if (activeFilter === "s5") return rev.stars === 5;
     if (activeFilter === "s4") return rev.stars === 4;
@@ -196,12 +218,13 @@ export default function LoowayReviewsSection() {
                 <span>Every review from a verified purchase</span>
               </div>
 
-              <div className="mt-3.5">
+              {/* Write a review button hidden on PDP as requested */}
+              {/* <div className="mt-3.5">
                 <WriteReviewModal
                   product={{ name: "Looway Toilet Seat Covers", slug: "looway-toilet-seat-covers" }}
                   btnClassName="px-4 py-2 text-xs font-bold rounded-full bg-[#0A4A2E] text-white hover:bg-[#06331F] transition cursor-pointer inline-flex items-center gap-1.5"
                 />
-              </div>
+              </div> */}
             </div>
 
             {/* Right Rating Breakdown Bars */}
@@ -337,6 +360,17 @@ export default function LoowayReviewsSection() {
             ))}
           </div>
         </div>
+
+        {/* Customer Reviews from DB */}
+        {submittedReviews && submittedReviews.length > 0 && (
+          <div className="mt-12 border-t border-[#E4DED0] pt-8">
+            <ProductReviews
+              reviews={submittedReviews}
+              product={product}
+              themeColor={lowayProductDetailsPage}
+            />
+          </div>
+        )}
       </div>
     </section>
   );
