@@ -731,10 +731,7 @@ export default function SeatCoversPageClient({
                     }
                     className="cursor-pointer font-semibold text-[#0F6DA6] hover:underline"
                   >
-                    4.8 out of 5 ·{" "}
-                    <span className="underline decoration-dotted">
-                      96 verified reviews
-                    </span>
+                    4.8 out of 5 
                   </button>
                 </div>
               </div>

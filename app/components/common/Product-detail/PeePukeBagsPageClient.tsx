@@ -989,10 +989,7 @@ export default function PeePukeBagsPageClient({
                 <span className="font-extrabold text-[#0A4A2E] group-hover:text-[#0E5C3A]">
                   4.8 out of 5
                 </span>
-                <span className="text-[#17271E]/40">•</span>
-                <span className="font-bold underline decoration-dotted underline-offset-4 group-hover:text-[#0E5C3A]">
-                  108 verified reviews
-                </span>
+             
               </a>
 
               {/* Highlight Chips Row 2 */}

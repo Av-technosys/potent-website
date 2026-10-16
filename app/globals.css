@@ -227,6 +227,12 @@
   body:has(.pdp-sticky-active) .chatbot-floating-widget {
     bottom: 138px !important;
   }
+  body:has(.pdp-sticky-active) .chatbot-floating-widget section {
+    height: min(480px, calc(100vh - 230px)) !important;
+    height: min(480px, calc(100dvh - 230px)) !important;
+    max-height: calc(100vh - 230px) !important;
+    max-height: calc(100dvh - 230px) !important;
+  }
   body:has(.pdp-sticky-active) .whatsapp-floating-widget {
     bottom: 204px !important;
   }

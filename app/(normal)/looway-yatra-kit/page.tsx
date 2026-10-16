@@ -89,7 +89,7 @@ async function getYatraMappedProducts() {
           case "cup:l":
             return target.includes("large") || target.includes("white") || target.includes("-l");
           case "panty:lxl":
-            return target.includes("l-xl") || target.includes("lxl") || target.includes("l/xl");
+            return target.includes("m-xl") || target.includes("mxl") || target.includes("l-xl") || target.includes("lxl") || target.includes("l/xl");
           case "panty:xxl3xl":
             return target.includes("xxl") || target.includes("3xl");
           case "funnel":

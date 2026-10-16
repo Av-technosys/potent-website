@@ -679,10 +679,6 @@ export default function YatraKitPageClient({ content, mappedProducts }: Props) {
                 >
                   <span className="underline decoration-dotted underline-offset-4">
                     4.8 out of 5
-                  </span>{" "}
-                  ·{" "}
-                  <span className="underline decoration-dotted underline-offset-4">
-                    96 verified reviews
                   </span>
                 </button>
               </div>
@@ -1514,7 +1510,7 @@ export default function YatraKitPageClient({ content, mappedProducts }: Props) {
                   ))}
                 </div>
                 <p className="text-sm font-bold text-[#0A3B39]">
-                  96 verified reviews
+                  
                 </p>
                 <p className="mt-1.5 flex items-center gap-1.5 text-xs font-semibold text-[#15803D]">
                   <ShieldCheck className="h-4 w-4" /> Every review from a

@@ -6284,7 +6284,7 @@ export const ovyPanty: Record<string, any> = {
   SIZES: {
     LXL: {
       key: "LXL",
-      hash: "#lxl",
+      hash: "#mxl",
       label: "M-XL",
       mm: "Waist ~28–44 in (71–112 cm)",
       flow: "Fits most",
@@ -6352,6 +6352,8 @@ export const ovyPanty: Record<string, any> = {
   },
   SIZE_ORDER: ["LXL", "XXL"],
   HASH_MAP: {
+    "#mxl": "LXL",
+    "#m-xl": "LXL",
     "#lxl": "LXL",
     "#xxl3xl": "XXL",
   },

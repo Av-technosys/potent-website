@@ -882,7 +882,7 @@ export default function MenstrualCupPageClient({
                 </div>
                 <span className="font-bold text-gray-900">4.8</span>
                 <span className="text-gray-500">
-                  out of 5 · 183 verified reviews
+                  out of 5 
                 </span>
               </div>
 

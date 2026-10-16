@@ -1364,7 +1364,7 @@ export default function OvyTeenPageClient({
                   ))}
                 </div>
                 <span className="font-bold text-[#1A150F]">5.0</span>
-                <span>(304 teen & mom reviews)</span>
+              
               </div>
 
               <p className="mt-4 text-sm leading-relaxed text-[#1A150F]/80 sm:text-base">

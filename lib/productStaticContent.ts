@@ -18,7 +18,7 @@ const SIZE_ALIASES: Array<{ key: string; patterns: RegExp[] }> = [
   { key: "MIX", patterns: [/mix/i, /custom/i] },
   { key: "XLP", patterns: [/xl\+/i, /\bxlp\b/i, /320/i, /overnight/i, /day[-\s]?night/i, /xlplus/i, /\b80\b/i, /\bp80\b/i] },
   { key: "XXL", patterns: [/\bxxl\b/i, /xxxl/i, /44/i, /56/i] },
-  { key: "LXL", patterns: [/\bm-xl\b/i, /\blxl\b/i, /28/i, /44/i] },
+  { key: "LXL", patterns: [/\bm-xl\b/i, /\bmxl\b/i, /\blxl\b/i, /28/i, /44/i] },
   { key: "XL", patterns: [/\bxl\b/i, /280/i, /extra\s*large/i, /\b60\b/i, /\bp60\b/i] },
   { key: "L", patterns: [/\bl\b/i, /240/i, /large/i, /\b40\b/i, /\bp40\b/i] },
   { key: "M", patterns: [/\bm\b/i, /medium/i] },
@@ -72,6 +72,7 @@ export function resolveStaticSizeKey(
           itemHash &&
           (itemHash === cleanHash ||
             cleanHash === key.toLowerCase() ||
+            (key === "LXL" && (cleanHash === "mxl" || cleanHash === "lxl" || cleanHash === "m-xl")) ||
             (key === "XLP" && (cleanHash === "xlplus" || cleanHash === "xlp")))
         ) {
           return key;

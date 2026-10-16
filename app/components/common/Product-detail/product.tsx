@@ -1171,7 +1171,7 @@ export default function ProductDetailPage({ productInfo, themeColor }: any) {
               ))}
             </div>
             <span>
-              <b>4.8/5</b> (1,420+ verified reviews)
+              <b>4.8/5</b> 
             </span>
           </div>
 

@@ -642,9 +642,7 @@ export default function PeeFunnelPageClient({
                   4.8 out of 5
                 </span>
                 <span className="text-[#5A0E30]/40">•</span>
-                <span className="font-bold underline decoration-dotted underline-offset-4 group-hover:text-[#C21E63]">
-                  121 verified reviews
-                </span>
+              
               </a>
 
               {/* Feature Chips Row 2 */}

@@ -246,7 +246,11 @@ export function ChatBotWidget() {
     >
       {isOpen ? (
         <section
-          className="flex h-[min(600px,calc(100vh-160px))] w-[calc(100vw-32px)] max-w-[390px] flex-col overflow-hidden rounded-lg border border-[#efd8e5] bg-white shadow-[0_20px_60px_rgba(63,39,56,0.22)]"
+          className={`flex w-[calc(100vw-32px)] max-w-[390px] flex-col overflow-hidden rounded-lg border border-[#efd8e5] bg-white shadow-[0_20px_60px_rgba(63,39,56,0.22)] md:h-[min(600px,calc(100dvh-120px))] ${
+            hasStickyBar
+              ? "h-[min(480px,calc(100dvh-230px))]"
+              : "h-[min(520px,calc(100dvh-175px))]"
+          }`}
           aria-label="Potent Assistant chat"
         >
           <header className="flex items-center justify-between gap-3 border-b border-[#f2dfea] bg-[#fff7fb] px-4 py-3">
