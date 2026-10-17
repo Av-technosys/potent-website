@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowRight,
@@ -46,9 +46,11 @@ import {
   getPdpSubscriptionPlans,
 } from "@/lib/pdpSubscriptionRules";
 import {
+  MIX_BOX_DEFAULT_RECIPE,
   calculateMixBoxPricing,
   normalizeMixBoxRecipe,
   normalizePadSize,
+  type MixBoxRecipe,
   type MixBoxSelection,
 } from "@/lib/mixYourBox";
 import {
@@ -115,6 +117,51 @@ export default function ProductDetailPage({ productInfo, themeColor }: any) {
       price: Number(variant?.price || 0),
     },
   ];
+
+  const DEFAULT_PAD_ITEMS = [
+    { name: "Ovy Soft Sanitary Pads - L (240mm)", size: "L (240mm)", price: 349 },
+    { name: "Ovy Soft Sanitary Pads - XL (280mm)", size: "XL (280mm)", price: 349 },
+    { name: "Ovy Soft Sanitary Pads - XL+ (320mm)", size: "XL+ (320mm)", price: 349 },
+  ];
+
+  const getInitialMixBoxItems = (variants?: any[]) => {
+    let recipe: MixBoxRecipe = MIX_BOX_DEFAULT_RECIPE;
+    if (typeof window !== "undefined") {
+      try {
+        const saved = window.localStorage.getItem("ovy_mix_your_box_recipe");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          const l = Number(parsed?.L) || 0;
+          const xl = Number(parsed?.XL) || 0;
+          const xlPlus = Number(parsed?.["XL+"]) || 0;
+          if (l + xl + xlPlus === 21) {
+            recipe = { L: l, XL: xl, "XL+": xlPlus };
+          }
+        }
+      } catch {
+        // Fallback to default
+      }
+    }
+
+    const rawList =
+      Array.isArray(variants) && variants.length >= 3
+        ? variants
+        : Array.isArray(variantsList) && variantsList.length >= 3
+          ? variantsList
+          : DEFAULT_PAD_ITEMS;
+
+    return rawList.map((item: any) => {
+      const padSize = normalizePadSize(`${item.size ?? ""} ${item.name ?? ""}`);
+      const qty = padSize ? recipe[padSize] ?? 0 : 0;
+      return {
+        ...item,
+        name: item.name || `Ovy Soft Sanitary Pads - ${padSize || "XL"}`,
+        size: item.size || item.name || padSize,
+        quantity: qty,
+        price: Number(item.price || 349),
+      };
+    });
+  };
 
   const defaultSize =
     defaultVariant.size ||
@@ -278,59 +325,114 @@ export default function ProductDetailPage({ productInfo, themeColor }: any) {
     productInfo?.freeShippingOver || 399,
   );
 
-  const availableSubscriptionPlans = getPdpSubscriptionPlans(productInfo);
-  const shownSubscriptionPlans = [BUY_ONCE_PLAN, ...availableSubscriptionPlans];
+  const availableSubscriptionPlans = useMemo(
+    () => getPdpSubscriptionPlans(productInfo),
+    [productInfo],
+  );
+  const shownSubscriptionPlans = useMemo(
+    () => [BUY_ONCE_PLAN, ...availableSubscriptionPlans],
+    [availableSubscriptionPlans],
+  );
+
+  const selectedPlanTypeRef = useRef(selectedPlanType);
+  selectedPlanTypeRef.current = selectedPlanType;
+
+  const switchToTab = (tab: "pickSize" | "mixYourBox", specificVariant?: any) => {
+    setSelectedPlanType(tab);
+    if (tab === "mixYourBox") {
+      if (!canCustomizeBox) return;
+      if (typeof window !== "undefined") {
+        const currentParams = new URLSearchParams(window.location.search);
+        currentParams.delete("plan");
+        const searchStr = currentParams.toString() ? `?${currentParams.toString()}` : "";
+        if (window.location.hash !== "#mix") {
+          window.history.replaceState(
+            null,
+            "",
+            `${window.location.pathname}${searchStr}#mix`,
+          );
+        }
+      }
+      const initialItems = getInitialMixBoxItems(
+        productInfo?.prodcutVarientBoxRes || productInfo?.productVariants || variantsList,
+      );
+      setCartSizes(initialItems);
+      setSelectedVarient(initialItems);
+      setTotal(21);
+    } else {
+      const targetVariant = specificVariant || activeVariant || variantsList[0] || productInfo;
+      if (targetVariant) {
+        setSelectedVarient(getPickedVariantSelection(targetVariant));
+        setActiveVariant(targetVariant);
+        if (targetVariant.size) setSelectedSize(targetVariant.size);
+        else if (targetVariant.name) setSelectedSize(targetVariant.name);
+        if (targetVariant.flowType) setSelectedFlow(targetVariant.flowType);
+        if (targetVariant.bannerImage || targetVariant.image) {
+          setActiveImage(targetVariant.bannerImage || targetVariant.image);
+        }
+      }
+      if (typeof window !== "undefined") {
+        const targetSizeKey = resolveStaticSizeKey(
+          targetVariant?.size || targetVariant?.name,
+          targetVariant,
+          staticContent,
+        );
+        const targetHash =
+          staticContent?.SIZES?.[targetSizeKey]?.hash || `#${String(targetSizeKey || "l").toLowerCase()}`;
+        const currentParams = new URLSearchParams(window.location.search);
+        currentParams.delete("plan");
+        const searchStr = currentParams.toString() ? `?${currentParams.toString()}` : "";
+        if (window.location.hash !== targetHash) {
+          window.history.replaceState(
+            null,
+            "",
+            `${window.location.pathname}${searchStr}${targetHash}`,
+          );
+        }
+      }
+    }
+  };
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const searchParams = new URLSearchParams(window.location.search);
-    const planParam = searchParams.get("plan");
-    const hash = window.location.hash;
 
-    if (
-      planParam === "mixYourBox" ||
-      planParam === "mix-your-box" ||
-      hash === "#mix-your-box" ||
-      hash === "#mix-box" ||
-      hash === "#mixYourBox"
-    ) {
-      if (canCustomizeBox) {
-        setSelectedPlanType("mixYourBox");
-        const variants =
-          productInfo?.prodcutVarientBoxRes ||
-          productInfo?.productVariants ||
-          [];
-        if (variants.length > 0) {
-          const baseQuantity = Math.floor(21 / Math.max(variants.length, 1));
-          let remaining = 21;
-          const selectedVarientInfo = variants.map(
-            (item: any, index: number) => {
-              const qty =
-                index === variants.length - 1 ? remaining : baseQuantity;
-              remaining -= qty;
-              return {
-                name: item.name,
-                quantity: qty,
-                price: Number(item.price || 0),
-              };
-            },
-          );
-          setCartSizes(selectedVarientInfo);
-          setSelectedVarient(selectedVarientInfo);
-          setTotal(21);
+    const handleHashAndParams = () => {
+      const searchParams = new URLSearchParams(window.location.search);
+      const planParam = (searchParams.get("plan") || "").toLowerCase();
+      const hash = (window.location.hash || "").toLowerCase();
+
+      const isMix =
+        planParam === "mixyourbox" ||
+        planParam === "mix-your-box" ||
+        hash === "#mix" ||
+        hash === "#mix-your-box" ||
+        hash === "#mix-box" ||
+        hash === "#mixyourbox";
+
+      if (isMix) {
+        if (canCustomizeBox && selectedPlanTypeRef.current !== "mixYourBox") {
+          switchToTab("mixYourBox");
+        }
+      } else if (planParam === "cyclesync" || hash === "#cycle-sync") {
+        const cycleSyncPlan = shownSubscriptionPlans.find(
+          (p: any) =>
+            p.subscriptionType === "cycle_sync" || p.id === "cycle_sync",
+        );
+        if (cycleSyncPlan) {
+          setSelectedPlan(cycleSyncPlan);
+          setIsSubscribed(true);
         }
       }
-    } else if (planParam === "cycleSync" || hash === "#cycle-sync") {
-      const cycleSyncPlan = shownSubscriptionPlans.find(
-        (p: any) =>
-          p.subscriptionType === "cycle_sync" || p.id === "cycle_sync",
-      );
-      if (cycleSyncPlan) {
-        setSelectedPlan(cycleSyncPlan);
-        setIsSubscribed(true);
-      }
-    }
-  }, [canCustomizeBox, shownSubscriptionPlans, productInfo]);
+    };
+
+    handleHashAndParams();
+    window.addEventListener("popstate", handleHashAndParams);
+    window.addEventListener("hashchange", handleHashAndParams);
+    return () => {
+      window.removeEventListener("popstate", handleHashAndParams);
+      window.removeEventListener("hashchange", handleHashAndParams);
+    };
+  }, [canCustomizeBox, shownSubscriptionPlans]);
 
   const subscriptionType = selectedPlan?.subscriptionType ?? "buy_once";
   const purchaseType =
@@ -407,20 +509,27 @@ export default function ProductDetailPage({ productInfo, themeColor }: any) {
   );
 
   const syncHash = (sizeKey: string | null) => {
-    if (
-      !sizeKey ||
-      typeof window === "undefined" ||
-      selectedPlanType === "mixYourBox"
-    )
+    if (typeof window === "undefined" || !staticContent) return;
+    if (selectedPlanType === "mixYourBox") {
+      if (window.location.hash !== "#mix") {
+        window.history.replaceState(
+          null,
+          "",
+          `${window.location.pathname}${window.location.search}#mix`,
+        );
+      }
       return;
+    }
+    if (!sizeKey) return;
     const hash =
       staticContent?.SIZES?.[sizeKey]?.hash || `#${sizeKey.toLowerCase()}`;
-    window.history.replaceState(
-      null,
-      "",
-      `${window.location.pathname}${window.location.search}${hash}`,
-    );
-    window.dispatchEvent(new Event("hashchange"));
+    if (window.location.hash !== hash) {
+      window.history.replaceState(
+        null,
+        "",
+        `${window.location.pathname}${window.location.search}${hash}`,
+      );
+    }
   };
 
   useEffect(() => {
@@ -439,16 +548,15 @@ export default function ProductDetailPage({ productInfo, themeColor }: any) {
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const hash = window.location.hash;
-      const search = window.location.search;
+      const hash = window.location.hash.toLowerCase();
+      const search = window.location.search.toLowerCase();
       if (
         hash === "#starter" ||
         hash.includes("starter") ||
         search.includes("starter") ||
-        hash.includes("mix-your-box") ||
-        hash.includes("mix-box") ||
-        search.includes("mixYourBox") ||
-        search.includes("mix-your-box")
+        hash === "#mix" ||
+        hash.includes("mix") ||
+        search.includes("mix")
       ) {
         setTimeout(() => {
           document
@@ -461,6 +569,15 @@ export default function ProductDetailPage({ productInfo, themeColor }: any) {
 
   useEffect(() => {
     if (!staticContent || typeof window === "undefined") return;
+    const currentHash = (window.location.hash || "").toLowerCase();
+    if (
+      currentHash === "#mix" ||
+      currentHash === "#mix-your-box" ||
+      currentHash === "#mix-box" ||
+      currentHash === "#mixyourbox"
+    ) {
+      return;
+    }
     const hashOrSearch = `${window.location.hash} ${window.location.search}`;
     const hashSizeKey = resolveStaticSizeKey(
       hashOrSearch,
@@ -486,8 +603,18 @@ export default function ProductDetailPage({ productInfo, themeColor }: any) {
   }, [staticContent, variantsList]);
 
   useEffect(() => {
+    if (selectedPlanType === "mixYourBox") return;
+    const currentHash = (typeof window !== "undefined" ? window.location.hash : "").toLowerCase();
+    if (
+      currentHash === "#mix" ||
+      currentHash === "#mix-your-box" ||
+      currentHash === "#mix-box" ||
+      currentHash === "#mixyourbox"
+    ) {
+      return;
+    }
     syncHash(staticSizeKey);
-  }, [staticSizeKey]);
+  }, [staticSizeKey, selectedPlanType]);
 
   useEffect(() => {
     if (!canCustomizeBox && selectedPlanType === "mixYourBox") {
@@ -544,22 +671,22 @@ export default function ProductDetailPage({ productInfo, themeColor }: any) {
       mixBoxRecipe: isMixBoxCheckout ? mixBoxRecipe : undefined,
       totalPads:
         isMixBoxCheckout && mixBoxPricing?.valid
-          ? mixBoxPricing.totalPads
+          ? mixBoxPricing.totalPads * (quantity || 1)
           : undefined,
       boxCount:
         isMixBoxCheckout && mixBoxPricing?.valid
-          ? mixBoxPricing.boxCount
+          ? (quantity || 1)
           : undefined,
       freeLiners:
         isMixBoxCheckout && mixBoxPricing?.valid
-          ? mixBoxPricing.freeLiners
+          ? mixBoxPricing.freeLiners * (quantity || 1)
           : undefined,
       purchaseType: effectivePurchaseType,
       subscriptionType: effectiveSubscriptionType,
       cycleSync:
         effectiveSubscriptionType === "cycle_sync" ? cycleSync : undefined,
       isQuantityChangable: isQuantityChangable,
-      quantity: isMixBoxCheckout ? 1 : quantity,
+      quantity: quantity,
       ...(isMixBoxCheckout ? { uuid: crypto.randomUUID() } : {}),
     });
 
@@ -607,22 +734,22 @@ export default function ProductDetailPage({ productInfo, themeColor }: any) {
       JSON.stringify({
         productId: productInfo.id,
         productVariantId: activeVariant?.id,
-        quantity: isMixBoxCheckout ? 1 : quantity,
+        quantity: quantity,
         subscriptionType: effectiveSubscriptionType,
         selectedPlan,
         plan: selectedPlan,
         mixBoxRecipe: isMixBoxCheckout ? mixBoxRecipe : undefined,
         totalPads:
           isMixBoxCheckout && mixBoxPricing?.valid
-            ? mixBoxPricing.totalPads
+            ? mixBoxPricing.totalPads * (quantity || 1)
             : undefined,
         boxCount:
           isMixBoxCheckout && mixBoxPricing?.valid
-            ? mixBoxPricing.boxCount
+            ? (quantity || 1)
             : undefined,
         freeLiners:
           isMixBoxCheckout && mixBoxPricing?.valid
-            ? mixBoxPricing.freeLiners
+            ? mixBoxPricing.freeLiners * (quantity || 1)
             : undefined,
         cycleSync:
           effectiveSubscriptionType === "cycle_sync" ? cycleSync : undefined,
@@ -798,34 +925,14 @@ export default function ProductDetailPage({ productInfo, themeColor }: any) {
 
   const applyQuizRecommendation = () => {
     if (recommendedQuizResult.type === "mixYourBox") {
-      if (canCustomizeBox) {
-        setSelectedPlanType("mixYourBox");
-        const variants = productInfo.prodcutVarientBoxRes || [];
-        const baseQuantity = Math.floor(21 / Math.max(variants.length, 1));
-        let remaining = 21;
-        const selectedVarientInfo = variants.map((item: any, index: number) => {
-          const qty = index === variants.length - 1 ? remaining : baseQuantity;
-          remaining -= qty;
-          return {
-            name: item.name,
-            quantity: qty,
-            price: Number(item.price || 0),
-          };
-        });
-        setCartSizes(selectedVarientInfo);
-        setSelectedVarient(selectedVarientInfo);
-        setTotal(21);
-      }
+      switchToTab("mixYourBox");
     } else {
-      setSelectedPlanType("pickSize");
       const targetSize = recommendedQuizResult.variantSize;
       const match = variantsList.find(
         (v: any) =>
           v.size === targetSize || v.name?.includes(targetSize?.split(" ")[0]),
       );
-      if (match) {
-        handleVariantChange(match);
-      }
+      switchToTab("pickSize", match);
     }
     setIsQuizOpen(false);
   };
@@ -883,10 +990,7 @@ export default function ProductDetailPage({ productInfo, themeColor }: any) {
               role="tab"
               aria-selected={selectedPlanType === "pickSize"}
               onClick={() => {
-                setSelectedPlanType("pickSize");
-                const firstVariant = variantsList[0] || productInfo;
-                setSelectedVarient(getPickedVariantSelection(firstVariant));
-                handleVariantChange(firstVariant);
+                switchToTab("pickSize");
               }}
               className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all sm:px-5 sm:py-2.5 sm:text-sm ${
                 selectedPlanType === "pickSize"
@@ -903,33 +1007,7 @@ export default function ProductDetailPage({ productInfo, themeColor }: any) {
               aria-selected={selectedPlanType === "mixYourBox"}
               disabled={!canCustomizeBox}
               onClick={() => {
-                if (!canCustomizeBox) return;
-                setSelectedPlanType("mixYourBox");
-                const variants = productInfo.prodcutVarientBoxRes || [];
-                const baseQuantity = Math.floor(
-                  21 / Math.max(variants.length, 1),
-                );
-                let remaining = 21;
-                const selectedVarientInfo = variants.map(
-                  (item: any, index: number) => {
-                    const qty =
-                      index === variants.length - 1 ? remaining : baseQuantity;
-                    remaining -= qty;
-                    return {
-                      name: item.name,
-                      quantity: qty,
-                      price: Number(item.price || 0),
-                    };
-                  },
-                );
-                setCartSizes(selectedVarientInfo);
-                setSelectedVarient(selectedVarientInfo);
-                setTotal(
-                  selectedVarientInfo.reduce(
-                    (s: number, i: any) => s + i.quantity,
-                    0,
-                  ),
-                );
+                switchToTab("mixYourBox");
               }}
               className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all sm:px-5 sm:py-2.5 sm:text-sm ${
                 !canCustomizeBox
@@ -1143,11 +1221,17 @@ export default function ProductDetailPage({ productInfo, themeColor }: any) {
               <>
                 <span>
                   {selectedPlanType === "mixYourBox"
-                    ? "Custom Box (21 Pads)"
+                    ? quantity > 1
+                      ? `Custom Box (${quantity} Boxes)`
+                      : "Custom Box (21 Pads)"
                     : activeVariant?.size || activeVariant?.name || selectedSize}
                 </span>
                 <span className="h-1 w-1 rounded-full bg-gray-400" />
-                <span>21 Pads + 4 Free Liners</span>
+                <span>
+                  {selectedPlanType === "mixYourBox"
+                    ? `${21 * quantity} Pads + ${4 * quantity} Free Liners`
+                    : "21 Pads + 4 Free Liners"}
+                </span>
                 <span className="h-1 w-1 rounded-full bg-gray-400" />
                 <span className="rounded-full bg-[#F3E6F0] px-2 py-0.5 text-[11px] font-semibold text-[#7E4D77] sm:text-xs">
                   {selectedPlanType === "mixYourBox"
@@ -1569,11 +1653,18 @@ export default function ProductDetailPage({ productInfo, themeColor }: any) {
             {isMixBoxCheckout && (
               <div className="my-4">
                 <SizeSelectorBox
-                  items={productInfo.prodcutVarientBoxRes}
+                  items={
+                    productInfo?.prodcutVarientBoxRes ||
+                    productInfo?.productVariants ||
+                    variantsList
+                  }
                   cartSizes={selectedVarient}
                   setCartSizes={setSelectedVarient}
                   total={total}
                   setTotal={setTotal}
+                  boxQuantity={quantity}
+                  setBoxQuantity={setQuantity}
+                  subscriptionType={effectiveSubscriptionType}
                   themeColor={{
                     darkColor: "#9A5B90",
                     lightColor: "#F3E6F0",
